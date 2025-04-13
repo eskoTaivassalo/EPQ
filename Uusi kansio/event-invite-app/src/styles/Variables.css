@@ -1,0 +1,159 @@
+/* Hero section styles */
+.hero-section {
+    background: linear-gradient(135deg, #3494e6, #ec6ead);
+    color: white;
+    padding: 3rem 1rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  .hero-content {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  
+  .hero-content h1 {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+  }
+  
+  .hero-content p {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+    opacity: 0.9;
+  }
+  
+  .hero-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  
+  /* Section headers */
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+  
+  .section-header h2 {
+    font-size: 1.8rem;
+    color: #333;
+  }
+  
+  .view-all-btn {
+    background: transparent;
+    border: none;
+    color: #3494e6;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    font-size: 1rem;
+  }
+  
+  .view-all-btn:hover {
+    text-decoration: underline;
+  }
+  
+  /* Featured events section */
+  .featured-events {
+    margin-bottom: 3rem;
+  }
+  
+  /* Your events section */
+  .your-events {
+    background-color: #f5f7fa;
+    padding: 2rem;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+  }
+  
+  .cta-message {
+    text-align: center;
+    margin: 2rem 0;
+    color: #555;
+    font-size: 1.1rem;
+  }
+  
+  .centered {
+    display: block;
+    margin: 0 auto;
+  }
+  
+  /* Feedback messages */
+  .feedback-message {
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    text-align: center;
+    animation: fadeIn 0.3s ease;
+  }
+  
+  .feedback-message.success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+  }
+  
+  .feedback-message.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  /* Button styles */
+  .btn-primary {
+    background-color: #3494e6;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+  }
+  
+  .btn-primary:hover {
+    background-color: #2980d9;
+  }
+  
+  .btn-secondary {
+    background-color: white;
+    color: #3494e6;
+    border: 2px solid #3494e6;
+    border-radius: 4px;
+    padding: 0.75rem 1.5rem;
+    font-size: 1rem;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+  
+  .btn-secondary:hover {
+    background-color: #f0f8ff;
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .hero-content h1 {
+      font-size: 2rem;
+    }
+    
+    .hero-content p {
+      font-size: 1rem;
+    }
+    
+    .section-header h2 {
+      font-size: 1.5rem;
+    }
+  }
