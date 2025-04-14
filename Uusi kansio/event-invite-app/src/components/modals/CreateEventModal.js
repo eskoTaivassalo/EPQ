@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, serverTimestamp, query, where } from 'firebase/firestore';
-import { db, auth } from '../../firebase/config';
+import { collection, addDoc, getDocs, serverTimestamp, query, where, doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '../../services/firebase/config';
 import './styles/Modals.css';
 
-const CreateEventModal = ({ isOpen, onClose }) => {
+const CreateEventModal = ({ isOpen, onClose, onCreated }) => {
   const [eventData, setEventData] = useState({
     title: '',
     description: '',
@@ -87,8 +87,22 @@ const CreateEventModal = ({ isOpen, onClose }) => {
         await createInvitationsForAll(eventDocRef.id, eventData.title);
       }
       
+      // Fetch the created event with more details for the UI update
+      const eventDoc = await getDoc(doc(db, 'events', eventDocRef.id));
+      const newEvent = {
+        id: eventDocRef.id,
+        ...eventDoc.data(),
+        // Convert serverTimestamp to JS Date for immediate display
+        createdAt: new Date()
+      };
+      
+      // Call the onCreated callback with the new event data if it exists
+      if (onCreated) {
+        onCreated(newEvent);
+      }
+      
       setLoading(false);
-      onClose();
+      onClose(newEvent); // Pass the new event back to parent component
       
       // Reset form
       setEventData({
@@ -280,7 +294,7 @@ const CreateEventModal = ({ isOpen, onClose }) => {
             <button 
               type="button" 
               className="btn-secondary" 
-              onClick={onClose} 
+              onClick={() => onClose()} 
               disabled={loading}
             >
               Cancel
@@ -289,6 +303,7 @@ const CreateEventModal = ({ isOpen, onClose }) => {
               type="submit" 
               className="btn-primary"
               disabled={loading}
+              // Removed onClick to prevent premature page reload
             >
               {loading ? 'Creating...' : 'Create Event'}
             </button>

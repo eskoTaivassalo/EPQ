@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import useEvents from '../hooks/useEvents';
 import useCategories from '../hooks/useCategories';
@@ -13,6 +13,7 @@ import '../styles/Events.css';
 
 const Events = () => {
   const navigate = useNavigate();
+  const location = useLocation(); // React Router location hook
   const { currentUser } = useAuth();
   const { events, loading, error, fetchEvents, joinEvent, leaveEvent } = useEvents();
   const { categories, loading: loadingCategories, fetchCategories } = useCategories();
@@ -32,6 +33,9 @@ const Events = () => {
   // UI state
   const [feedbackMessage, setFeedbackMessage] = useState(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  
+  // Tila tapahtumahakua varten
+  const [fetchingInProgress, setFetchingInProgress] = useState(false);
 
   // Event handlers
   const handleJoinEvent = async (eventId) => {
@@ -91,11 +95,29 @@ const Events = () => {
 
   const closeCreateModal = () => {
     setCreateModal(false);
-    fetchEvents({ 
-      categoryId: activeCategory !== 'all' ? activeCategory : null,
-      upcoming: !showPastEvents,
-      past: showPastEvents
-    });
+    // Päivitetty: Haetaan kaikki tapahtumat ilman filtteriä kun luodaan uusi
+    loadAllEvents();
+  };
+
+  // Uusi funktio: Hakee kaikki tapahtumat ilman filtteriä
+  const loadAllEvents = async () => {
+    try {
+      setFetchingInProgress(true);
+      console.log("Fetching ALL events without restrictions");
+      
+      // Vain tulevat tapahtumat, ei muita rajoituksia
+      const result = await fetchEvents({ 
+        upcoming: true, 
+        maxResults: 100,
+        forceRefresh: true
+      });
+      
+      console.log("Fetched events:", result?.length || 0);
+      setFetchingInProgress(false);
+    } catch (err) {
+      console.error("Error fetching all events:", err);
+      setFetchingInProgress(false);
+    }
   };
 
   const showFeedback = (message, isError = false) => {
@@ -111,6 +133,29 @@ const Events = () => {
 
   const handleSearch = (e) => {
     e.preventDefault();
+    console.log("Searching with term:", searchTerm);
+    // Korjattu: Haetaan tapahtumat hakutermin perusteella
+    fetchFilteredEvents();
+  };
+
+  // Uusi funktio: Hakee tapahtumat nykyisillä filttereillä
+  const fetchFilteredEvents = async () => {
+    const filterOptions = {
+      categoryId: activeCategory !== 'all' ? activeCategory : null,
+      upcoming: !showPastEvents,
+      past: showPastEvents,
+      searchTerm: searchTerm.length > 2 ? searchTerm : null,
+      maxResults: 100 // Varmistetaan että saamme riittävästi tapahtumia
+    };
+    
+    if (filterDistance && currentLocation) {
+      filterOptions.nearby = true;
+      filterOptions.location = currentLocation;
+      filterOptions.distance = filterDistance;
+    }
+    
+    console.log("Fetching filtered events with options:", filterOptions);
+    return await fetchEvents(filterOptions);
   };
 
   const handleLocationFilter = async () => {
@@ -132,47 +177,70 @@ const Events = () => {
     setFilterDistance(null);
     setShowPastEvents(false);
     setSearchTerm('');
+    // Korjaus: Hae kaikki tapahtumat kun filtterit resetoidaan
+    loadAllEvents();
   };
 
-  // Data fetching
+  // Initial data load
   useEffect(() => {
     const loadData = async () => {
-      await fetchEvents({ upcoming: !showPastEvents, past: showPastEvents });
+      // Tarkistetaan oliko "View All" klikattu
+      const showAllEvents = location?.state?.showAll === true;
+      
+      if (showAllEvents) {
+        // Jos tullaan "View All"-painikkeesta, ladataan kaikki ilman filttereitä
+        await loadAllEvents();
+      } else {
+        // Muuten ladataan normaalisti
+        await fetchEvents({ 
+          upcoming: true, 
+          maxResults: 100
+        });
+      }
+      
       await fetchCategories();
       setIsInitialLoad(false);
     };
     
     loadData();
-  }, [fetchEvents, fetchCategories, showPastEvents]);
+    // Poistetaan location.state kun se on käytetty
+    if (location?.state?.showAll) {
+      window.history.replaceState({}, document.title);
+    }
+  }, [fetchEvents, fetchCategories]);
   
+  // Filter changes
   useEffect(() => {
     if (isInitialLoad) return;
     
-    const filterOptions = {
-      categoryId: activeCategory !== 'all' ? activeCategory : null,
-      upcoming: !showPastEvents,
-      past: showPastEvents,
-      searchTerm: searchTerm.length > 2 ? searchTerm : null
-    };
+    // Debounce-toiminto hakutermin muutoksille
+    const timer = setTimeout(() => {
+      fetchFilteredEvents();
+    }, 500);
     
-    if (filterDistance && currentLocation) {
-      filterOptions.nearby = true;
-      filterOptions.location = currentLocation;
-      filterOptions.distance = filterDistance;
-    }
+    return () => clearTimeout(timer);
+  }, [activeCategory, showPastEvents, filterDistance, currentLocation]);
+  
+  // Haetaan uudelleen kun hakutermi muuttuu
+  useEffect(() => {
+    if (isInitialLoad || searchTerm.length < 3) return;
     
-    fetchEvents(filterOptions);
-  }, [fetchEvents, activeCategory, showPastEvents, searchTerm, filterDistance, currentLocation, isInitialLoad]);
+    const timer = setTimeout(() => {
+      fetchFilteredEvents();
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   return (
     <PageContainer>
       <div className="events-page">
-        {loading && isInitialLoad && (
+        {(loading && isInitialLoad) || fetchingInProgress ? (
           <div className="loading-overlay">
             <div className="spinner"></div>
             <p>Loading events...</p>
           </div>
-        )}
+        ) : null}
 
         <div className={`content-wrapper ${isInitialLoad ? 'content-loading' : ''}`}>
           <div className="events-header">
@@ -251,6 +319,14 @@ const Events = () => {
                   Near Me
                 </button>
               )}
+              
+              {/* Lisätty: Reset filters -painike */}
+              <button
+                className="filter-btn reset-btn"
+                onClick={resetFilters}
+              >
+                Reset Filters
+              </button>
             </div>
           </div>
 
@@ -258,24 +334,31 @@ const Events = () => {
             {error ? (
               <div className="error-container">
                 <p>Error: {error}</p>
-                <button onClick={() => fetchEvents()}>Try Again</button>
+                <button onClick={loadAllEvents}>Try Again</button>
               </div>
             ) : events.length === 0 ? (
               <div className="no-events">
                 <h3>No events found</h3>
                 <p>Try adjusting your filters or create your own event!</p>
-                <button className="btn-primary" onClick={openCreateModal}>
-                  Create Event
-                </button>
+                <div className="no-events-actions">
+                  <button className="btn-primary" onClick={resetFilters}>
+                    Reset Filters
+                  </button>
+                  <button className="btn-primary" onClick={openCreateModal}>
+                    Create Event
+                  </button>
+                </div>
               </div>
             ) : (
               <EventList
                 events={events}
+                maxEvents={100} // Varmista, että näytetään tarpeeksi monta tapahtumaa
                 onJoin={handleJoinEvent}
                 onLeave={handleLeaveEvent}
                 onOpenDetails={openDetailsModal}
                 onInvite={openInviteModal}
                 showCategory={true}
+                layout={events.length > 6 ? "list" : "grid"} // Käytä listanäkymää jos tapahtumia on paljon
               />
             )}
           </div>

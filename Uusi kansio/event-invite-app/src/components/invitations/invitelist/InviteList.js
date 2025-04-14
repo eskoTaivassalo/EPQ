@@ -1,54 +1,133 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, getDocs } from 'firebase/firestore';
-import { db, auth } from '../../../firebase/config';
+import { collection, query, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '../../../services/firebase/config';
 import InviteCard from '../invitecard/InviteCard';
-import './InviteList.css'; // Assuming you have a CSS file for styling
+import './InviteList.css';
 
 const InviteList = ({ onViewEvent, onStatusChange }) => {
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState('all'); // 'all', 'pending', 'accepted', 'declined'
+  const [debugInfo, setDebugInfo] = useState({});
 
+  // Lisää kutsujen hakeminen heti kun komponentti latautuu
   useEffect(() => {
-    if (auth.currentUser) {
-      fetchInvites();
-    }
-  }, [filter]);
+    const loadData = async () => {
+      // Odota että Firebase Auth on varmasti alustettu
+      if (auth.currentUser) {
+        fetchInvites();
+      } else {
+        // Odota hetki ja yritä uudelleen, jos käyttäjä ei ole vielä valmis
+        setTimeout(() => {
+          if (auth.currentUser) {
+            fetchInvites();
+          } else {
+            setError("Käyttäjää ei ole kirjautunut");
+            setLoading(false);
+          }
+        }, 1000);
+      }
+    };
+    
+    loadData();
+  }, []);
 
   const fetchInvites = async () => {
     try {
       setLoading(true);
+      console.log("Haetaan kutsuja...");
+      
+      const debug = {}; // Debug-tiedot
       
       const currentUser = auth.currentUser;
       if (!currentUser) {
         throw new Error("User must be logged in to view invites");
       }
       
-      // Build query
-      const invitesRef = collection(db, 'invites');
-      let constraints = [
-        where('recipientId', '==', currentUser.uid),
-        orderBy('createdAt', 'desc')
-      ];
+      console.log("Kirjautunut käyttäjä:", currentUser.uid);
+      let allInvites = [];
       
-      if (filter !== 'all') {
-        constraints.push(where('status', '==', filter));
+      // Hae KAIKKI henkilökohtaiset kutsut
+      try {
+        const invitesRef = collection(db, 'invites');
+        const invitesQuery = query(invitesRef);
+        const invitesSnapshot = await getDocs(invitesQuery);
+        
+        console.log("Henkilökohtaisia kutsuja löytyi:", invitesSnapshot.size);
+        debug.personalInvitesCount = invitesSnapshot.size;
+        
+        const personalInvites = invitesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          console.log("Henkilökohtainen kutsu:", doc.id, data);
+          return {
+            id: doc.id,
+            type: 'personal',
+            ...data
+          };
+        });
+        
+        allInvites = [...personalInvites];
+      } catch (err) {
+        console.error("Error fetching personal invites:", err);
+        debug.personalInvitesError = err.message;
       }
       
-      const invitesQuery = query(invitesRef, ...constraints);
-      const invitesSnapshot = await getDocs(invitesQuery);
+      // Hae KAIKKI avoimet kutsut - tämä on erityisen tärkeä
+      try {
+        console.log("Haetaan avoimet kutsut");
+        const openInvitesRef = collection(db, 'openInvitations');
+        const openInvitesQuery = query(openInvitesRef);
+        
+        const openInvitesSnapshot = await getDocs(openInvitesQuery);
+        
+        console.log("Avoimia kutsuja löytyi:", openInvitesSnapshot.size);
+        debug.totalOpenInvitesCount = openInvitesSnapshot.size;
+        
+        // TÄRKEÄ: Tulostetaan kaikki kutsujen data konsoliin
+        openInvitesSnapshot.docs.forEach(doc => {
+          console.log("Avoin kutsu:", doc.id, doc.data());
+        });
+        
+        // Kaikki avoimet kutsut ilman mitään suodatusta
+        const openInvites = openInvitesSnapshot.docs.map(doc => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            type: 'open',
+            status: 'pending', // Oletustila avoimille kutsuille
+            ...data
+          };
+        });
+        
+        debug.allOpenInvitesCount = openInvites.length;
+        allInvites = [...allInvites, ...openInvites];
+      } catch (err) {
+        console.error("Error fetching open invites:", err);
+        debug.openInvitesError = err.message;
+      }
       
-      const invitesList = invitesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
+      // Järjestä kutsut päivämäärän mukaan (uusimmat ensin)
+      allInvites.sort((a, b) => {
+        const dateA = a.date?.toDate?.() || a.createdAt?.toDate?.() || new Date();
+        const dateB = b.date?.toDate?.() || b.createdAt?.toDate?.() || new Date();
+        return dateB - dateA;
+      });
+      
+      console.log("Lopulliset kutsut:", allInvites);
+      debug.finalInvitesCount = allInvites.length;
+      debug.finalInvites = allInvites.map(invite => ({
+        id: invite.id,
+        type: invite.type,
+        title: invite.title || "Ei otsikkoa",
+        category: invite.category || "Ei kategoriaa"
       }));
       
-      setInvites(invitesList);
+      setDebugInfo(debug);
+      setInvites(allInvites);
       setError(null);
     } catch (err) {
       console.error("Error fetching invites:", err);
-      setError("Failed to load invitations");
+      setError("Kutsujen hakeminen epäonnistui: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -68,51 +147,103 @@ const InviteList = ({ onViewEvent, onStatusChange }) => {
     }
   };
 
-  // Update filter status
-  const handleFilterChange = (e) => {
-    setFilter(e.target.value);
-  };
+  if (loading) return <div className="invites-loading">Ladataan kutsuja...</div>;
 
-  if (loading) return <div className="invites-loading">Loading invitations...</div>;
-  if (error) return <div className="invites-error">{error}</div>;
-  
+  // Debug-tyylinen paneeli suoraan näkymässä
+  const renderDebugPanel = () => (
+    <div style={{
+      padding: '15px',
+      backgroundColor: '#f8f9fa',
+      border: '1px solid #ddd',
+      borderRadius: '5px',
+      margin: '15px 0',
+      fontSize: '14px'
+    }}>
+      <h3>Debug-tiedot:</h3>
+      <p>Kutsuja löytyi yhteensä: {invites.length}</p>
+      <p>Auth status: {auth.currentUser ? 'Kirjautunut sisään' : 'Ei kirjautunut'}</p>
+      <p>Käyttäjä: {auth.currentUser?.uid}</p>
+      <p>Kutsutyypit:</p>
+      <ul>
+        <li>Henkilökohtaiset: {invites.filter(i => i.type === 'personal').length}</li>
+        <li>Avoimet: {invites.filter(i => i.type === 'open').length}</li>
+      </ul>
+    </div>
+  );
+
   return (
     <div className="invites-container">
-      <div className="invites-filter">
-        <select 
-          value={filter} 
-          onChange={handleFilterChange}
-          className="filter-dropdown"
-        >
-          <option value="all">All Invitations</option>
-          <option value="pending">Pending</option>
-          <option value="accepted">Accepted</option>
-          <option value="declined">Declined</option>
-        </select>
-        
+      <div className="invites-header">
+        <h2>Kutsut (Testinäkymä - kaikki kutsut)</h2>
         <button 
           className="refresh-btn" 
           onClick={fetchInvites}
         >
-          Refresh
+          Päivitä
         </button>
       </div>
       
+      {error && <div className="error-message">{error}</div>}
+      
+      {/* Debug tiedot kehittäjälle */}
+      <div className="debug-info">
+        <details open>
+          <summary>Debug tiedot ({invites.length} kutsua)</summary>
+          <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+        </details>
+      </div>
+      
+      {/* Lisätty Debug-paneeli */}
+      {renderDebugPanel()}
+      
       {invites.length === 0 ? (
         <div className="no-invites">
-          <p>No invitations {filter !== 'all' ? `with status "${filter}"` : ''}</p>
+          <p>Ei kutsuja tietokannassa.</p>
+          <div className="help-text">
+            <p>Tietokannassa ei ole yhtään kutsua:</p>
+            <ul>
+              <li>Kokoelmassa 'invites' ei ole henkilökohtaisia kutsuja</li>
+              <li>Kokoelmassa 'openInvitations' ei ole avoimia kutsuja</li>
+            </ul>
+            <button className="btn-primary" onClick={fetchInvites}>Yritä uudelleen</button>
+          </div>
         </div>
       ) : (
-        <div className="invites-list">
-          {invites.map(invite => (
-            <InviteCard 
-              key={invite.id}
-              invite={invite}
-              onStatusChange={handleStatusChange}
-              onViewEvent={onViewEvent}
-            />
-          ))}
-        </div>
+        <>
+          <p className="info-text">Näytetään kaikki kutsut ilman suodatusta. Yhteensä {invites.length} kutsua.</p>
+          <div className="invites-list">
+            {/* Lisätty try-catch, jotta yksittäisen kortin renderöintivirhe ei kaada koko näkymää */}
+            {invites.map(invite => {
+              try {
+                return (
+                  <InviteCard 
+                    key={invite.id}
+                    invite={invite}
+                    onStatusChange={handleStatusChange}
+                    onViewEvent={onViewEvent}
+                  />
+                );
+              } catch (err) {
+                console.error("Error rendering invite card:", err, invite);
+                return (
+                  <div 
+                    key={invite.id || 'error'} 
+                    className="error-card"
+                    style={{
+                      border: '2px solid #f44336',
+                      padding: '15px',
+                      margin: '10px 0',
+                      background: '#ffebee'
+                    }}
+                  >
+                    <p>Virhe kutsun näyttämisessä</p>
+                    <pre style={{fontSize: '11px'}}>{JSON.stringify(invite, null, 2)}</pre>
+                  </div>
+                );
+              }
+            })}
+          </div>
+        </>
       )}
     </div>
   );

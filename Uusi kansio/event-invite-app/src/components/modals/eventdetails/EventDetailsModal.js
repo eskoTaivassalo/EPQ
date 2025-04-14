@@ -1,124 +1,162 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { formatDate } from '../../../utils/DateUtils';
+import { doc, getDoc, collection, query, orderBy, onSnapshot, addDoc, Timestamp } from 'firebase/firestore';
+import { db } from '../../../services/firebase/config';
 import { useAuth } from '../../../context/AuthContext';
-import { collection, addDoc, doc, getDoc, query, where, orderBy, onSnapshot, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../../firebase/config';
+import { formatDate } from '../../../utils/DateUtils';
 import Modal from '../common/Modal';
 import './EventDetailsModal.css';
 
 const EventDetailsModal = ({ isOpen, onClose, eventId, onJoin, onLeave }) => {
+  const { currentUser } = useAuth();
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { currentUser } = useAuth();
-  const [activeTab, setActiveTab] = useState('details'); // 'details' tai 'chat'
-  
-  // Chat-toiminnallisuus
+  const [error, setError] = useState(null);
+  const [activeTab, setActiveTab] = useState('details');
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const [participants, setParticipants] = useState([]);
+  
   const messagesEndRef = useRef(null);
 
+  // Fetch event details
   useEffect(() => {
-    if (!isOpen || !eventId) return;
+    if (!eventId) return;
     
-    setLoading(true);
-    
-    // Hae tapahtuman tiedot
-    const fetchEvent = async () => {
+    const fetchEventDetails = async () => {
       try {
-        // Tämä on oletettu toteutus, muokkaa tarvittaessa
-        const eventRef = doc(db, 'events', eventId);
-        const eventDoc = await getDoc(eventRef);
+        setLoading(true);
+        const eventDocRef = doc(db, 'events', eventId);
+        const eventDoc = await getDoc(eventDocRef);
         
         if (eventDoc.exists()) {
           const eventData = { id: eventDoc.id, ...eventDoc.data() };
-          // Tarkista onko käyttäjä jo liittynyt
-          eventData.isUserJoined = eventData.participants?.includes(currentUser?.uid);
-          // Tarkista onko käyttäjä tapahtuman luoja
-          eventData.isCreator = eventData.createdBy === currentUser?.uid;
           
-          setEvent(eventData);
+          // Check if user is participant
+          const isUserJoined = currentUser && 
+            eventData.participants?.includes(currentUser.uid);
+          
+          // Check if user is creator
+          const isCreator = currentUser && 
+            eventData.createdBy === currentUser.uid;
+          
+          setEvent({
+            ...eventData,
+            isUserJoined,
+            isCreator
+          });
+          
+          // Fetch participant details
+          fetchParticipants(eventData.participants || [], eventData.createdBy);
+        } else {
+          setError('Event not found');
+          setEvent(null);
         }
-      } catch (error) {
-        console.error('Error fetching event:', error);
+      } catch (err) {
+        console.error('Error fetching event details:', err);
+        setError('Failed to load event details');
       } finally {
         setLoading(false);
       }
     };
-    
-    fetchEvent();
-  }, [eventId, isOpen, currentUser]);
 
-  // Vieritetään chat-näkymä alas kun uusia viestejä tulee
-  useEffect(() => {
-    if (activeTab === 'chat') {
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    fetchEventDetails();
+  }, [eventId, currentUser]);
+  
+  // Fetch participant user details from Firestore
+  const fetchParticipants = async (participantIds, creatorId) => {
+    try {
+      const participantsData = [];
+      
+      for (const userId of participantIds) {
+        const userDocRef = doc(db, 'users', userId);
+        const userDoc = await getDoc(userDocRef);
+        
+        if (userDoc.exists()) {
+          participantsData.push({
+            id: userId,
+            ...userDoc.data(),
+            isCreator: userId === creatorId
+          });
+        } else {
+          // If user data not found, use UID as name
+          participantsData.push({
+            id: userId,
+            displayName: userId.substring(0, 8) + '...',
+            isCreator: userId === creatorId
+          });
+        }
+      }
+      
+      setParticipants(participantsData);
+    } catch (err) {
+      console.error('Error fetching participant details:', err);
     }
-  }, [messages, activeTab]);
+  };
 
-  // Haetaan viestit Firebasesta kun chat-välilehti avataan
+  // Fetch chat messages
   useEffect(() => {
-    if (!isOpen || !eventId || activeTab !== 'chat') return;
-
-    const messagesRef = collection(db, 'event_messages');
+    if (!eventId || !event?.isUserJoined || activeTab !== 'chat') return;
+    
     const messagesQuery = query(
-      messagesRef,
-      where('eventId', '==', eventId),
+      collection(db, 'events', eventId, 'messages'),
       orderBy('timestamp', 'asc')
     );
-
+    
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
-      const messageList = snapshot.docs.map(doc => ({
+      const messagesList = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      setMessages(messageList);
+      
+      setMessages(messagesList);
+      scrollToBottom();
     });
-
+    
     return () => unsubscribe();
-  }, [eventId, isOpen, activeTab]);
-
+  }, [eventId, event?.isUserJoined, activeTab]);
+  
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+  
+  useEffect(() => {
+    if (activeTab === 'chat') {
+      scrollToBottom();
+    }
+  }, [messages, activeTab]);
+  
+  const handleJoin = () => {
+    if (onJoin) onJoin(eventId);
+  };
+  
+  const handleLeave = () => {
+    if (onLeave) onLeave(eventId);
+  };
+  
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !currentUser || !eventId) return;
-
+    if (!newMessage.trim() || !event?.isUserJoined) return;
+    
     try {
-      await addDoc(collection(db, 'event_messages'), {
-        eventId: eventId,
+      // Luodaan viestiobjekti
+      const messageData = {
+        text: newMessage.trim(),
         userId: currentUser.uid,
         userName: currentUser.displayName || 'Anonymous',
         photoURL: currentUser.photoURL || null,
-        text: newMessage.trim(),
-        timestamp: serverTimestamp()
-      });
+        timestamp: Timestamp.now()
+      };
       
+      // Lähetetään viesti Firebaseen
+      await addDoc(collection(db, 'events', eventId, 'messages'), messageData);
+      
+      // Tyhjennetään viestikenttä
       setNewMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
     }
   };
 
-  const handleJoin = async () => {
-    if (onJoin) {
-      await onJoin(eventId);
-      // Päivitä paikallinen tila
-      setEvent(prev => ({...prev, isUserJoined: true}));
-      // Vaihda automaattisesti chat-välilehdelle liittymisen jälkeen
-      setActiveTab('chat');
-    }
-  };
-
-  const handleLeave = async () => {
-    if (onLeave) {
-      await onLeave(eventId);
-      // Päivitä paikallinen tila
-      setEvent(prev => ({...prev, isUserJoined: false}));
-      // Vaihda takaisin details-välilehdelle poistumisen jälkeen
-      setActiveTab('details');
-    }
-  };
-
-  if (!isOpen) return null;
-  
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="event-details-modal">
       {loading ? (
@@ -183,15 +221,27 @@ const EventDetailsModal = ({ isOpen, onClose, eventId, onJoin, onLeave }) => {
               <div className="event-participants">
                 <h3>Participants ({event.participants?.length || 0})</h3>
                 <ul className="participants-list">
-                  {event.participants?.map(participantId => (
-                    <li key={participantId} className="participant-item">
-                      {/* Tässä voisi näyttää osallistujan tiedot */}
-                      {participantId === event.createdBy ? (
-                        <span className="host-badge">Host</span>
-                      ) : null}
-                      {participantId}
-                    </li>
-                  ))}
+                  {participants.length > 0 ? (
+                    participants.map(participant => (
+                      <li key={participant.id} className="participant-item">
+                        {participant.isCreator && (
+                          <span className="host-badge">Host</span>
+                        )}
+                        <span className="participant-name">
+                          {participant.displayName || participant.email || participant.id.substring(0, 8) + '...'}
+                        </span>
+                      </li>
+                    ))
+                  ) : (
+                    event.participants?.map(participantId => (
+                      <li key={participantId} className="participant-item">
+                        {participantId === event.createdBy ? (
+                          <span className="host-badge">Host</span>
+                        ) : null}
+                        {participantId.substring(0, 8)}...
+                      </li>
+                    ))
+                  )}
                 </ul>
               </div>
               
@@ -210,7 +260,6 @@ const EventDetailsModal = ({ isOpen, onClose, eventId, onJoin, onLeave }) => {
                     </button>
                   )
                 )}
-                {/* Muita toimintapainikkeita */}
               </div>
             </div>
           )}
@@ -219,36 +268,29 @@ const EventDetailsModal = ({ isOpen, onClose, eventId, onJoin, onLeave }) => {
             <div className="modal-chat">
               <div className="chat-messages">
                 {messages.length === 0 ? (
-                  <div className="chat-empty-state">
-                    No messages yet. Start the conversation!
+                  <div className="no-messages">
+                    <p>No messages yet. Start a conversation!</p>
                   </div>
                 ) : (
-                  messages.map(msg => (
+                  messages.map(message => (
                     <div 
-                      key={msg.id} 
-                      className={`chat-message ${msg.userId === currentUser?.uid ? 'own-message' : ''}`}
+                      key={message.id} 
+                      className={`chat-message ${message.userId === currentUser.uid ? 'own-message' : 'other-message'}`}
                     >
-                      <div className="message-user">
-                        {msg.photoURL ? (
-                          <img src={msg.photoURL} alt={msg.userName} className="user-avatar" />
-                        ) : (
-                          <div className="user-avatar-placeholder">
-                            {msg.userName.charAt(0).toUpperCase()}
-                          </div>
-                        )}
-                        <span className="user-name">{msg.userName}</span>
+                      <div className="message-header">
+                        <span className="message-username">{message.userName || 'Anonymous'}</span>
+                        <span className="message-time">
+                          {message.timestamp ? new Date(message.timestamp.toDate()).toLocaleTimeString() : ''}
+                        </span>
                       </div>
-                      <div className="message-content">{msg.text}</div>
-                      <div className="message-time">
-                        {msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </div>
+                      <div className="message-content">{message.text}</div>
                     </div>
                   ))
                 )}
                 <div ref={messagesEndRef} />
               </div>
               
-              <form className="chat-input-form" onSubmit={handleSendMessage}>
+              <form className="chat-form" onSubmit={handleSendMessage}>
                 <input
                   type="text"
                   value={newMessage}
@@ -258,7 +300,7 @@ const EventDetailsModal = ({ isOpen, onClose, eventId, onJoin, onLeave }) => {
                 />
                 <button 
                   type="submit" 
-                  disabled={!event.isUserJoined}
+                  disabled={!newMessage.trim() || !event.isUserJoined}
                 >
                   Send
                 </button>

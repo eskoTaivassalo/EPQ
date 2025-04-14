@@ -13,7 +13,7 @@ import {
   limit,
   serverTimestamp 
 } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db } from '../services/firebase/config';
 import { useAuth } from '../context/AuthContext';
 
 /**

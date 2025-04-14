@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, doc, addDoc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { db } from '../services/firebase/config';
 
 /**
  * Custom hook for managing event categories

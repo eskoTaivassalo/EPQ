@@ -1,133 +1,135 @@
 import React, { useState } from 'react';
-import { doc, updateDoc, getDoc, arrayUnion } from 'firebase/firestore';
-import { db, auth } from '../../../firebase/config';
-import './InviteCard.css'; 
-const InviteCard = ({ invite, onStatusChange, onViewEvent }) => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+import InviteChatModal from '../../modals/InviteChatModal';
+import './InviteCard.css';
 
-  const formatDate = (timestamp) => {
-    if (!timestamp) return 'Unknown date';
-    
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    return date.toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const handleAccept = async () => {
-    setLoading(true);
-    setError(null);
+const InviteCard = ({ invite, onStatusChange, onViewEvent, compact = false }) => {
+  const [showChatModal, setShowChatModal] = useState(false);
+  
+  // Jos kutsu-objekti puuttuu kokonaan, näytetään virheilmoitus
+  if (!invite) {
+    return (
+      <div className="invite-card error">
+        <p>Virheellinen kutsu - dataa ei saatu</p>
+      </div>
+    );
+  }
+  
+  const isOpenInvite = invite.type === 'open';
+  
+  // Format date - toimii myös jos päivämäärä puuttuu
+  const formatDate = (date) => {
+    if (!date) return 'Ei päivämäärää';
     
     try {
-      // 1. Update invite status
-      const inviteRef = doc(db, 'invites', invite.id);
-      await updateDoc(inviteRef, {
-        status: 'accepted',
-        respondedAt: new Date()
-      });
+      // Convert Firebase timestamp to JS Date if needed
+      const dateObj = date.toDate ? date.toDate() : date;
       
-      // 2. Add user to event participants
-      const eventRef = doc(db, 'events', invite.eventId);
-      await updateDoc(eventRef, {
-        participants: arrayUnion(auth.currentUser.uid)
-      });
-      
-      onStatusChange(invite.id, 'accepted');
+      return new Intl.DateTimeFormat('fi-FI', {
+        dateStyle: 'full',
+        timeStyle: 'short'
+      }).format(dateObj);
     } catch (err) {
-      console.error("Error accepting invite:", err);
-      setError("Failed to accept invitation");
-    } finally {
-      setLoading(false);
+      console.error("Error formatting date:", err);
+      return 'Virheellinen päivämäärä';
     }
   };
 
-  const handleDecline = async () => {
-    setLoading(true);
-    setError(null);
-    
-    try {
-      const inviteRef = doc(db, 'invites', invite.id);
-      await updateDoc(inviteRef, {
-        status: 'declined',
-        respondedAt: new Date()
-      });
+  // Handle status change with chat opening for accepted invites
+  const handleStatusChange = (status) => {
+    if (onStatusChange) {
+      onStatusChange(invite.id, status);
       
-      onStatusChange(invite.id, 'declined');
-    } catch (err) {
-      console.error("Error declining invite:", err);
-      setError("Failed to decline invitation");
-    } finally {
-      setLoading(false);
+      // Open chat modal when accepting invitation
+      if (status === 'accepted') {
+        setShowChatModal(true);
+      }
     }
   };
-
-  const getStatusBadge = () => {
-    switch(invite.status) {
-      case 'accepted':
-        return <span className="status-badge accepted">Accepted</span>;
-      case 'declined':
-        return <span className="status-badge declined">Declined</span>;
-      case 'pending':
-      default:
-        return <span className="status-badge pending">Pending</span>;
-    }
-  };
-
+  
+  // Määritetään card-luokka tilan mukaan
+  const cardClass = `invite-card ${invite.status || 'pending'} ${compact ? 'compact' : ''} ${isOpenInvite ? 'open-invite' : ''}`;
+  
   return (
-    <div className="invite-card">
+    <div className={cardClass}>
       <div className="invite-header">
-        <h3 className="event-title">{invite.eventTitle}</h3>
-        {getStatusBadge()}
+        <div className="invite-title-container">
+          <span className={`invite-type ${isOpenInvite ? 'open' : 'personal'}`}>
+            {isOpenInvite ? 'Avoin kutsu' : 'Henkilökohtainen'}
+          </span>
+          <h3 className="event-title">
+            {invite.title || 'Kutsu ilman otsikkoa'}
+          </h3>
+        </div>
       </div>
       
-      <div className="invite-details">
-        <p className="invite-sender">
-          From: <span>{invite.senderName}</span>
-        </p>
-        
-        {invite.message && (
-          <p className="invite-message">"{invite.message}"</p>
+      <div className="invite-content">
+        {invite.description && (
+          <p className="invite-description">
+            {invite.description}
+          </p>
         )}
         
-        <p className="invite-date">
-          Sent: {formatDate(invite.createdAt)}
-        </p>
+        <div className="invite-details">
+          <p className="invite-date">
+            <strong>Päivämäärä:</strong> {formatDate(invite.date)}
+          </p>
+          
+          {invite.location && (
+            <p className="invite-location">
+              <strong>Sijainti:</strong> {invite.location}
+            </p>
+          )}
+          
+          <p className="invite-sender">
+            <strong>Lähettäjä:</strong> {invite.creatorName || invite.senderName || 'Tuntematon'}
+          </p>
+          
+          {invite.message && (
+            <p className="invite-message">"{invite.message}"</p>
+          )}
+        </div>
       </div>
       
-      {error && <p className="error-message">{error}</p>}
-      
       <div className="invite-actions">
-        <button 
-          className="btn-view" 
-          onClick={() => onViewEvent(invite.eventId)}
-        >
-          View Event
-        </button>
-        
-        {invite.status === 'pending' && (
+        {(invite.status === 'pending' || !invite.status) ? (
           <>
             <button 
               className="btn-accept" 
-              onClick={handleAccept}
-              disabled={loading}
+              onClick={() => handleStatusChange('accepted')}
             >
-              {loading ? 'Processing...' : 'Accept'}
+              Hyväksy
             </button>
             <button 
               className="btn-decline" 
-              onClick={handleDecline}
-              disabled={loading}
+              onClick={() => handleStatusChange('declined')}
             >
-              {loading ? 'Processing...' : 'Decline'}
+              Hylkää
             </button>
           </>
+        ) : (
+          <div className="invite-status">
+            <span className={`status-badge ${invite.status}`}>
+              {invite.status === 'accepted' ? 'Hyväksytty' : 'Hylätty'}
+            </span>
+            {invite.status === 'accepted' && (
+              <button 
+                className="btn-chat" 
+                onClick={() => setShowChatModal(true)}
+              >
+                Avaa keskustelu
+              </button>
+            )}
+          </div>
         )}
       </div>
+      
+      {/* Chat modal */}
+      <InviteChatModal 
+        isOpen={showChatModal}
+        onClose={() => setShowChatModal(false)}
+        inviteId={invite.id}
+        inviteType={invite.type || 'open'}
+      />
     </div>
   );
 };

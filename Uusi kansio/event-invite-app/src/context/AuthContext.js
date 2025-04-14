@@ -10,7 +10,7 @@ import {
   signInWithPopup
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '../firebase/config';
+import { auth, db } from '../services/firebase/config';
 
 // Create context
 const AuthContext = createContext();

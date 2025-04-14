@@ -1,31 +1,58 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, getDocs, getDoc, doc, where, orderBy, limit } from 'firebase/firestore';
-import { db } from '../../../firebase/config';
-import { useAuth } from '../../../context/AuthContext'; // Lisätty AuthContext
+import { db } from '../../../services/firebase/config';
+import { useAuth } from '../../../context/AuthContext'; 
 import CategorySelector from '../../layout/CategorySelector';
 import EventCard from '../eventcard/EventCard';
-import './EventList.css'; // Assuming you have a CSS file for styling
+import './EventList.css';
 
-const EventList = ({ maxEvents = 6, showCategory = true, onJoin, onOpenDetails, onInvite }) => {
+/**
+ * EventList-komponentti näyttää tapahtumat joko ruudukko- tai listanäkymässä
+ * 
+ * @param {Array} providedEvents - Valmiiksi haetut tapahtumat (valinnainen)
+ * @param {number} maxEvents - Tapahtumien enimmäismäärä
+ * @param {boolean} showCategory - Näytetäänkö kategoriavalikko
+ * @param {function} onJoin - Tapahtumaan liittymisen käsittelijäfunktio
+ * @param {function} onLeave - Tapahtumasta poistumisen käsittelijäfunktio
+ * @param {function} onOpenDetails - Tapahtuman tietojen avaamisen käsittelijäfunktio
+ * @param {function} onInvite - Kutsujen lähettämisen käsittelijäfunktio
+ * @param {boolean} showJoinButton - Näytetäänkö liittymispainike
+ * @param {string} layout - Näkymän asettelu: "grid" (ruudukko) tai "list" (vieritettävä lista)
+ */
+const EventList = ({ 
+  events: providedEvents,
+  maxEvents = 100, 
+  showCategory = true, 
+  onJoin, 
+  onLeave, 
+  onOpenDetails, 
+  onInvite,
+  showJoinButton = true,
+  layout = "grid" // Uusi prop: "grid" tai "list"
+}) => {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
-  const { currentUser } = useAuth(); // Haetaan currentUser AuthContext:sta
+  const { currentUser } = useAuth();
 
   useEffect(() => {
-    fetchEvents();
-  }, [selectedCategory]);
+    // Jos events on annettu propseissa, käytetään niitä suoraan
+    if (providedEvents) {
+      setEvents(providedEvents);
+      setLoading(false);
+    } else {
+      fetchEvents();
+    }
+  }, [selectedCategory, providedEvents]);
 
   const fetchEvents = async () => {
     try {
       setLoading(true);
       
-      // Build query
       let eventsQuery = collection(db, 'events');
       let constraints = [];
       
-      // Add filters and sorting
       if (selectedCategory) {
         constraints.push(where('category', '==', selectedCategory));
       }
@@ -33,15 +60,12 @@ const EventList = ({ maxEvents = 6, showCategory = true, onJoin, onOpenDetails, 
       constraints.push(orderBy('date', 'asc'));
       constraints.push(limit(maxEvents));
       
-      // Execute query
       const eventsSnapshot = await getDocs(query(eventsQuery, ...constraints));
       
-      // Process results
       const eventsData = [];
       for (const docSnap of eventsSnapshot.docs) {
         const eventData = { id: docSnap.id, ...docSnap.data() };
         
-        // Get category name if needed
         if (eventData.category) {
           try {
             const categoryDocRef = doc(db, 'categories', eventData.category);
@@ -71,13 +95,17 @@ const EventList = ({ maxEvents = 6, showCategory = true, onJoin, onOpenDetails, 
     setSelectedCategory(categoryId);
   };
 
-  if (loading) return <div className="events-loading">Loading events...</div>;
+  // Virheilmoitukset ja lataustilojen käsittely
+  if (loading && !providedEvents) return <div className="events-loading">Loading events...</div>;
   if (error) return <div className="events-error">{error}</div>;
   if (events.length === 0) return <div className="events-empty">No events found</div>;
 
+  // Valitaan CSS-luokkanimi layoutin perusteella
+  const eventListClassName = `event-list ${layout === "list" ? "scrollable" : ""}`;
+
   return (
     <div className="events-container">
-      {showCategory && (
+      {showCategory && !providedEvents && (
         <div className="events-filter">
           <CategorySelector 
             selectedCategory={selectedCategory} 
@@ -86,17 +114,26 @@ const EventList = ({ maxEvents = 6, showCategory = true, onJoin, onOpenDetails, 
         </div>
       )}
       
-      <div className="events-grid">
-        {events.map(event => (
-          <EventCard 
-            key={event.id}
-            event={event}
-            onJoin={onJoin}
-            onOpenDetails={onOpenDetails}
-            onInvite={onInvite}
-            isJoined={currentUser ? event.participants?.includes(currentUser.uid) : false} // Lisätty null-check
-          />
-        ))}
+      {/* Vieritettävä tapahtumalistaus */}
+      <div className="events-list-container">
+        {/* Tässä on varsinainen tapahtumalista */}
+        <div className={eventListClassName}>
+          {events.map(event => (
+            <EventCard
+              key={event.id}
+              event={event}
+              onJoin={onJoin}
+              onOpenDetails={onOpenDetails}
+              onInvite={onInvite}
+              onLeave={onLeave}
+              showJoinButton={showJoinButton}
+              // Lisätään CSS-luokka highlightattua tapahtumaa varten
+              className={event.isHighlighted ? 'highlighted' : ''}
+              // Välitetään layout myös EventCard-komponentille jos tarvitaan
+              layout={layout}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

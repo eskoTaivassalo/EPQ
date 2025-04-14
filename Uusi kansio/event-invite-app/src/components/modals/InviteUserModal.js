@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { doc, collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { db } from '../../services/firebase/config';
 import { useAuth } from '../../context/AuthContext';
 import './styles/Modals.css'
 

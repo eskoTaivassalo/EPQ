@@ -1,120 +1,89 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { signOut } from 'firebase/auth';
-import { auth } from '../../../firebase/config';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
-import './Navbar.css'; // Import the CSS file for styling
+import { getUserLocation } from '../../../services/LocationService';
+import './NavBar.css';
 
-const Navbar = () => {
-  const { currentUser } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
+const NavBar = () => {
+  const { currentUser, logout } = useAuth();
+  const [location, setLocation] = useState({
+    city: 'Haetaan sijaintia...',
+    loading: true,
+    error: null
+  });
 
-  // Close mobile menu when route changes
+  // Haetaan sijainti kun komponentti latautuu
   useEffect(() => {
-    setMenuOpen(false);
-    setDropdownOpen(false);
-  }, [location]);
+    const fetchLocation = async () => {
+      try {
+        const userLocation = await getUserLocation();
+        setLocation(userLocation);
+      } catch (error) {
+        setLocation({
+          city: 'Sijainti ei saatavilla',
+          loading: false,
+          error: error.message
+        });
+      }
+    };
+
+    fetchLocation();
+  }, []);
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      navigate('/');
+      await logout();
     } catch (error) {
-      console.error('Error signing out:', error);
+      console.error("Error logging out:", error);
     }
-  };
-
-  const toggleMenu = () => {
-    setMenuOpen(!menuOpen);
-    if (dropdownOpen) setDropdownOpen(false);
-  };
-
-  const toggleDropdown = (e) => {
-    e.preventDefault();
-    setDropdownOpen(!dropdownOpen);
   };
 
   return (
     <nav className="navbar">
       <div className="navbar-container">
-        <Link to="/" className="navbar-logo">
-          EventConnect
-        </Link>
-
-        <div className="menu-icon" onClick={toggleMenu}>
-          <i className={menuOpen ? 'fas fa-times' : 'fas fa-bars'} />
+        <div className="navbar-brand">
+          <Link to="/" className="navbar-logo">
+            EventApp
+          </Link>
+          {/* Näytetään sijainti logon vieressä */}
+          <span className="navbar-location">
+            <i className="fas fa-map-marker-alt"></i> {/* FontAwesome ikoni, lisää tarvittaessa */}
+            {location.loading ? (
+              <span className="loading-indicator">Haetaan sijaintia...</span>
+            ) : location.error ? (
+              <span className="location-error" title={location.error}>
+                <i className="fas fa-exclamation-circle"></i> Sijainti ei saatavilla
+              </span>
+            ) : (
+              <span className="location-name" title={`Sijaintisi: ${location.city}`}>
+                {location.city}
+              </span>
+            )}
+          </span>
         </div>
 
-        <ul className={`nav-menu ${menuOpen ? 'active' : ''}`}>
-          <li className="nav-item">
-            <Link to="/" className="nav-link">
-              Home
-            </Link>
-          </li>
-
-          <li className="nav-item">
-            <Link to="/events" className="nav-link">
-              Events
-            </Link>
-          </li>
-
+        <div className="navbar-menu">
+          <Link to="/" className="navbar-item">Etusivu</Link>
+          <Link to="/events" className="navbar-item">Tapahtumat</Link>
+          <Link to="/invitations" className="navbar-item">Kutsut</Link>
+          
           {currentUser ? (
-            <>
-              <li className="nav-item">
-                <Link to="/invites" className="nav-link">
-                  Invites
-                </Link>
-              </li>
-
-              <li className="nav-item dropdown">
-                <a href="#" className="nav-link" onClick={toggleDropdown}>
-                  <img 
-                    src={currentUser.photoURL || '/default-avatar.png'} 
-                    alt="Profile" 
-                    className="profile-avatar"
-                  />
-                  <span className="profile-name">{currentUser.displayName || 'User'}</span>
-                </a>
-                <ul className={`dropdown-menu ${dropdownOpen ? 'show' : ''}`}>
-                  <li>
-                    <Link to="/profile" className="dropdown-item">
-                      My Profile
-                    </Link>
-                  </li>
-                  <li>
-                    <Link to="/my-events" className="dropdown-item">
-                      My Events
-                    </Link>
-                  </li>
-                  <li>
-                    <button onClick={handleLogout} className="dropdown-item logout-button">
-                      Logout
-                    </button>
-                  </li>
-                </ul>
-              </li>
-            </>
+            <div className="navbar-auth">
+              <Link to="/profile" className="navbar-item">Profiili</Link>
+              <button onClick={handleLogout} className="logout-button">
+                Kirjaudu ulos
+              </button>
+            </div>
           ) : (
-            <>
-              <li className="nav-item">
-                <Link to="/login" className="nav-link">
-                  Login
-                </Link>
-              </li>
-              <li className="nav-item">
-                <Link to="/register" className="nav-link signup">
-                  Sign Up
-                </Link>
-              </li>
-            </>
+            <div className="navbar-auth">
+              <Link to="/login" className="navbar-item">Kirjaudu</Link>
+              <Link to="/signup" className="signup-button">Rekisteröidy</Link>
+            </div>
           )}
-        </ul>
+        </div>
       </div>
     </nav>
   );
 };
 
-export default Navbar;
+export default NavBar;

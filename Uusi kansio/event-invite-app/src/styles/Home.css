@@ -133,7 +133,60 @@
   cursor: pointer;
   transition: all 0.3s ease;
 }
+/* Lisää nämä tyylit Home.css tiedostoon */
 
+.invitations-section .invitations-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 15px;
+  margin-top: 15px;
+}
+
+/* Pienempi versio kutsukorteista etusivulla */
+.invitations-section .invite-card {
+  font-size: 0.9rem;
+  padding: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.invitations-section .invite-card-header h3 {
+  font-size: 1rem;
+  margin: 5px 0;
+}
+
+.invitations-section .invite-card-content {
+  margin: 5px 0;
+}
+
+.invitations-section .invite-details {
+  margin: 8px 0;
+}
+
+.invitations-section .invite-details p {
+  margin: 3px 0;
+  font-size: 0.85rem;
+}
+
+.invitations-section .invite-card-actions {
+  margin-top: 8px;
+  padding-top: 8px;
+  gap: 5px;
+}
+
+.invitations-section .invite-card-actions button {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}
+
+/* Debug tietojen pienennys etusivulla */
+.invitations-section .debug-panel {
+  font-size: 0.8rem;
+  padding: 8px;
+}
+
+.invitations-section .debug-info div {
+  font-size: 0.75rem;
+}
 .btn-create-invite:hover {
   background-color: #3e8e41;
   transform: translateY(-2px);

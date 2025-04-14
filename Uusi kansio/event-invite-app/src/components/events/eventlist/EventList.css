@@ -1,12 +1,11 @@
 /* Event List Container */
 .event-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 20px;
-    width: 100%;
-    margin: 0 auto 40px;
-  }
-  
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: flex-start;
+  margin: 0 -10px; /* Negatiivinen marginaali kompensoi sisempää paddingia */
+}
   /* Event Card */
   .event-card {
     display: flex;

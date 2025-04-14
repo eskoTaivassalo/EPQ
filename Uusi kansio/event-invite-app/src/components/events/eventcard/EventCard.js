@@ -1,5 +1,6 @@
 import React from 'react';
 import { formatDate } from '../../../utils/DateUtils';
+import { useAuth } from '../../../context/AuthContext';
 import './EventCard.css';
 
 const EventCard = ({ 
@@ -7,10 +8,18 @@ const EventCard = ({
   onJoin, 
   onLeave, 
   onOpenDetails, 
-  showJoinButton = true
+  onInvite,
+  showJoinButton = true,
+  className = '' // Lisätty className-propsi korostamista varten
 }) => {
-  const isUserJoined = event.isUserJoined;
-  const isCreator = event.isCreator;
+  const { currentUser } = useAuth();
+  
+  // Check if the current user is a participant in this event
+  const isUserJoined = currentUser && event.participants && 
+    event.participants.includes(currentUser.uid);
+  
+  // Check if the current user is the creator
+  const isCreator = currentUser && event.createdBy === currentUser.uid;
 
   const handleJoin = (e) => {
     e.stopPropagation();
@@ -28,42 +37,40 @@ const EventCard = ({
     if (onOpenDetails) onOpenDetails(event.id);
   };
   
+  // Lisätään handleInvite-funktio
+  const handleInvite = (e) => {
+    e.stopPropagation();
+    if (onInvite) onInvite(event.id, event.title);
+  };
+  
   return (
-    <div className="event-card">
+    // Lisätty className event-card-luokkaan, jotta kortti voidaan korostaa
+    <div className={`event-card ${className}`}>
       <div className="event-card-content" onClick={handleClick}>
+        {/* Tapahtuman tiedot */}
         <div className="event-card-header">
           <h3>{event.title}</h3>
-          {event.categoryName && (
-            <span className="event-category">{event.categoryName}</span>
-          )}
+          {event.categoryName && <span className="event-category">{event.categoryName}</span>}
         </div>
         
-        <div className="event-card-details">
-          <p className="event-date">
-            <i className="icon-calendar"></i>
-            {formatDate(event.date)}
-          </p>
+        <div className="event-card-body">
+          <div className="event-info">
+            <p><i className="fa fa-calendar"></i> {formatDate(event.date)}</p>
+            <p><i className="fa fa-map-marker"></i> {event.location}</p>
+            {event.maxParticipants && (
+              <p><i className="fa fa-users"></i> {event.participants?.length || 0}/{event.maxParticipants}</p>
+            )}
+          </div>
           
-          <p className="event-location">
-            <i className="icon-location"></i>
-            {event.location}
-          </p>
-          
-          {event.maxParticipants && (
-            <p className="event-participants">
-              <i className="icon-users"></i>
-              {event.participants?.length || 0}/{event.maxParticipants}
-            </p>
+          {event.description && (
+            <div className="event-description">
+              <p>{event.description.length > 100 
+                ? `${event.description.substring(0, 100)}...` 
+                : event.description}
+              </p>
+            </div>
           )}
         </div>
-        
-        {event.description && (
-          <p className="event-description">
-            {event.description.length > 100 
-              ? `${event.description.substring(0, 100)}...` 
-              : event.description}
-          </p>
-        )}
         
         <div className="event-card-actions">
           <button 
@@ -76,11 +83,10 @@ const EventCard = ({
             Details
           </button>
           
-          {/* Kuka tahansa paitsi luoja voi liittyä/poistua vapaasti */}
-          {showJoinButton && !isCreator && (
+          {showJoinButton && !isCreator && currentUser && (
             isUserJoined ? (
               <button 
-                className="btn-danger" // Punainen tyyli
+                className="btn-danger"
                 onClick={handleLeave}
               >
                 Leave
@@ -89,20 +95,19 @@ const EventCard = ({
               <button 
                 className="btn-primary"
                 onClick={handleJoin}
+                disabled={event.participants?.length >= event.maxParticipants}
               >
-                Join
+                {event.participants?.length >= event.maxParticipants 
+                  ? 'Full' 
+                  : 'Join'}
               </button>
             )
           )}
           
-          {/* Näytetään Invite-nappi vain tapahtuman luojalle */}
-          {isCreator && onJoin && (
+          {isCreator && (
             <button 
               className="btn-outline"
-              onClick={(e) => {
-                e.stopPropagation();
-                onJoin(event.id);
-              }}
+              onClick={handleInvite}
             >
               Invite
             </button>

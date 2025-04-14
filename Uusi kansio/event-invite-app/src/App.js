@@ -7,16 +7,17 @@ import LoadingScreen from './components/layout/LoadingScreen';
 import './styles/App.css'; // Import global styles
 import './styles/Variables.css'; // Import CSS variables
 import Events from './pages/Events';
-
+import Login from './components/auth/Login';
+import Register from './components/auth/Register';
 // Import Home directly instead of using lazy loading
 import Home from './pages/Home';
+// Poistetaan tämä rivi, koska se aiheuttaa tuplamäärittelyn
+// import ProfileSettings from './pages/profile/ProfileSettings';
+const Profile = lazy(() => import('./components/profile/profile/Profile'));
+const ProfileSettings = lazy(() => import('./components/profile/profilesettings/ProfileSettings'));
 
-const Login = lazy(() => import('./components/auth/Login'));
-const Register = lazy(() => import('./components/auth/Register'));
-const Profile = lazy(() => import('./pages/Profile'));
 const EventDetails = lazy(() => import('./components/events/eventdetails/EventDetails'));
 const EventList = lazy(() => import('./components/events/eventlist/EventList'));
-const MyEvents = lazy(() => import('./components/events/myevents/MyEvents'));
 const Invites = lazy(() => import('./pages/Invites'));
 const NotFound = lazy(() => import('./pages/notfound'));
 
@@ -43,13 +44,14 @@ function App() {
                 } 
               />
               <Route 
-                path="/my-events" 
+                path="/profilesettings"
                 element={
                   <ProtectedRoute>
-                    <MyEvents />
+                    <ProfileSettings />
                   </ProtectedRoute>
                 } 
               />
+        
               <Route 
                 path="/invites" 
                 element={
@@ -58,8 +60,8 @@ function App() {
                   </ProtectedRoute>
                 } 
               />
-           <Route path="/404" element={<NotFound />} />
-           <Route path="*" element={<Navigate replace to="/404" />} />
+              <Route path="/404" element={<NotFound />} />
+              <Route path="*" element={<Navigate replace to="/404" />} />
             </Routes>
           </Suspense>
         </LocationProvider>
