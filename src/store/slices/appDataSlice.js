@@ -1,4 +1,4 @@
-import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
 import { getDocs, collection, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db, auth } from '../../config/firebaseConfig';
 
@@ -478,9 +478,20 @@ export const selectSettings = (state) => state.appData.settings;
 export const selectTeacherById = (teacherId) => (state) =>
   state.appData.teachers.find(teacher => teacher.id === teacherId);
 
-export const selectFavoriteTeachersData = (state) => {
-  const favoriteIds = state.appData.favoriteTeachers;
-  return state.appData.teachers.filter(teacher => favoriteIds.includes(teacher.id));
-};
+// Memoized selectors to avoid returning new references when inputs are unchanged
+export const selectFavoriteTeachersData = createSelector(
+  [selectTeachers, selectFavoriteTeachers],
+  (teachers, favoriteIds) => teachers.filter(teacher => favoriteIds.includes(teacher.id))
+);
+
+// For components that need a memoized per-instance selector by id
+// Usage pattern in a component:
+//   const selectById = useMemo(makeSelectTeacherById, []);
+//   const teacher = useSelector((state) => selectById(state, teacherId));
+export const makeSelectTeacherById = () =>
+  createSelector(
+    [selectTeachers, (_state, teacherId) => teacherId],
+    (teachers, teacherId) => teachers.find(t => t.id === teacherId)
+  );
 
 export default appDataSlice.reducer;

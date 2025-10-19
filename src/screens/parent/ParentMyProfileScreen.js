@@ -9,25 +9,26 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../hooks/useAuth';
+import { useAuth } from '../../hooks/useAuth';
 import { useFocusEffect } from '@react-navigation/native';
-import { colors } from '../styles/commonStyles';
+import { colors } from '../../styles/commonStyles';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebaseConfig';
+import { db } from '../../config/firebaseConfig';
 import {
   SUBJECTS,
   EDUCATION_LEVELS,
   LOCATIONS,
   LANGUAGES,
   TEACHING_METHODS,
-  EXPERIENCE_LEVELS,
+  PRICE_RANGES,
   AVAILABILITY,
   TEACHING_STYLES,
+  SPECIAL_NEEDS,
   getTagLabels,
   getTagById
-} from '../constants/tags';
+} from '../../constants/tags';
 
-const TeacherMyProfileScreen = ({ navigation }) => {
+const ParentMyProfileScreen = ({ navigation }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState(null);
@@ -43,7 +44,7 @@ const TeacherMyProfileScreen = ({ navigation }) => {
     
     try {
       setLoading(true);
-      const docRef = doc(db, 'teachers', user.uid);
+      const docRef = doc(db, 'parents', user.uid);
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
@@ -51,12 +52,12 @@ const TeacherMyProfileScreen = ({ navigation }) => {
       } else {
         // If no profile data exists, show basic user info
         setProfileData({
-          name: user.name || 'Teacher',
+          name: user.name || 'Parent',
           email: user.email || '',
-          subjects: '',
-          hourlyRate: '',
+          childrenAges: '',
+          subjectsNeeded: '',
           location: '',
-          description: ''
+          budget: ''
         });
       }
     } catch (error) {
@@ -106,7 +107,7 @@ const TeacherMyProfileScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>My Profile</Text>
         <TouchableOpacity 
           style={styles.editButton}
-          onPress={() => navigation.navigate('TeacherProfile')}
+          onPress={() => navigation.navigate('ParentProfile')}
         >
           <Ionicons name="create" size={24} color={colors.white} />
         </TouchableOpacity>
@@ -118,73 +119,81 @@ const TeacherMyProfileScreen = ({ navigation }) => {
           <View style={styles.avatarContainer}>
             <Ionicons name="person" size={60} color={colors.white} />
           </View>
-          <Text style={styles.profileName}>{profileData?.name || user?.name || 'Teacher'}</Text>
+          <Text style={styles.profileName}>{profileData?.name || user?.name || 'Parent'}</Text>
           <Text style={styles.profileEmail}>{profileData?.email || user?.email}</Text>
-          <Text style={styles.profileType}>Teacher</Text>
+          <Text style={styles.profileType}>Parent</Text>
         </View>
 
-        {/* Teaching Information */}
-        <ProfileSection title="Teaching Information">
+        {/* Children Information */}
+        <ProfileSection title="Children Information">
           <InfoRow 
-            label="Subjects" 
-            value={getTagLabels(SUBJECTS, profileData?.subjects || []).join(', ')} 
+            label="Children Ages" 
+            value={profileData?.childrenAges} 
+            icon="happy" 
+          />
+          <InfoRow 
+            label="School Grades" 
+            value={getTagLabels(EDUCATION_LEVELS, profileData?.childrenGrades || []).join(', ')} 
             icon="school" 
           />
           <InfoRow 
-            label="Education Levels" 
-            value={getTagLabels(EDUCATION_LEVELS, profileData?.educationLevels || []).join(', ')} 
-            icon="library" 
+            label="Subjects Needed" 
+            value={getTagLabels(SUBJECTS, profileData?.subjectsNeeded || []).join(', ')} 
+            icon="book" 
+          />
+        </ProfileSection>
+
+        {/* Learning Information */}
+        <ProfileSection title="Learning Preferences">
+          <InfoRow 
+            label="Preferred Teaching Styles" 
+            value={getTagLabels(TEACHING_STYLES, profileData?.preferredTeachingStyle || []).join(', ')} 
+            icon="bulb" 
           />
           <InfoRow 
-            label="Hourly Rate" 
-            value={profileData?.hourlyRate ? `€${profileData.hourlyRate}/hour` : null} 
+            label="Learning Methods" 
+            value={getTagLabels(TEACHING_METHODS, profileData?.learningPreferences || []).join(', ')} 
+            icon="school" 
+          />
+          <InfoRow 
+            label="Special Needs" 
+            value={getTagLabels(SPECIAL_NEEDS, profileData?.specialNeeds || []).join(', ')} 
+            icon="medical" 
+          />
+          <InfoRow 
+            label="Learning Goals" 
+            value={profileData?.goals} 
+            icon="trophy" 
+          />
+        </ProfileSection>
+
+        {/* Practical Details */}
+        <ProfileSection title="Practical Information">
+          <InfoRow 
+            label="Budget per hour" 
+            value={profileData?.budget ? `€${profileData.budget}` : null} 
             icon="card" 
           />
           <InfoRow 
-            label="Experience Level" 
-            value={getTagLabels(EXPERIENCE_LEVELS, [profileData?.experience]).join('')} 
-            icon="time" 
+            label="Price Range" 
+            value={getTagLabels(PRICE_RANGES, [profileData?.priceRange]).join('')} 
+            icon="card-outline" 
           />
           <InfoRow 
-            label="Location" 
+            label="Preferred Locations" 
             value={getTagLabels(LOCATIONS, profileData?.location || []).join(', ')} 
             icon="location" 
           />
-        </ProfileSection>
-
-        {/* Education and Languages */}
-        <ProfileSection title="Qualifications">
           <InfoRow 
-            label="Education" 
-            value={profileData?.education} 
-            icon="library" 
-          />
-          <InfoRow 
-            label="Languages" 
+            label="Languages Preferred" 
             value={getTagLabels(LANGUAGES, profileData?.languages || []).join(', ')} 
             icon="language" 
           />
-          <InfoRow 
-            label="Teaching Styles" 
-            value={getTagLabels(TEACHING_STYLES, profileData?.teachingStyles || []).join(', ')} 
-            icon="bulb" 
-          />
         </ProfileSection>
 
-        {/* Teaching Methods */}
-        <ProfileSection title="Teaching Methods">
-          <View style={styles.teachingMethods}>
-            {getTagLabels(TEACHING_METHODS, profileData?.teachingMethods || []).map((method, index) => (
-              <View key={index} style={styles.methodBadge}>
-                <Text style={styles.methodText}>{method}</Text>
-              </View>
-            ))}
-          </View>
-        </ProfileSection>
-
-        {/* Availability */}
+        {/* Learning Preferences */}
         <ProfileSection title="Availability">
-          <View style={styles.teachingMethods}>
+          <View style={styles.learningMethods}>
             {getTagLabels(AVAILABILITY, profileData?.availability || []).map((time, index) => (
               <View key={index} style={styles.methodBadge}>
                 <Text style={styles.methodText}>{time}</Text>
@@ -193,17 +202,17 @@ const TeacherMyProfileScreen = ({ navigation }) => {
           </View>
         </ProfileSection>
 
-        {/* Description */}
-        {profileData?.description && (
-          <ProfileSection title="About Me">
-            <Text style={styles.descriptionText}>{profileData.description}</Text>
+        {/* Additional Notes */}
+        {profileData?.notes && (
+          <ProfileSection title="Additional Information">
+            <Text style={styles.notesText}>{profileData.notes}</Text>
           </ProfileSection>
         )}
 
         {/* Edit Profile Button */}
         <TouchableOpacity 
           style={styles.editProfileButton}
-          onPress={() => navigation.navigate('TeacherProfile')}
+          onPress={() => navigation.navigate('ParentProfile')}
         >
           <Ionicons name="create" size={20} color={colors.white} />
           <Text style={styles.editProfileButtonText}>Edit Profile</Text>
@@ -320,7 +329,7 @@ const styles = StyleSheet.create({
     color: colors.text,
     lineHeight: 22,
   },
-  teachingMethods: {
+  learningMethods: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
@@ -347,7 +356,7 @@ const styles = StyleSheet.create({
   methodTextActive: {
     color: colors.white,
   },
-  descriptionText: {
+  notesText: {
     fontSize: 16,
     color: colors.text,
     lineHeight: 24,
@@ -369,4 +378,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TeacherMyProfileScreen;
+export default ParentMyProfileScreen;

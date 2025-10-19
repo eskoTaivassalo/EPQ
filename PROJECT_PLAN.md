@@ -6,22 +6,24 @@
 ## ✅ VALMIIT TYÖT (Päivitetty 19.10.2025)
 
 ### 🎯 Arkkitehtuuri & State Management
-- [x] **Redux Toolkit migraatio ALOITETTU** - Context API korvattu Redux Toolkitilla
+- [x] **Redux Toolkit migraatio VALMIS** - Context API korvattu Redux Toolkitilla
   - Redux store luotu (`src/store/index.js`)
   - Auth slice toteutettu (`src/store/slices/authSlice.js`)
   - AppData slice toteutettu (`src/store/slices/appDataSlice.js`)
   - Security slice toteutettu (`src/store/slices/securitySlice.js`)
   - Redux middleware: authMiddleware ja errorLoggingMiddleware
   - Redux DevTools integraatio
-  - ⚠️ **Redux-persist asennettu mutta EI VIELÄ KONFIGUROITU**
+  - Redux-persist integroitu (PersistGate lisätty App.js:iin)
+  - Memoized selectors (createSelector) Redux-varoitusten korjaamiseksi
   - ⚠️ **TARVITSEE: Kokonaisvaltainen testaus**
 - [x] **Custom Hooks refaktorointi**
   - `useAuth` hook - Autentikointi
-  - `useAppData` hook - Data management
+  - `useAppData` hook - Data management (React.useCallback lisätty)
   - `useSecurity` hook - Turvallisuus
   - ⚠️ **TARVITSEE: Integration testing**
-- [ ] **Context arkkitehtuuri optimointi**
+- [x] **Context arkkitehtuuri optimointi**
   - Context API poistettu Redux Toolkitin hyväksi
+  - Vanhat context-tiedostot poistettu (AppDataContext, AuthContext, SecurityContext)
   - ⚠️ **TARVITSEE: Performance benchmarking**
   - ⚠️ **TARVITSEE: Memory leak testing**
 
@@ -61,6 +63,13 @@
 - [x] FindTeachersScreen - Opettajahaku
 - [x] Profile screens - Profiilien näyttö
 - [x] Common styles - Yhteiset tyylit
+- [x] **Screens kansiorakenne uudelleenjärjestelty**
+  - Alakansiot: `auth/`, `parent/`, `teacher/`, `shared/`, `dev/`
+  - Import-polut päivitetty `../../` rakenteeseen
+  - Auth-screenit siirretty ja korjattu (LoginScreen, EmailVerificationScreen)
+- [ ] **IN PROGRESS: TeacherProfile-screenit yhdistäminen**
+  - TeacherMyProfileScreen + TeacherProfileScreen → yksi screen (view+edit toggle)
+  - Tavoite: vähentää duplikaatiota
 
 ### 🛠️ Tekninen infrastruktuuri
 - [x] Firebase projekti konfiguroitu

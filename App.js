@@ -12,20 +12,27 @@ import { store, persistor } from './src/store';
 // Hooks (Redux-based)
 import { useAuth } from './src/hooks/useAuth';
 
-// Screens
-import WelcomeScreen from './src/screens/WelcomeScreen';
-import LoginScreen from './src/screens/LoginScreen';
-import TeacherSignupScreen from './src/screens/TeacherSignupScreen';
-import ParentSignupScreen from './src/screens/ParentSignupScreen';
-import TeacherDashboard from './src/screens/TeacherDashboard';
-import ParentDashboard from './src/screens/ParentDashboard';
-import TeacherProfileScreen from './src/screens/TeacherProfileScreen';
-import TeacherMyProfileScreen from './src/screens/TeacherMyProfileScreen';
-import ParentProfileScreen from './src/screens/ParentProfileScreen';
-import ParentMyProfileScreen from './src/screens/ParentMyProfileScreen';
-import FindTeachersScreen from './src/screens/FindTeachersScreen';
-import SecurityTestScreen from './src/screens/SecurityTestScreen';
-import EmailVerificationScreen from './src/screens/EmailVerificationScreen';
+// Screens - Auth
+import WelcomeScreen from './src/screens/auth/WelcomeScreen';
+import LoginScreen from './src/screens/auth/LoginScreen';
+import EmailVerificationScreen from './src/screens/auth/EmailVerificationScreen';
+
+// Screens - Teacher
+import TeacherSignupScreen from './src/screens/teacher/TeacherSignupScreen';
+import TeacherDashboard from './src/screens/teacher/TeacherDashboard';
+import TeacherMyProfileScreen from './src/screens/teacher/TeacherMyProfileScreen';
+
+// Screens - Parent
+import ParentSignupScreen from './src/screens/parent/ParentSignupScreen';
+import ParentDashboard from './src/screens/parent/ParentDashboard';
+import ParentProfileScreen from './src/screens/parent/ParentProfileScreen';
+import ParentMyProfileScreen from './src/screens/parent/ParentMyProfileScreen';
+
+// Screens - Shared
+import FindTeachersScreen from './src/screens/shared/FindTeachersScreen';
+
+// Screens - Dev
+import SecurityTestScreen from './src/screens/dev/SecurityTestScreen';
 
 // Styles
 import { colors } from './src/styles/commonStyles';
@@ -95,7 +102,6 @@ const AppNavigator = () => {
               <>
                 <Stack.Screen name="TeacherDashboard" component={TeacherDashboard} />
                 <Stack.Screen name="TeacherMyProfile" component={TeacherMyProfileScreen} />
-                <Stack.Screen name="TeacherProfile" component={TeacherProfileScreen} />
                 <Stack.Screen name="FindTeachers" component={FindTeachersScreen} />
                 <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
               </>

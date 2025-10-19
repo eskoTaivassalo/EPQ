@@ -12,9 +12,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../styles/commonStyles';
-import { useAppData } from '../hooks/useAppData';
-import TagSelector from '../components/TagSelector';
+import { colors } from '../../styles/commonStyles';
+import { useAppData } from '../../hooks/useAppData';
+import TagSelector from '../../components/TagSelector';
 import {
   SUBJECTS,
   EDUCATION_LEVELS,
@@ -26,8 +26,8 @@ import {
   TEACHING_STYLES,
   getTagLabels,
   getTagById
-} from '../constants/tags';
-import { calculatePriceRange } from '../utils/tagUtils';
+} from '../../constants/tags';
+import { calculatePriceRange } from '../../utils/tagUtils';
 
 const FindTeachersScreen = ({ navigation }) => {
   const { 

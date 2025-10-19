@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, commonStyles } from '../styles/commonStyles';
+import { colors, commonStyles } from '../../styles/commonStyles';
 
 const WelcomeScreen = ({ navigation }) => {
   const handleRoleSelection = (role) => {

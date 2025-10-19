@@ -10,11 +10,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../hooks/useAuth';
-import { colors } from '../styles/commonStyles';
+import { useAuth } from '../../hooks/useAuth';
+import { colors } from '../../styles/commonStyles';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebaseConfig';
-import TagSelector from '../components/TagSelector';
+import { db } from '../../config/firebaseConfig';
+import TagSelector from '../../components/TagSelector';
 import {
   SUBJECTS,
   EDUCATION_LEVELS,
@@ -25,7 +25,7 @@ import {
   AVAILABILITY,
   TEACHING_STYLES,
   getTagLabels
-} from '../constants/tags';
+} from '../../constants/tags';
 
 const TeacherProfileScreen = ({ navigation }) => {
   const { user } = useAuth();

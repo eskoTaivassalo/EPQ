@@ -8,9 +8,9 @@ import {
   ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../hooks/useAuth';
-import { useAppData } from '../hooks/useAppData';
-import { colors, commonStyles } from '../styles/commonStyles';
+import { useAuth } from '../../hooks/useAuth';
+import { useAppData } from '../../hooks/useAppData';
+import { colors, commonStyles } from '../../styles/commonStyles';
 
 const ParentDashboard = ({ navigation }) => {
   const { user, logout } = useAuth();

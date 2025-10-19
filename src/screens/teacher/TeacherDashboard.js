@@ -8,8 +8,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../hooks/useAuth';
-import { colors, commonStyles } from '../styles/commonStyles';
+import { useAuth } from '../../hooks/useAuth';
+import { colors, commonStyles } from '../../styles/commonStyles';
 
 const TeacherDashboard = ({ navigation }) => {
   const { user, logout } = useAuth();

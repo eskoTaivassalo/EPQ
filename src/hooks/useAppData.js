@@ -1,3 +1,4 @@
+import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   fetchTeachers,
@@ -27,7 +28,6 @@ import {
   selectFavoriteTeachers,
   selectFavoriteTeachersData,
   selectSettings,
-  selectTeacherById,
 } from '../store/slices/appDataSlice';
 
 /**
@@ -68,9 +68,10 @@ export const useAppData = () => {
     }
   };
 
-  const getTeacherById = (teacherId) => {
-    return useSelector(selectTeacherById(teacherId));
-  };
+  // Avoid calling hooks inside callbacks; derive by searching current teachers list
+  const getTeacherById = React.useCallback((teacherId) => {
+    return teachers.find(t => t.id === teacherId);
+  }, [teachers]);
 
   const createTeacher = async (teacherData) => {
     try {

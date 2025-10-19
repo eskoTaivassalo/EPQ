@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, ScrollView } from 'react-native';
-import SecurityService from '../services/securityService';
-import AuthService from '../services/authService';
+import SecurityService from '../../services/securityService';
+import AuthService from '../../services/authService';
 
 /**
  * Security Testing Screen - Testaa SecurityService toiminnallisuudet

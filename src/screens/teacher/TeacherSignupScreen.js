@@ -10,11 +10,11 @@ import {
   Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../hooks/useAuth';
-import { useSecurity } from '../hooks/useSecurity';
-import { colors } from '../styles/commonStyles';
+import { useAuth } from '../../hooks/useAuth';
+import { useSecurity } from '../../hooks/useSecurity';
+import { colors } from '../../styles/commonStyles';
 
-const ParentSignupScreen = ({ navigation }) => {
+const TeacherSignupScreen = ({ navigation }) => {
   const { register } = useAuth();
   const { 
     validatePassword, 
@@ -31,185 +31,246 @@ const ParentSignupScreen = ({ navigation }) => {
     password: '',
     confirmPassword: '',
     phoneNumber: '',
-    location: '',
-    childrenAges: '',
-    specificNeeds: '',
-    lookingFor: [],
+    specialization: '',
+    qualifications: '',
+    experience: '',
     acceptTerms: false,
     acceptMarketing: false
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
-  // 💪 PASSWORD STRENGTH INDICATORS
   const [passwordStrength, setPasswordStrength] = useState(0);
-  const [passwordValidation, setPasswordValidation] = useState({ isValid: true, message: '' });
+  const [passwordValidation, setPasswordValidation] = useState({ isValid: false, message: '' });
 
-  const serviceTypes = [
-    'Child Development Support',
-    'Educational Tutoring',
-    'Behavioral Analysis',
-    'Speech-Language Therapy',
-    'Psychological Counseling',
-    'Special Needs Support',
-    'Academic Coaching',
-    'Social Skills Training',
-    'Family Counseling',
-    'Learning Disabilities Support',
-    'Autism Spectrum Support',
-    'Other'
+  const specializations = [
+    'Child Development Expert',
+    'Behavioral Analyst and Specialist',
+    'Speech-Language Pathologist',
+    'Counselor and Therapist',
+    'Pediatric Healthcare Professional',
+    'Social Worker',
+    'Psychologist',
+    'Educator and Tutor',
+    'Autism Spectrum Disorder Specialist',
+    'Family and Child Psychology',
+    'Disabilities and Inclusive Learning',
+    'Brain Development and Neuroscience',
+    'Other - Please specify'
   ];
 
-  // 💪 Enhanced handleInputChange with real-time password validation
   const handleInputChange = (field, value) => {
-    // 🛡️ Sanitize input for security
-    const sanitizedValue = sanitizeInput(value);
-    
     setFormData(prev => ({
       ...prev,
-      [field]: sanitizedValue
+      [field]: value
     }));
-    
-    // Real-time password strength checking
-    if (field === 'password' && sanitizedValue.length > 0) {
-      const strength = getPasswordStrength(sanitizedValue);
-      const validation = validatePassword(sanitizedValue);
-      
-      setPasswordStrength(strength);
-      setPasswordValidation(validation);
-    }
-  };
-  
-  // 💪 Password strength visual info
-  const getPasswordStrengthInfo = () => {
-    if (passwordStrength >= 80) {
-      return { text: 'VAHVA', color: '#10B981', width: '100%' };
-    } else if (passwordStrength >= 60) {
-      return { text: 'KESKINKERTAINEN', color: '#F59E0B', width: '70%' };
-    } else if (passwordStrength >= 40) {
-      return { text: 'HEIKKO', color: '#EF4444', width: '40%' };
-    } else {
-      return { text: 'ERITTÄIN HEIKKO', color: '#DC2626', width: '20%' };
+
+    // 💪 REAALIAIKAINEN SALASANAN VAHVUUDEN MITTAUS
+    if (field === 'password') {
+      if (value.trim() === '') {
+        setPasswordStrength(0);
+        setPasswordValidation({ isValid: false, message: '' });
+      } else {
+        const strength = getPasswordStrength(value);
+        const validation = validatePassword(value);
+        
+        setPasswordStrength(strength);
+        setPasswordValidation(validation);
+      }
     }
   };
 
-  const toggleService = (service) => {
-    setFormData(prev => ({
-      ...prev,
-      lookingFor: prev.lookingFor.includes(service)
-        ? prev.lookingFor.filter(s => s !== service)
-        : [...prev.lookingFor, service]
-    }));
+  // Salasanan vahvuuden värit ja tekstit
+  const getPasswordStrengthInfo = () => {
+    if (passwordStrength === 0) {
+      return { color: '#ddd', text: '', width: '0%' };
+    } else if (passwordStrength < 30) {
+      return { color: '#ff4444', text: 'Heikko', width: '25%' };
+    } else if (passwordStrength < 60) {
+      return { color: '#ff8800', text: 'Keskinkertainen', width: '50%' };
+    } else if (passwordStrength < 80) {
+      return { color: '#44aa44', text: 'Hyvä', width: '75%' };
+    } else {
+      return { color: '#00aa00', text: 'Erinomainen', width: '100%' };
+    }
   };
 
   const validateForm = () => {
-    // 🔐 ENHANCED CLIENT-SIDE VALIDATION
+    console.log('🔧 Starting form validation...');
     
-    // Validoi nimi
-    if (!formData.fullName.trim()) {
-      Alert.alert('Virhe', 'Anna nimesi');
-      return false;
-    }
-    
-    const nameValidation = validateUsername(formData.fullName.trim());
-    if (!nameValidation.isValid) {
-      Alert.alert('Virhe', `Nimi: ${nameValidation.message}`);
-      return false;
-    }
-
-    // Validoi sähköposti
-    if (!formData.email.trim()) {
-      Alert.alert('Virhe', 'Anna sähköpostiosoitteesi');
-      return false;
-    }
-    
-    if (!validateEmail(formData.email.trim())) {
-      Alert.alert('Virhe', 'Virheellinen sähköpostiosoite');
-      return false;
-    }
-
-    // Validoi salasana
-    if (!formData.password.trim()) {
-      Alert.alert('Virhe', 'Anna salasana');
-      return false;
-    }
-    
-    const passwordValidation = validatePassword(formData.password);
-    if (!passwordValidation.isValid) {
-      Alert.alert('Heikko salasana', passwordValidation.message);
-      return false;
-    }
-
-    // Tarkista salasanan vahvuus
-    const passwordStrength = getPasswordStrength(formData.password);
-    if (passwordStrength < 60) {
-      Alert.alert(
-        'Heikko salasana', 
-        `Salasanasi vahvuus on ${passwordStrength}/100. Käytä vahvempaa salasanaa turvallisuuden vuoksi.`
-      );
-      return false;
-    }
-
-    // Tarkista salasanojen vastaavuus
-    if (formData.password !== formData.confirmPassword) {
-      Alert.alert('Virhe', 'Salasanat eivät täsmää');
-      return false;
-    }
-
-    // Validoi puhelinnumero jos annettu
-    if (formData.phoneNumber && formData.phoneNumber.trim()) {
-      const phoneValidation = validatePhoneNumber(formData.phoneNumber.trim());
-      if (!phoneValidation.isValid) {
-        Alert.alert('Virhe', `Puhelinnumero: ${phoneValidation.message}`);
+    try {
+      // 🔐 ENHANCED CLIENT-SIDE VALIDATION
+      
+      // Validoi nimi
+      if (!formData.fullName.trim()) {
+        console.log('🔧 Validation failed: No name');
+        Alert.alert('Virhe', 'Anna nimesi');
         return false;
       }
-    }
+      
+      console.log('🔧 Validating username...');
+      const nameValidation = validateUsername(formData.fullName.trim());
+      console.log('🔧 Username validation result:', nameValidation);
+      if (!nameValidation.isValid) {
+        console.log('🔧 Validation failed: Invalid name');
+        Alert.alert('Virhe', `Nimi: ${nameValidation.message}`);
+        return false;
+      }
 
-    // Tarkista käyttöehdot
-    if (!formData.acceptTerms) {
-      Alert.alert('Virhe', 'Hyväksy käyttöehdot jatkaaksesi');
+      // Validoi sähköposti
+      if (!formData.email.trim()) {
+        console.log('🔧 Validation failed: No email');
+        Alert.alert('Virhe', 'Anna sähköpostiosoitteesi');
+        return false;
+      }
+      
+      console.log('🔧 Validating email...');
+      const emailValid = validateEmail(formData.email.trim());
+      console.log('🔧 Email validation result:', emailValid);
+      if (!emailValid) {
+        console.log('🔧 Validation failed: Invalid email');
+        Alert.alert('Virhe', 'Virheellinen sähköpostiosoite');
+        return false;
+      }
+
+      // Validoi salasana
+      if (!formData.password.trim()) {
+        console.log('🔧 Validation failed: No password');
+        Alert.alert('Virhe', 'Anna salasana');
+        return false;
+      }
+      
+      console.log('🔧 Validating password...');
+      const passwordValidation = validatePassword(formData.password);
+      console.log('🔧 Password validation result:', passwordValidation);
+      if (!passwordValidation.isValid) {
+        console.log('🔧 Validation failed: Invalid password');
+        Alert.alert('Heikko salasana', passwordValidation.message);
+        return false;
+      }
+
+      // Tarkista salasanan vahvuus
+      console.log('🔧 Checking password strength...');
+      const passwordStrength = getPasswordStrength(formData.password);
+      console.log('🔧 Password strength:', passwordStrength);
+      if (passwordStrength < 60) {
+        console.log('🔧 Validation failed: Weak password');
+        Alert.alert(
+          'Heikko salasana', 
+          `Salasanasi vahvuus on ${passwordStrength}/100. Käytä vahvempaa salasanaa turvallisuuden vuoksi.`
+        );
+        return false;
+      }
+
+      // Tarkista salasanojen vastaavuus
+      if (formData.password !== formData.confirmPassword) {
+        console.log('🔧 Validation failed: Passwords do not match');
+        Alert.alert('Virhe', 'Salasanat eivät täsmää');
+        return false;
+      }
+
+      // Validoi specialization
+      if (!formData.specialization) {
+        console.log('🔧 Validation failed: No specialization');
+        Alert.alert('Virhe', 'Valitse asiantuntijuusalueesi');
+        return false;
+      }
+
+      // Validoi puhelinnumero jos annettu
+      if (formData.phoneNumber.trim()) {
+        console.log('🔧 Validating phone...');
+        const phoneValidation = validatePhoneNumber(formData.phoneNumber.trim());
+        console.log('🔧 Phone validation result:', phoneValidation);
+        if (!phoneValidation.isValid) {
+          console.log('🔧 Validation failed: Invalid phone');
+          Alert.alert('Virhe', `Puhelinnumero: ${phoneValidation.message}`);
+          return false;
+        }
+      }
+
+      // Validoi kuvaukset
+      if (formData.qualifications.trim()) {
+        console.log('🔧 Validating qualifications...');
+        const qualValidation = validateDescription(formData.qualifications.trim());
+        console.log('🔧 Qualifications validation result:', qualValidation);
+        if (!qualValidation.isValid) {
+          console.log('🔧 Validation failed: Invalid qualifications');
+          Alert.alert('Virhe', `Koulutus: ${qualValidation.message}`);
+          return false;
+        }
+      }
+
+      if (formData.experience.trim()) {
+        console.log('🔧 Validating experience...');
+        const expValidation = validateDescription(formData.experience.trim());
+        console.log('🔧 Experience validation result:', expValidation);
+        if (!expValidation.isValid) {
+          console.log('🔧 Validation failed: Invalid experience');
+          Alert.alert('Virhe', `Kokemus: ${expValidation.message}`);
+          return false;
+        }
+      }
+
+      // Tarkista käyttöehdot
+      if (!formData.acceptTerms) {
+        console.log('🔧 Validation failed: Terms not accepted');
+        Alert.alert('Virhe', 'Hyväksy käyttöehdot jatkaaksesi');
+        return false;
+      }
+
+      console.log('🔧 All validations passed!');
+      return true;
+      
+    } catch (error) {
+      console.error('🔧 Validation error:', error);
+      Alert.alert('Virhe', 'Validoinnissa tapahtui virhe: ' + error.message);
       return false;
     }
-
-    return true;
   };
 
   const handleSignup = async () => {
-    console.log('🔧 PARENT SIGNUP BUTTON PRESSED!');
+    console.log('🔧 TEACHER SIGNUP BUTTON PRESSED!');
+    console.log('🔧 Current form data:', {
+      fullName: formData.fullName,
+      email: formData.email,
+      hasPassword: !!formData.password,
+      passwordLength: formData.password?.length,
+      hasConfirmPassword: !!formData.confirmPassword,
+      specialization: formData.specialization,
+      acceptTerms: formData.acceptTerms
+    });
     
     if (!validateForm()) {
-      console.log('🔧 Parent form validation failed');
+      console.log('🔧 Form validation failed');
       return;
     }
 
-    console.log('🔧 Parent form validation passed, starting signup...');
+    console.log('🔧 Form validation passed, starting signup...');
     setLoading(true);
     try {
       const userData = {
         name: formData.fullName,
         email: formData.email,
         password: formData.password,
-        role: 'parent',
+        role: 'teacher',
         phoneNumber: formData.phoneNumber,
-        location: formData.location,
-        childrenAges: formData.childrenAges,
-        specificNeeds: formData.specificNeeds,
-        lookingFor: formData.lookingFor,
+        specialization: formData.specialization,
+        qualifications: formData.qualifications,
+        experience: formData.experience,
         acceptMarketing: formData.acceptMarketing
       };
 
-      console.log('🔧 Calling register with parent userData:', { 
+      console.log('🔧 Calling register with userData:', { 
         name: userData.name, 
         email: userData.email, 
         role: userData.role 
       });
 
       const result = await register(userData);
-      console.log('🔧 Parent register result:', result);
+      console.log('🔧 Register result:', result);
       
       if (result.success) {
-        console.log('🔧 Parent signup successful!');
+        console.log('🔧 Signup successful!');
         Alert.alert(
           '🎉 Tilin luonti onnistui!', 
           '📧 TÄRKEÄÄ: Vahvista sähköpostiosoitteesi 3 päivän kuluessa!\n\n' +
@@ -219,12 +280,28 @@ const ParentSignupScreen = ({ navigation }) => {
         );
         // Navigation will happen automatically via AuthContext state change
       } else {
-        console.log('🔧 Parent signup failed:', result.error);
+        console.log('🔧 Signup failed:', result.error);
         throw new Error(result.error);
       }
     } catch (error) {
-      console.error('🔧 ParentSignup error:', error);
-      Alert.alert('Error', error.message || 'Failed to create account');
+      console.error('🔧 TeacherSignup error:', error);
+      
+      // Käyttäjäystävällinen virheilmoitus
+      let userMessage = 'Tilin luonti epäonnistui';
+      
+      if (error.message.includes('Salasana:')) {
+        userMessage = error.message;
+      } else if (error.message.includes('Nimi:')) {
+        userMessage = error.message;
+      } else if (error.message.includes('email')) {
+        userMessage = 'Sähköpostiosoitteessa on ongelma';
+      } else if (error.message.includes('already-in-use')) {
+        userMessage = 'Sähköpostiosoite on jo käytössä';
+      } else if (error.message.includes('network')) {
+        userMessage = 'Verkkoyhteysvirhe. Tarkista internetyhteytesi.';
+      }
+      
+      Alert.alert('Virhe tilin luonnissa', userMessage);
     } finally {
       setLoading(false);
     }
@@ -239,14 +316,14 @@ const ParentSignupScreen = ({ navigation }) => {
         >
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Join as a Parent</Text>
+        <Text style={styles.headerTitle}>Join as a Professional</Text>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeTitle}>Connect with Professionals Worldwide</Text>
+          <Text style={styles.welcomeTitle}>Showcase Your Skills, Be Found by Families</Text>
           <Text style={styles.welcomeSubtitle}>
-            Find qualified specialists to support your child's development and learning journey
+            Join our global platform connecting you with families and organizations worldwide
           </Text>
         </View>
 
@@ -287,62 +364,53 @@ const ParentSignupScreen = ({ navigation }) => {
             />
           </View>
 
+          <Text style={styles.sectionTitle}>Professional Information</Text>
+
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Location</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="City, Country"
-              value={formData.location}
-              onChangeText={(text) => handleInputChange('location', text)}
-            />
+            <Text style={styles.label}>Area of Expertise *</Text>
+            <View style={styles.pickerContainer}>
+              <TouchableOpacity
+                style={styles.picker}
+                onPress={() => {
+                  Alert.alert(
+                    'Select Your Specialization',
+                    '',
+                    specializations.map(spec => ({
+                      text: spec,
+                      onPress: () => handleInputChange('specialization', spec)
+                    })).concat([{ text: 'Cancel', style: 'cancel' }])
+                  );
+                }}
+              >
+                <Text style={[styles.pickerText, !formData.specialization && styles.placeholderText]}>
+                  {formData.specialization || 'Select your area of expertise'}
+                </Text>
+                <Ionicons name="chevron-down" size={20} color={colors.textLight} />
+              </TouchableOpacity>
+            </View>
           </View>
 
-          <Text style={styles.sectionTitle}>About Your Family</Text>
-
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Children's Ages</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., 5, 8, 12 years old"
-              value={formData.childrenAges}
-              onChangeText={(text) => handleInputChange('childrenAges', text)}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Specific Needs or Goals</Text>
+            <Text style={styles.label}>Qualifications & Certifications</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Tell us about any specific learning needs, developmental goals, or areas where you'd like support..."
-              value={formData.specificNeeds}
-              onChangeText={(text) => handleInputChange('specificNeeds', text)}
+              placeholder="e.g., Master's in Child Psychology, Board Certified Behavior Analyst..."
+              value={formData.qualifications}
+              onChangeText={(text) => handleInputChange('qualifications', text)}
               multiline
-              numberOfLines={4}
+              numberOfLines={3}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>What type of support are you looking for?</Text>
-            <Text style={styles.helper}>Select all that apply</Text>
-            <View style={styles.serviceGrid}>
-              {serviceTypes.map((service, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.serviceChip,
-                    formData.lookingFor.includes(service) && styles.selectedChip
-                  ]}
-                  onPress={() => toggleService(service)}
-                >
-                  <Text style={[
-                    styles.serviceText,
-                    formData.lookingFor.includes(service) && styles.selectedText
-                  ]}>
-                    {service}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Text style={styles.label}>Years of Experience</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., 5"
+              value={formData.experience}
+              onChangeText={(text) => handleInputChange('experience', text)}
+              keyboardType="numeric"
+            />
           </View>
 
           <Text style={styles.sectionTitle}>Account Security</Text>
@@ -448,7 +516,7 @@ const ParentSignupScreen = ({ navigation }) => {
                 color={colors.primary} 
               />
               <Text style={styles.checkboxText}>
-                I would like to receive updates about new specialists and platform features
+                I would like to receive updates about new opportunities and platform features
               </Text>
             </TouchableOpacity>
           </View>
@@ -481,7 +549,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   header: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
@@ -535,11 +603,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
-  helper: {
-    fontSize: 12,
-    color: colors.textLight,
-    marginBottom: 10,
-  },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -550,33 +613,29 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   textArea: {
-    height: 100,
+    height: 80,
     textAlignVertical: 'top',
   },
-  serviceGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  serviceChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
+  pickerContainer: {
     borderWidth: 1,
     borderColor: colors.border,
+    borderRadius: 8,
     backgroundColor: colors.white,
-    marginBottom: 8,
   },
-  selectedChip: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+  picker: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 12,
   },
-  serviceText: {
-    fontSize: 12,
+  pickerText: {
+    fontSize: 16,
     color: colors.text,
+    flex: 1,
   },
-  selectedText: {
-    color: colors.white,
+  placeholderText: {
+    color: colors.textLight,
   },
   passwordContainer: {
     flexDirection: 'row',
@@ -615,7 +674,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   signupButton: {
-    backgroundColor: colors.secondary,
+    backgroundColor: colors.primary,
     paddingVertical: 15,
     borderRadius: 8,
     alignItems: 'center',
@@ -678,4 +737,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ParentSignupScreen;
+export default TeacherSignupScreen;

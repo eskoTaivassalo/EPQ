@@ -9,9 +9,9 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../hooks/useAuth';
-import { colors } from '../styles/commonStyles';
-import AuthService from '../services/authService';
+import { useAuth } from '../../hooks/useAuth';
+import { colors } from '../../styles/commonStyles';
+import AuthService from '../../services/authService';
 
 /**
  * 📧 Email Verification Screen - Pakollinen sähköpostivahvistus
