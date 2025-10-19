@@ -10,8 +10,8 @@ import {
   Alert
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
-import { useSecurity } from '../context/SecurityContext';
+import { useAuth } from '../hooks/useAuth';
+import { useSecurity } from '../hooks/useSecurity';
 import { colors } from '../styles/commonStyles';
 
 const ParentSignupScreen = ({ navigation }) => {

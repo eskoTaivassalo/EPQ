@@ -31,11 +31,8 @@ const FindTeachersScreen = ({ navigation }) => {
   }, []);
 
   const loadTeachers = async () => {
-    if (!db) {
-      // Demo data if Firebase is not available
-      setTeachers(getDemoTeachers());
-      return;
-    }
+
+   
 
     setLoading(true);
     try {
@@ -73,56 +70,11 @@ const FindTeachersScreen = ({ navigation }) => {
       console.log(`Ladattu ${teachersList.length} opettajaa tietokannasta`);
     } catch (error) {
       console.error('Virhe opettajien lataamisessa:', error);
-      setTeachers(getDemoTeachers()); // Fallback demo data
     } finally {
       setLoading(false);
     }
   };
 
-  const getDemoTeachers = () => [
-    {
-      id: '1',
-      teacherName: 'Anna Smith',
-      subjects: 'Mathematics, Physics',
-      hourlyRate: '25',
-      location: 'Helsinki, Finland',
-      experience: '8',
-      languages: 'Finnish, English',
-      onlineTeaching: true,
-      inPersonTeaching: true,
-      description: 'Experienced mathematics teacher with 8 years of experience in teaching high school and university mathematics.',
-      rating: 4.9,
-      reviewCount: 127
-    },
-    {
-      id: '2',
-      teacherName: 'Michael Johnson',
-      subjects: 'English, German',
-      hourlyRate: '20',
-      location: 'Tampere, Finland',
-      experience: '5',
-      languages: 'Finnish, English, German',
-      onlineTeaching: true,
-      inPersonTeaching: false,
-      description: 'Language teacher who helps students achieve their language goals with modern methods.',
-      rating: 4.8,
-      reviewCount: 89
-    },
-    {
-      id: '3',
-      teacherName: 'Sarah Johnson',
-      subjects: 'English, Literature',
-      hourlyRate: '30',
-      location: 'London, UK',
-      experience: '12',
-      languages: 'English, French',
-      onlineTeaching: true,
-      inPersonTeaching: true,
-      description: 'Native English speaker with extensive experience in teaching English literature and language.',
-      rating: 4.95,
-      reviewCount: 203
-    }
-  ];
 
   const filteredTeachers = teachers.filter(teacher => {
     if (searchQuery && !teacher.teacherName.toLowerCase().includes(searchQuery.toLowerCase()) &&

@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { colors, commonStyles } from '../styles/commonStyles';
 
 const LoginScreen = ({ route, navigation }) => {
@@ -41,8 +41,8 @@ const LoginScreen = ({ route, navigation }) => {
     setLoading(true);
     
     try {
-      console.log('🔑 Calling login function...');
-      const result = await login(userType, {
+      console.log('🔑 Calling Redux login function...');
+      const result = await login({
         email: formData.email,
         password: formData.password
       });

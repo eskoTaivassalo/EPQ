@@ -8,8 +8,8 @@ import {
   ScrollView
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
-import { useAppData } from '../context/AppDataContext';
+import { useAuth } from '../hooks/useAuth';
+import { useAppData } from '../hooks/useAppData';
 import { colors, commonStyles } from '../styles/commonStyles';
 
 const ParentDashboard = ({ navigation }) => {

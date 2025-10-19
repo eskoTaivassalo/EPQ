@@ -120,11 +120,24 @@ npm start
 src/
 ├── components/                 # Uudelleenkäytettävät komponentit
 │   ├── AccountExpirationWarning.js
-│   └── EmailVerificationReminder.js
+│   ├── EmailVerificationReminder.js
+│   ├── CookieConsentBanner.js
+│   └── TagSelector.js
 ├── config/
-│   └── firebaseConfig.js      # Firebase asetukset
-├── context/
-│   └── AuthContext.js         # Käyttäjähallinta + security features
+│   └── firebaseConfig.js      # Firebase asetukset + AsyncStorage persistence
+├── store/                     # 🆕 Redux State Management
+│   ├── index.js              # Store configuration + Redux Persist
+│   ├── middleware/
+│   │   ├── authMiddleware.js        # Session tracking & auto-logout
+│   │   └── errorLoggingMiddleware.js # Centralized error handling
+│   └── slices/
+│       ├── authSlice.js      # Authentication & user session
+│       ├── appDataSlice.js   # Teachers, Parents, Search, Favorites
+│       └── securitySlice.js  # Security validations & rate limiting
+├── hooks/                     # 🆕 Redux Hooks (Custom API)
+│   ├── useAuth.js            # Auth operations (login, register, logout)
+│   ├── useAppData.js         # Data operations (teachers, search)
+│   └── useSecurity.js        # Security validations
 ├── screens/
 │   ├── WelcomeScreen.js       # Aloitusnäkymä
 │   ├── LoginScreen.js         # Kirjautumisnäkymä  

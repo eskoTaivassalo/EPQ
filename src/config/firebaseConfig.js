@@ -24,15 +24,10 @@ let storage;
 try {
   app = initializeApp(firebaseConfig);
   
-  // Alusta Auth - käytä getAuth web-yhteensopivuudelle
-  try {
-    auth = getAuth(app);
-  } catch (authError) {
-    // Fallback React Native Auth:lle
-    auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage)
-    });
-  }
+  // React Native specific Auth initialization with AsyncStorage persistence
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage)
+  });
   
   // Alusta Firestore
   db = getFirestore(app);
@@ -40,7 +35,7 @@ try {
   // Alusta Storage
   storage = getStorage(app);
   
-  console.log('Firebase initialized successfully');
+  console.log('Firebase initialized successfully with AsyncStorage persistence');
 } catch (error) {
   console.error('Firebase initialization error:', error);
   

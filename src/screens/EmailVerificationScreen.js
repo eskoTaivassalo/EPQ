@@ -9,7 +9,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { colors } from '../styles/commonStyles';
 import AuthService from '../services/authService';
 
@@ -20,7 +20,7 @@ import AuthService from '../services/authService';
  * Estää pääsyn Dashboard:iin kunnes vahvistus on suoritettu.
  */
 const EmailVerificationScreen = ({ navigation }) => {
-  const { user, refreshUser, logout } = useAuth();
+  const { user, refreshUser, logout, clearAllAuthData } = useAuth();
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
   const [isChecking, setIsChecking] = useState(false);
@@ -36,11 +36,11 @@ const EmailVerificationScreen = ({ navigation }) => {
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
-  // 🔄 Auto-check email verification status every 3 seconds
+  // 🔄 Auto-check email verification status every 10 seconds (less aggressive)
   useEffect(() => {
     const checkInterval = setInterval(async () => {
       await checkEmailVerification();
-    }, 3000);
+    }, 10000); // Changed from 3000 to 10000 (10 seconds)
 
     return () => clearInterval(checkInterval);
   }, []);
@@ -121,6 +121,24 @@ const EmailVerificationScreen = ({ navigation }) => {
     );
   };
 
+  // 🧹 Aloita alusta
+  const handleStartFresh = () => {
+    Alert.alert(
+      'Aloita alusta?',
+      'Tämä poistaa kaikki tallennetut tiedot ja palauttaa sinut kirjautumisnäkymään.',
+      [
+        { text: 'Peruuta', style: 'cancel' },
+        { 
+          text: 'Aloita alusta', 
+          style: 'destructive',
+          onPress: async () => {
+            await clearAllAuthData();
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -191,6 +209,17 @@ const EmailVerificationScreen = ({ navigation }) => {
         <Text style={styles.helpText}>
           💡 Vahvistusviesti voi kestää muutaman minuutin. Tarkista myös roskapostikansio.
         </Text>
+
+        {/* Start Fresh Button */}
+        <TouchableOpacity 
+          style={styles.startFreshButton}
+          onPress={handleStartFresh}
+        >
+          <Ionicons name="refresh-circle-outline" size={20} color={colors.textLight} />
+          <Text style={styles.startFreshText}>
+            Aloita alusta uudella käyttäjällä
+          </Text>
+        </TouchableOpacity>
 
         {/* Auto-check indicator */}
         {isChecking && (
@@ -312,6 +341,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
     marginBottom: 20,
+  },
+  startFreshButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.textLight,
+    borderRadius: 25,
+    backgroundColor: 'transparent',
+  },
+  startFreshText: {
+    fontSize: 14,
+    color: colors.textLight,
+    marginLeft: 8,
+    fontWeight: '500',
   },
   autoCheckContainer: {
     flexDirection: 'row',

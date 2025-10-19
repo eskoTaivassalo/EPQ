@@ -138,6 +138,11 @@ export const getTagById = (tags, id) => {
 };
 
 export const getTagLabels = (tags, selectedIds) => {
+  // Handle cases where selectedIds might be undefined, null, or not an array
+  if (!selectedIds || !Array.isArray(selectedIds)) {
+    return [];
+  }
+  
   return selectedIds.map(id => {
     const tag = getTagById(tags, id);
     return tag ? tag.label : id;
@@ -145,5 +150,10 @@ export const getTagLabels = (tags, selectedIds) => {
 };
 
 export const getTagsByIds = (tags, selectedIds) => {
+  // Handle cases where selectedIds might be undefined, null, or not an array
+  if (!selectedIds || !Array.isArray(selectedIds)) {
+    return [];
+  }
+  
   return selectedIds.map(id => getTagById(tags, id)).filter(Boolean);
 };

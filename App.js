@@ -1,13 +1,16 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, ActivityIndicator } from 'react-native';
 
-// Context
-import { AuthProvider, useAuth } from './src/context/AuthContext';
-import { SecurityProvider } from './src/context/SecurityContext';
-import { AppDataProvider } from './src/context/AppDataContext';
+// Redux
+import { Provider } from 'react-redux';
+import { PersistGate } from 'redux-persist/integration/react';
+import { store, persistor } from './src/store';
+
+// Hooks (Redux-based)
+import { useAuth } from './src/hooks/useAuth';
 
 // Screens
 import WelcomeScreen from './src/screens/WelcomeScreen';
@@ -36,11 +39,31 @@ const Loading = () => (
   </View>
 );
 
-// Navigation component that uses auth context
-const AppNavigator = () => {
-  const { user, loading, isAuthenticated } = useAuth();
+// Navigation component that uses Redux auth
 
-  if (loading) {
+import { useState } from 'react';
+
+const AppNavigator = () => {
+  const { user, loading, isAuthenticated, loadStoredAuth } = useAuth();
+  const [emailVerifiedDelay, setEmailVerifiedDelay] = useState(false);
+
+  // Load stored auth on app start
+  useEffect(() => {
+    loadStoredAuth();
+  }, []);
+
+  // Viivästetään email verification -näkymän näyttöä päivityksen jälkeen
+  useEffect(() => {
+    if (isAuthenticated && user && !user.emailVerified) {
+      setEmailVerifiedDelay(true);
+      const timer = setTimeout(() => setEmailVerifiedDelay(false), 1500); // 1.5s viive
+      return () => clearTimeout(timer);
+    } else {
+      setEmailVerifiedDelay(false);
+    }
+  }, [isAuthenticated, user?.emailVerified]);
+
+  if (loading || emailVerifiedDelay) {
     return <Loading />;
   }
 
@@ -94,13 +117,16 @@ const AppNavigator = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <SecurityProvider>
-        <AppDataProvider>
-          <StatusBar style="light" backgroundColor={colors.primary} />
-          <AppNavigator />
-        </AppDataProvider>
-      </SecurityProvider>
-    </AuthProvider>
+    <Provider store={store}>
+      <PersistGate loading={<Loading />} persistor={persistor}>
+        <StatusBar style="light" backgroundColor={colors.primary} />
+        <AppContent />
+      </PersistGate>
+    </Provider>
   );
 }
+
+// Separate component that has access to Redux store
+const AppContent = () => {
+  return <AppNavigator />;
+};

@@ -238,8 +238,9 @@ export class AuthService {
    * Lähetä salasanan nollausviesti
    */
   static async sendPasswordReset(email) {
-    if (!this.validateEmail(email)) {
-      throw new Error('Virheellinen sähköpostiosoite');
+    const emailValidation = this.validateEmail(email);
+    if (!emailValidation.isValid) {
+      throw new Error(emailValidation.message);
     }
 
     try {
@@ -325,8 +326,17 @@ export class AuthService {
    * Validoi sähköpostiosoite
    */
   static validateEmail(email) {
+    if (!email) {
+      return { isValid: false, message: 'Sähköposti on pakollinen' };
+    }
+    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    const isValid = emailRegex.test(email);
+    
+    return {
+      isValid,
+      message: isValid ? 'Kelvollinen sähköposti' : 'Virheellinen sähköpostiosoite'
+    };
   }
 
   /**

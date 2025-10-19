@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 import { colors } from '../styles/commonStyles';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';

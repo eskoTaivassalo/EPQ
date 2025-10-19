@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../styles/commonStyles';
-import { useAppData } from '../context/AppDataContext';
+import { useAppData } from '../hooks/useAppData';
 import TagSelector from '../components/TagSelector';
 import {
   SUBJECTS,
@@ -30,11 +30,18 @@ import {
 import { calculatePriceRange } from '../utils/tagUtils';
 
 const FindTeachersScreen = ({ navigation }) => {
-  const { getTeachers, searchTeachers, addToFavorites, removeFromFavorites, isFavorite } = useAppData();
+  const { 
+    teachers,          // Redux selector - suoraan array
+    teachersLoading,   // Redux loading state
+    getTeachers, 
+    searchTeachers, 
+    addToFavorites, 
+    removeFromFavorites, 
+    isFavorite 
+  } = useAppData();
+  
   const [searchQuery, setSearchQuery] = useState('');
-  const [teachers, setTeachers] = useState([]);
   const [filteredTeachers, setFilteredTeachers] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     subjects: [],
@@ -55,18 +62,21 @@ const FindTeachersScreen = ({ navigation }) => {
   }, [teachers, filters, searchQuery]);
 
   const loadTeachers = async () => {
-    setLoading(true);
     try {
-      const teachersList = await getTeachers();
-      setTeachers(teachersList);
+      await getTeachers(); // Redux hoitaa loading staten ja datan
     } catch (error) {
       console.error('Error loading teachers:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
   const applyFilters = () => {
+    // Varmistetaan että teachers on array
+    if (!Array.isArray(teachers)) {
+      console.log('Teachers is not an array:', teachers);
+      setFilteredTeachers([]);
+      return;
+    }
+
     let filtered = [...teachers];
 
     // Text search
@@ -298,7 +308,7 @@ const FindTeachersScreen = ({ navigation }) => {
         </View>
       )}
 
-      {loading ? (
+      {teachersLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading teachers...</Text>
