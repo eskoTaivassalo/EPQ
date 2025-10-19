@@ -12,6 +12,7 @@ expo-env.d.ts
 # Firebase - Sensitiiviset tiedostot
 google-services.json
 GoogleService-Info.plist
+src/config/firebaseConfig.js
 .env
 .env.local
 .env.production
