@@ -6,33 +6,38 @@
 ## ✅ VALMIIT TYÖT (Päivitetty 19.10.2025)
 
 ### 🎯 Arkkitehtuuri & State Management
-- [x] **Redux Toolkit migraatio** - Context API korvattu Redux Toolkitilla
+- [x] **Redux Toolkit migraatio ALOITETTU** - Context API korvattu Redux Toolkitilla
   - Redux store luotu (`src/store/index.js`)
   - Auth slice toteutettu (`src/store/slices/authSlice.js`)
   - AppData slice toteutettu (`src/store/slices/appDataSlice.js`)
   - Security slice toteutettu (`src/store/slices/securitySlice.js`)
   - Redux middleware: authMiddleware ja errorLoggingMiddleware
   - Redux DevTools integraatio
-  - Redux-persist konfiguraatio offline-datan tallennukseen
+  - ⚠️ **Redux-persist asennettu mutta EI VIELÄ KONFIGUROITU**
+  - ⚠️ **TARVITSEE: Kokonaisvaltainen testaus**
 - [x] **Custom Hooks refaktorointi**
   - `useAuth` hook - Autentikointi
   - `useAppData` hook - Data management
   - `useSecurity` hook - Turvallisuus
-- [x] **Context arkkitehtuuri optimointi**
+  - ⚠️ **TARVITSEE: Integration testing**
+- [ ] **Context arkkitehtuuri optimointi**
   - Context API poistettu Redux Toolkitin hyväksi
-  - Improved performance ja debugging
-  - Better state management scalability
+  - ⚠️ **TARVITSEE: Performance benchmarking**
+  - ⚠️ **TARVITSEE: Memory leak testing**
 
 ### 🔐 Autentikointi & Turvallisuus
-- [x] Firebase autentikointi integraatio
+- [x] Firebase autentikointi integraatio (perusteet)
 - [x] Email/password kirjautuminen
 - [x] Käyttäjäroolit (Parent/Teacher)
 - [x] Email-verifiointi
-- [x] Salasanan resetointi toiminnallisuus
+- [x] Salasanan resetointi toiminnallisuus (authService.js)
 - [x] GDPR-yhteensopivuus perusteet
 - [x] Cookie consent banner
 - [x] Tilin vanhenemisen hallinta (120 päivää)
 - [x] Security service luotu
+- [ ] **PUUTTUU: Firebase Security Rules (KRIITTINEN!)**
+- [ ] **PUUTTUU: Security testing**
+- [ ] **PUUTTUU: Session timeout handling**
 
 ### 👤 Profiilienhallinta
 - [x] Opettajaprofiilien luonti ja hallinta
@@ -96,20 +101,20 @@
 ### 📌 Viikko 1 (Päivät 1-5) - MA-PE
 
 #### Maanantai: Autentikointi & Turvallisuus
-- [x] Firebase Security Rules auditointi ja parannus
-- [x] Salasanan resetointi toiminnallisuus
+- [ ] Firebase Security Rules auditointi ja parannus (EI TEHTY - Prioriteetti!)
+- [x] Salasanan resetointi toiminnallisuus (authService.js)
 - [x] Email-verifiointi pakolliseksi rekisteröinnissä
-- [x] Session management parannus (Redux Toolkit migraatio)
+- [ ] Session management parannus (Osittain - Redux tehty mutta testaus puuttuu)
 
 #### Tiistai: Profiilienhallinta
 - [ ] Profiilikuvien lisäys (Firebase Storage)
-- [x] Profiilitietojen validointi parannus
-- [x] Tag-systeemin optimointi
+- [ ] Profiilitietojen validointi parannus (Perusteet tehty, tarvitsee testaus)
+- [x] Tag-systeemin optimointi (Tehty constants/tags.js)
 - [ ] "Edit Profile" UX parannus
 
 #### Keskiviikko: Opettajahaku & Suodatus
-- [x] Hakutoiminnon optimointi (performance) - Redux migraatio
-- [x] Lisää suodatusvaihtoehtoja (aineet, kielet, sijainnit)
+- [ ] Hakutoiminnon optimointi (performance) - Osittain, tarvitsee testaus
+- [x] Lisää suodatusvaihtoehtoja (aineet, kielet, sijainnit) - TagSelector toteutettu
 - [ ] Karttanäkymä opettajien sijaintiin
 - [ ] Favoriitin lisäys/poisto toiminnallisuus
 
@@ -140,15 +145,15 @@
 - [ ] Privacy Policy & Terms of Service sivut
 
 #### Keskiviikko: Performance optimointi
-- [x] Bundle size optimointi (Redux Toolkit migraatio)
+- [ ] Bundle size optimointi (Redux asennettu mutta mittaus puuttuu)
 - [ ] Image optimization
 - [ ] Lazy loading toteutus
-- [x] Memory leakien tarkistus (Redux prevents memory leaks)
+- [ ] Memory leakien tarkistus (Tarvitsee testaus)
 
 #### Torstai: API optimointi & Error handling
-- [x] Firebase queryt optimointi (Redux slices)
-- [x] Caching strategioiden parannus (Redux-persist)
-- [x] Error handling parannus (errorLoggingMiddleware)
+- [ ] Firebase queryt optimointi (Perusteet tehty, optimointi puuttuu)
+- [ ] Caching strategioiden parannus (Redux-persist asennettu, ei konfiguroitu)
+- [ ] Error handling parannus (Middleware tehty, tarvitsee testaus)
 - [ ] Retry mechanismit
 
 #### Perjantai: Integration Testing
