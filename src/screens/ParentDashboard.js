@@ -9,10 +9,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useAppData } from '../context/AppDataContext';
 import { colors, commonStyles } from '../styles/commonStyles';
 
 const ParentDashboard = ({ navigation }) => {
   const { user, logout } = useAuth();
+  const { favorites } = useAppData();
 
   const menuItems = [
     {

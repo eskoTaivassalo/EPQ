@@ -1,170 +1,277 @@
 # Parents & Teachers App
 
-Globaali mobiilisovellus opettajille, oppilaille ja vanhemmille. Mahdollistaa opettajien löytämisen ja yhteydenpidon maailmanlaajuisesti.
+🌍 **Globaali mobiilisovellus** opettajille ja vanhemmille - yhdistää opetuksen ammattilaisia ja perheiden tarpeita maailmanlaajuisesti.
 
 ## ✨ Ominaisuudet
 
-### 🎓 Oppilaille
-- **Arvosanat**: Tarkastele arvosanojasi reaaliajassa
-- **Kotitehtävät**: Näe kaikki kotitehtäväsi ja niiden määräajat
-- **Aikataulu**: Henkilökohtainen lukujärjestys
-- **Viestit**: Keskustele opettajien kanssa
-- **Profiili**: Omat tietosi ja asetukset
-
-### 👨‍🏫 Opettajille
-- **Opettajaprofiili**: Luo kattava profiili osaamisalueistasi
-- **Globaali näkyvyys**: Tarjoa palveluitasi maailmanlaajuisesti
-- **Oppilaat**: Hallinnoi oppilaita ja heidän tietojaan
-- **Arviointi**: Anna arvosanoja ja palautetta
-- **Tehtävät**: Luo ja hallinnoi kotitehtäviä
-- **Hinnoittelu**: Aseta omat tuntihinnat
-- **Saatavuus**: Määritä verkko- ja lähiopetuksen saatavuus
+### 👨‍� Opettajille
+- **📋 Opettajaprofiili**: Luo kattava profiili osaamisalueistasi ja kokemuksestasi
+- **🌍 Globaali näkyvyus**: Tarjoa palveluitasi maailmanlaajuisesti
+- **💰 Hinnoittelu**: Aseta omat tuntihinnat ja maksuehdot
+- **📅 Saatavuus**: Määritä verkko- ja lähiopetuksen saatavuus
+- **⭐ Arvostelut**: Kerää asiakaspalautetta ja rakenna mainetta
+- **💬 Viestit**: Keskustele vanhempien kanssa suoraan sovelluksessa
 
 ### 👨‍👩‍👧‍👦 Vanhemmille
-- **Opettajien haku**: Löydä parhaita opettajia maailmanlaajuisesti
-- **Suodattimet**: Hae aiheittain, hinnan mukaan tai sijainnin perusteella
-- **Arvostelut**: Lue muiden vanhempien kokemuksia
-- **Suosikit**: Tallenna parhaat opettajat
-- **Varaukset**: Varaa tunteja ja hallinnoi aikatauluja
-- **Viestit**: Keskustele opettajien kanssa suoraan
+- **🔍 Opettajien haku**: Löydä parhaita opettajia maailmanlaajuisesti
+- **🎯 Älykkäät suodattimet**: Hae aiheittain, hinnan mukaan tai sijainnin perusteella
+- **📊 Arvostelut ja palautteet**: Lue muiden vanhempien kokemuksia
+- **❤️ Suosikit**: Tallenna parhaat opettajat helposti
+- **📞 Suora yhteydenotto**: Ota yhteyttä opettajiin välittömästi
+- **🔒 Turvallinen ympäristö**: Varmistetut profiilit ja turvallinen viestintä
+
+## 🛡️ Edistyneet turvallisuusominaisuudet
+
+### � Pakollinen sähköpostivahvistus
+- **✅ Email verification**: Kaikki käyttäjät vahvistavat sähköpostinsa ennen sovelluksen käyttöä
+- **⏰ Automaattinen tunnistus**: Sovellus havaitsee vahvistuksen automaattisesti
+- **🔄 Uudelleenlähetys**: Helppo vahvistusviestin uudelleenlähetys 60s cooldown:lla
+- **⚠️ Account expiration**: Vahvistamattomat tilit poistetaan automaattisesti 3 päivän kuluttua
+
+### 🔐 Salasanan turvallisuus
+- **💪 Reaaliaikainen vahvuusmittari**: Näkyvä strength indicator kirjoittaessa
+- **📏 Tiukat vaatimukset**: Vähintään 6 merkkiä, isoja ja pieniä kirjaimia, numerot
+- **🎨 Visuaalinen palaute**: Värikoodattu palaute (heikko/keskinkertainen/vahva)
+- **⚡ Client-side validointi**: Välitön palaute ennen lähetystä
+
+### 🛡️ Input sanitization & Security
+- **🧹 XSS-suojaus**: Kaikki käyttäjäsyötteet sanitoidaan
+- **💉 SQL injection esto**: Turvallinen tietokantakäsittely
+- **⏱️ Rate limiting**: Automaattinen väärinkäytön esto
+- **🔒 GDPR compliance**: Tietosuoja-asetuksen mukainen toteutus
 
 ## 🚀 Teknologia
 
+### Frontend
 - **React Native** & **Expo** - Cross-platform mobiilisovellus
-- **Firebase Authentication** - Turvallinen käyttäjien hallinta
-- **Firestore Database** - Reaaliaikainen NoSQL tietokanta
-- **Firebase Storage** - Tiedostojen tallennukseen
-- **React Navigation** - Saumaton navigointi
+- **React Navigation 6** - Saumaton navigointi
 - **AsyncStorage** - Paikallinen tallennustila
+- **Expo Vector Icons** - Kattava ikonikirjasto
+
+### Backend & Authentication
+- **Firebase Authentication** - Turvallinen käyttäjien hallinta
+- **Firestore Database** - Reaaliaikainen NoSQL tietokanta  
+- **Firebase Security Rules** - Datan suojaus
+- **Email verification** - Automaattinen sähköpostivahvistus
+
+### Security & Data Protection
+- **Input Sanitization** - XSS ja injection suojaus
+- **Password Strength Validation** - Vahvojen salasanojen pakotus
+- **Account Expiration System** - Automaattinen tilin hallinta
+- **GDPR Compliance** - EU tietosuoja-asetuksen noudattaminen
 
 ## 📱 Asennus ja käyttöönotto
 
-1. **Kloonaa repositorio**
-   ```bash
-   git clone [repository-url]
-   cd ParentsTeachersApp
-   ```
+### 1. Kloonaa ja asenna
+```bash
+git clone [repository-url]
+cd ParentsTeachersApp
+npm install
+```
 
-2. **Asenna riippuvuudet**
-   ```bash
-   npm install
-   ```
+### 2. Firebase Setup (Pakollinen)
+1. Luo Firebase-projekti [Firebase Console:ssa](https://console.firebase.google.com/)
+2. Ota käyttöön:
+   - **Authentication** (Email/Password provider)
+   - **Firestore Database**
+   - **Email verification** (Authentication > Templates)
+3. Päivitä `src/config/firebaseConfig.js` omilla tiedoillasi:
+```javascript
+export const firebaseConfig = {
+  apiKey: "your-api-key",
+  authDomain: "your-project.firebaseapp.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "your-app-id"
+};
+```
 
-3. **Firebase Setup (Valinnainen)**
-   - Luo Firebase-projekti [Firebase Console:ssa](https://console.firebase.google.com/)
-   - Ota käyttöön Authentication ja Firestore
-   - Päivitä `src/config/firebaseConfig.js` omilla tiedoillasi
+### 3. Käynnistä sovellus
+```bash
+npm start
+```
 
-4. **Käynnistä sovellus**
-   ```bash
-   npm start
-   ```
+### 4. Testaa eri alustoilla
+- **📱 Mobiili**: Skannaa QR-koodi Expo Go -sovelluksella
+- **🌐 Web**: Paina `w` terminaalissa  
+- **🤖 Android**: Paina `a` terminaalissa
+- **🍎 iOS**: Paina `i` terminaalissa
 
-5. **Testaa sovellusta**
-   - **Mobiili**: Skannaa QR-koodi Expo Go -sovelluksella
-   - **Web**: Paina `w` terminaalissa
-   - **Android**: Paina `a` terminaalissa
+## 🔐 Käyttöönotto ja turvallisuustestaus
 
-## 🔐 Käyttö
+### Ensimmäinen käyttökerta
+1. **Valitse rooli**: Opettaja tai Vanhempi
+2. **Rekisteröidy**: Täytä tiedot vahvalla salasanalla
+3. **Sähköpostivahvistus**: PAKOLLINEN - sovellus ohjaa verification-näkymään
+4. **Vahvista email**: Tarkista sähköposti ja klikkaa linkkiä
+5. **Automaattinen tunnistus**: Sovellus havaitsee vahvistuksen ja siirtää Dashboard:iin
 
-### Roolin valinta ja kirjautuminen
-1. Valitse roolisi: **Oppilas**, **Opettaja** tai **Vanhempi**
-2. Syötä tietosi (demo toimii ilman oikeaa Firebasea)
-3. Kirjaudu sisään automaattisella rekisteröinnillä
-
-### Opettajaprofiili
-1. Kirjaudu opettajana
-2. Siirry "Profiili" -välilehdelle
-3. Täytä tietosi:
-   - Opetettavat aineet
-   - Tuntihinta
-   - Kokemus ja koulutus
-   - Saatavuus
-   - Kuvaus itsestäsi
-
-### Opettajien haku
-1. Kirjaudu vanhempana
-2. Valitse "Etsi opettajia"
-3. Käytä hakua ja suodattimia
-4. Ota yhteyttä sopiviin opettajiin
+### Turvallisuustestaus
+1. Siirry **SecurityTest** -näkymään Dashboard:ista
+2. Testaa seuraavat ominaisuudet:
+   - **🧪 Security Tests**: Password validation, XSS suojaus, rate limiting
+   - **🔓 Weak Password Tests**: Heikkojen salasanojen esto
+   - **⏰ Account Expiration Tests**: Automaattinen cleanup-järjestelmä
 
 ## 📁 Tiedostorakenne
 
 ```
 src/
-├── components/          # Uudelleenkäytettävät komponentit
-├── config/             # Firebase ja muut konfiguraatiot
-│   └── firebaseConfig.js   # Firebase asetukset
-├── context/            # React Context (AuthContext)
-│   └── AuthContext.js      # Käyttäjien hallinta
-├── screens/            # Sovelluksen näkymät
-│   ├── WelcomeScreen.js        # Aloitusnäkymä
-│   ├── LoginScreen.js          # Kirjautumisnäkymä
-│   ├── StudentDashboard.js     # Oppilaan päävalikko
-│   ├── TeacherDashboard.js     # Opettajan päävalikko
-│   ├── ParentDashboard.js      # Vanhemman päävalikko
-│   ├── TeacherProfileScreen.js # Opettajaprofiili
-│   └── FindTeachersScreen.js   # Opettajien haku
-└── styles/             # Tyylit ja värit
-    └── commonStyles.js     # Yleiset tyylit
+├── components/                 # Uudelleenkäytettävät komponentit
+│   ├── AccountExpirationWarning.js
+│   └── EmailVerificationReminder.js
+├── config/
+│   └── firebaseConfig.js      # Firebase asetukset
+├── context/
+│   └── AuthContext.js         # Käyttäjähallinta + security features
+├── screens/
+│   ├── WelcomeScreen.js       # Aloitusnäkymä
+│   ├── LoginScreen.js         # Kirjautumisnäkymä  
+│   ├── EmailVerificationScreen.js  # PAKOLLINEN email vahvistus
+│   ├── TeacherSignupScreen.js      # Opettajan rekisteröinti
+│   ├── ParentSignupScreen.js       # Vanhemman rekisteröinti
+│   ├── TeacherDashboard.js         # Opettajan päävalikko
+│   ├── ParentDashboard.js          # Vanhemman päävalikko
+│   ├── FindTeachersScreen.js       # Opettajien haku
+│   └── SecurityTestScreen.js       # Turvallisuustestit
+├── services/
+│   ├── authService.js         # Email verification, password validation
+│   ├── securityService.js     # Input sanitization, XSS protection
+│   └── gdprService.js         # GDPR compliance utilities
+└── styles/
+    └── commonStyles.js        # Yleiset tyylit ja värit
 ```
 
-## 🎨 Värimaailma
-
-- **Oppilas**: Vihreä (#4CAF50)
-- **Opettaja**: Oranssi (#FF9800) 
-- **Vanhempi**: Pinkki (#E91E63)
-- **Tausta**: Vaaleanharmaa (#F5F5F5)
-- **Teksti**: Tummanharmonaa (#333333)
-
-## 🔥 Firebase-tietokannan rakenne
+## � Firebase Firestore rakenne
 
 ```
-users/
+teachers/
   {userId}/
-    - name: string
+    - uid: string
+    - fullName: string
     - email: string
-    - userType: 'student' | 'teacher' | 'parent'
-    - createdAt: timestamp
-
-teacherProfiles/
-  {teacherId}/
-    - teacherName: string
+    - userType: 'teacher'
     - subjects: string
     - hourlyRate: string
-    - location: string
     - experience: string
     - education: string
-    - languages: string
+    - location: string
     - description: string
-    - availability: string
+    - languages: string
     - onlineTeaching: boolean
     - inPersonTeaching: boolean
-    - isActive: boolean
+    - emailVerified: boolean
+    - securityScore: number (password strength)
     - createdAt: timestamp
-    - updatedAt: timestamp
+    - lastUpdated: timestamp
+
+parents/
+  {userId}/
+    - uid: string
+    - fullName: string
+    - email: string
+    - userType: 'parent'
+    - phoneNumber: string
+    - location: string
+    - childrenAges: string
+    - specificNeeds: string
+    - lookingFor: array
+    - emailVerified: boolean
+    - securityScore: number
+    - createdAt: timestamp
+    - lastUpdated: timestamp
 ```
 
-## 🌟 Demo-ominaisuudet
+## 🛡️ Turvallisuusarkkitehtuuri
 
-Sovellus toimii demo-tilassa ilman Firebase-yhteyttä:
-- **Autentikointi**: Toimii paikallisesti AsyncStoragella
-- **Demo-data**: Esimerkki opettajia hakutoimintoa varten
-- **Offline-toiminta**: Kaikki perustoiminnot käytettävissä
+### Authentication Flow
+```
+1. User Registration → Client-side validation
+2. Firebase Auth → Server-side validation  
+3. Email Verification → PAKOLLINEN (ei pääsyä sovellukseen)
+4. Account Creation Tracking → 3 päivän expiration
+5. Dashboard Access → Vasta vahvistuksen jälkeen
+```
+
+### Security Services
+- **AuthService**: Email verification, password strength, account expiration
+- **SecurityService**: Input sanitization, XSS protection, injection prevention
+- **GDPRService**: Data export, deletion, consent management
+
+### Account Lifecycle
+- **Creation**: Account tracking starts, email verification sent
+- **Verification**: 3-day window to verify email
+- **Expiration**: Automatic cleanup of unverified accounts
+- **Active Use**: Normal application access after verification
+
+## 🎨 Käyttöliittymä
+
+### Värimaailma
+- **Opettaja**: Oranssi (#FF9800)
+- **Vanhempi**: Pinkki (#E91E63)  
+- **Primary**: Sininen (#2196F3)
+- **Success**: Vihreä (#4CAF50)
+- **Warning**: Oranssi (#FF9800)
+- **Error**: Punainen (#F44336)
+
+### Password Strength Indicator
+- **🔴 Erittäin heikko** (0-39/100): Punainen, 20% width
+- **🟠 Heikko** (40-59/100): Oranssi, 40% width
+- **🟡 Keskinkertainen** (60-79/100): Keltainen, 70% width  
+- **🟢 Vahva** (80-100/100): Vihreä, 100% width
+
+## 🧪 Testaaminen
+
+### Security Testing
+1. **Navigation**: SecurityTest screen Dashboard:ista
+2. **Password Tests**: Weak password validation
+3. **XSS Tests**: Script injection prevention
+4. **Rate Limiting**: Abuse prevention
+5. **Account Expiration**: Cleanup functionality
+
+### Manual Testing Scenarios
+- **Rekisteröinti heikolla salasanalla** → Esto + selkeä virheilmoitus
+- **Email verification skip** → Esto, pakollinen verification screen
+- **XSS injection yritys** → Sanitization toimii
+- **Account expiration** → 3 päivän kuluttua automaattinen poisto
 
 ## 🚀 Tulevaisuuden kehitysideat
 
-- [ ] **Reaaliaikainen chat** - WebSocket-pohjaiset viestit
-- [ ] **Video-puhelut** - Integrointi video-alustaan
-- [ ] **Maksujen käsittely** - Stripe/PayPal integraatio
-- [ ] **Kalenteritoiminnot** - Tuntien varaus ja aikataulutus
-- [ ] **Push-notifikaatiot** - Ilmoitukset viesteistä ja varauksista
-- [ ] **Arvostelujärjestelmä** - Opettajien arviointi
-- [ ] **Suositusten AI** - Älykkäät opettajasuositukset
-- [ ] **Monikielisyys** - Kansainvälinen käyttö
-- [ ] **Tiedostojen jakaminen** - Materiaalien jakaminen
-- [ ] **Ryhmätunnit** - Usean oppilaan tunnit
+### � Turvallisuus
+- [ ] **Two-Factor Authentication (2FA)** - SMS/Authenticator app
+- [ ] **Advanced threat detection** - Suspicious activity monitoring
+- [ ] **Encryption at rest** - Sensitive data encryption
+- [ ] **Audit logging** - Complete security event tracking
 
-## 📄 Lisenssit
+### 💬 Viestintä
+- [ ] **Real-time chat** - WebSocket-pohjaiset viestit
+- [ ] **Video calls** - Zoom/Jitsi integraatio
+- [ ] **File sharing** - Secure document exchange
+- [ ] **Push notifications** - Real-time alerts
 
-MIT License - Vapaasti käytettävissä kehitystarkoituksiin.
+### 💰 Liiketoiminta
+- [ ] **Payment processing** - Stripe/PayPal integraatio
+- [ ] **Booking system** - Kalenderivaraukset
+- [ ] **Rating system** - Opettaja-arvostelut
+- [ ] **Subscription tiers** - Premium features
+
+### 🌍 Kansainvälistyminen
+- [ ] **Multi-language support** - i18n implementation
+- [ ] **Currency conversion** - Real-time exchange rates
+- [ ] **Timezone handling** - Global scheduling
+- [ ] **Region-specific features** - Local compliance
+
+## 📄 Lisenssit ja compliance
+
+- **MIT License** - Vapaasti käytettävissä kehitystarkoituksiin
+- **GDPR Compliant** - EU tietosuoja-asetuksen mukainen
+- **Firebase Terms** - Google Firebase palveluehdot
+- **Data Protection** - Industry standard security practices
+
+---
+
+*Päivitetty: Lokakuu 2025 - Sisältää uusimmat turvallisuusparannukset ja email verification pakotuksen*
+---
+
+*Päivitetty: Lokakuu 2025 - Sisältää uusimmat turvallisuusparannukset ja email verification pakotuksen*

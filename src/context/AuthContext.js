@@ -8,11 +8,9 @@ import {
   onAuthStateChanged,
   updateProfile
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, collection, addDoc, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../config/firebaseConfig';
 import AuthService from '../services/authService';
-import SecurityService from '../services/securityService';
-import GDPRService from '../services/gdprService';
 
 const AuthContext = createContext();
 
@@ -172,108 +170,31 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     console.log('AuthContext: Register called with userData:', JSON.stringify(userData, null, 2));
-    console.log('AuthContext: userData.role specifically:', userData.role);
     
     try {
-      // 🔒 SECURITY VALIDATIONS - Uudet turvallisuustarkistukset
-      
-      // 1. Rate limiting tarkistus
-      const rateLimitResult = SecurityService.checkRateLimit(
-        userData.email, 
-        3, // max 3 rekisteröintiä
-        300000 // 5 minuutissa
-      );
-      
-      if (!rateLimitResult.allowed) {
-        throw new Error(rateLimitResult.message);
-      }
-
-      // 2. Sanitoi ja validoi kaikki syötteet
-      const sanitizedData = SecurityService.sanitizeObject(userData);
-      
-      // Validoi nimi
-      const nameValidation = SecurityService.validateUsername(sanitizedData.name);
-      if (!nameValidation.isValid) {
-        throw new Error(`Nimi: ${nameValidation.message}`);
-      }
-
-      // Validoi sähköposti
-      if (!AuthService.validateEmail(sanitizedData.email)) {
-        throw new Error('Virheellinen sähköpostiosoite');
-      }
-
-      // Validoi salasana
-      const passwordValidation = AuthService.validatePassword(sanitizedData.password);
-      if (!passwordValidation.isValid) {
-        throw new Error(`Salasana: ${passwordValidation.message}`);
-      }
-
-      // Validoi puhelinnumero jos annettu
-      if (sanitizedData.phone) {
-        const phoneValidation = SecurityService.validatePhoneNumber(sanitizedData.phone);
-        if (!phoneValidation.isValid) {
-          throw new Error(`Puhelinnumero: ${phoneValidation.message}`);
-        }
-        sanitizedData.phone = phoneValidation.sanitized;
-      }
-
-      // Validoi bio/kuvaus jos annettu
-      if (sanitizedData.bio) {
-        const bioValidation = SecurityService.validateDescription(sanitizedData.bio);
-        if (!bioValidation.isValid) {
-          throw new Error(`Kuvaus: ${bioValidation.message}`);
-        }
-        sanitizedData.bio = bioValidation.sanitized;
-      }
-
-      // Validoi tagit
-      if (sanitizedData.tags && Array.isArray(sanitizedData.tags)) {
-        const tagsValidation = SecurityService.validateTags(sanitizedData.tags);
-        if (!tagsValidation.isValid) {
-          throw new Error(`Oppiaineet: ${tagsValidation.message}`);
-        }
-        sanitizedData.tags = tagsValidation.sanitized;
-      }
-
-      // 3. Tarkista injection-hyökkäykset
-      const userValues = Object.values(sanitizedData).filter(v => typeof v === 'string');
-      for (const value of userValues) {
-        if (!SecurityService.isSafeFromInjection(value)) {
-          SecurityService.logSecurityEvent('injection_attempt', {
-            email: sanitizedData.email,
-            suspiciousValue: value.substring(0, 50)
-          });
-          throw new Error('Virheellisiä merkkejä syötteessä');
-        }
-      }
-
-      console.log('AuthContext: Security validations passed');
-
       if (!auth || !db) {
         console.log('AuthContext: No Firebase, using fallback for registration');
-        // Fallback mode
-        const userRole = sanitizedData.role || 'parent';
-        console.log('AuthContext: Using role for direct fallback:', userRole);
-        return await loginFallback(userRole, sanitizedData);
+        const userRole = userData.role || 'parent';
+        return await loginFallback(userRole, userData);
       }
 
       console.log('AuthContext: Attempting Firebase registration');
       
-      // Luo käyttäjä Firebase Authiin käyttäen sanitoituja tietoja
+      // Luo käyttäjä Firebase Authiin
       const userCredential = await createUserWithEmailAndPassword(
         auth, 
-        sanitizedData.email, 
-        sanitizedData.password
+        userData.email, 
+        userData.password
       );
 
       console.log('AuthContext: Firebase Auth user created successfully');
 
-      // Päivitä käyttäjän nimi käyttäen sanitoitua nimeä
+      // Päivitä käyttäjän nimi
       await updateProfile(userCredential.user, {
-        displayName: nameValidation.sanitized
+        displayName: userData.name
       });
 
-      // 📧 Lähetä email verification automaattisesti (varoitus jos epäonnistuu)
+      // 📧 Lähetä email verification automaattisesti
       try {
         await AuthService.sendEmailVerification(userCredential.user);
         console.log('AuthContext: Email verification sent successfully');
@@ -283,20 +204,17 @@ export const AuthProvider = ({ children }) => {
         
       } catch (emailError) {
         console.warn('AuthContext: Email verification failed:', emailError.message);
-        // 🔧 KEHITYSVAIHEESSA: Ei keskeytä rekisteröintiä
-        // Tuotannossa tämä voisi olla pakollinen
       }
 
-      // Tallenna lisätiedot Firestoreen käyttäen sanitoituja tietoja
+      // Tallenna lisätiedot Firestoreen
       const userDoc = {
-        ...sanitizedData,
+        ...userData,
         uid: userCredential.user.uid,
-        email: sanitizedData.email,
-        userType: sanitizedData.role,
+        email: userData.email,
+        userType: userData.role,
         createdAt: new Date().toISOString(),
         emailVerified: false,
-        lastUpdated: new Date().toISOString(),
-        securityScore: AuthService.getPasswordStrength(sanitizedData.password)
+        lastUpdated: new Date().toISOString()
       };
 
       try {
@@ -306,7 +224,6 @@ export const AuthProvider = ({ children }) => {
         console.log(`AuthContext: User saved to ${collectionName} collection`);
       } catch (firestoreError) {
         console.log('AuthContext: Firestore write failed, but Auth user created. Continuing with Auth user only:', firestoreError.message);
-        // Jatka ilman Firestore-tallennusta jos permissions puuttuvat
       }
 
       // Aseta käyttäjä heti rekisteröinnin jälkeen
@@ -320,13 +237,11 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: userCredential.user };
     } catch (error) {
       console.error('AuthContext: Registration error:', error);
-      console.log('AuthContext: userData.role:', userData.role);
       
       // Jos sähköposti on jo käytössä, yritä kirjautua sisään
       if (error.code === 'auth/email-already-in-use') {
         console.log('AuthContext: Email already in use, trying to login instead');
         try {
-          // Yritä kirjautua sisään olemassa olevalla käyttäjällä
           const userCredential = await signInWithEmailAndPassword(
             auth, 
             userData.email, 
@@ -335,11 +250,9 @@ export const AuthProvider = ({ children }) => {
           
           // Hae käyttäjän tiedot rooli-spesifisestä kokoelmasta
           try {
-            // Yritä ensin opettajien kokoelmasta
             let userDoc = await getDoc(doc(db, 'teachers', userCredential.user.uid));
             let collectionUsed = 'teachers';
             
-            // Jos ei löydy opettajista, yritä vanhempien kokoelmasta
             if (!userDoc.exists()) {
               userDoc = await getDoc(doc(db, 'parents', userCredential.user.uid));
               collectionUsed = 'parents';
@@ -354,13 +267,12 @@ export const AuthProvider = ({ children }) => {
               });
               console.log(`AuthContext: Login successful with existing user data from ${collectionUsed} collection`);
             } else {
-              // Jos Firestore-dokumentti ei löydy kummastakaan kokoelmasta, käytä annettuja tietoja
               setUser({
                 ...userCredential.user,
                 userType: userData.role,
                 profile: userData
               });
-              console.log('AuthContext: Login successful, no Firestore data found in teachers or parents collections, using provided data');
+              console.log('AuthContext: Login successful, no Firestore data found, using provided data');
             }
           } catch (firestoreError) {
             console.log('AuthContext: Firestore error during login, using provided data:', firestoreError);
@@ -374,7 +286,6 @@ export const AuthProvider = ({ children }) => {
           return { success: true, user: userCredential.user };
         } catch (loginError) {
           console.log('AuthContext: Login also failed, using fallback');
-          // Jos kirjautuminen epäonnistuu, käytä fallback-moodia
           const userRole = userData.role || 'parent';
           return await loginFallback(userRole, userData);
         }
@@ -383,7 +294,6 @@ export const AuthProvider = ({ children }) => {
       // Muut Firebase-virheet, käytä fallback-moodia
       console.log('AuthContext: Firebase registration failed, using fallback');
       try {
-        // Varmista että rooli on määritelty
         const userRole = userData.role || 'parent';
         console.log('AuthContext: Using role for fallback:', userRole);
         return await loginFallback(userRole, userData);
@@ -395,9 +305,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const login = async (userType, userData) => {
+    console.log('🔑 AuthContext: LOGIN STARTED');
+    console.log('🔑 UserType:', userType);
+    console.log('🔑 UserData:', { email: userData.email, hasPassword: !!userData.password });
+    
     try {
       if (!auth || !db) {
-        // Fallback mode
+        console.log('🔑 AuthContext: No Firebase, using fallback mode');
         return await loginFallback(userType, userData);
       }
 
@@ -505,15 +419,6 @@ export const AuthProvider = ({ children }) => {
   const loginFallback = async (userType, userData) => {
     console.log('AuthContext: Using fallback login/registration for userType:', userType);
     
-    // 🚫 EI HYVÄKSYTÄ HEIKKOJA SALASANOJA FALLBACK-MOODISSAKAAN
-    if (userData.password) {
-      const passwordValidation = AuthService.validatePassword(userData.password);
-      if (!passwordValidation.isValid) {
-        console.error('AuthContext: Fallback rejected due to weak password');
-        throw new Error(passwordValidation.message);
-      }
-    }
-    
     try {
       const userInfo = {
         id: Date.now(),
@@ -548,157 +453,7 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Apufunktiot tietokannan hakuun
-  const getTeachers = async () => {
-    try {
-      if (!db) {
-        console.log('AuthContext: No Firestore, cannot fetch teachers');
-        return [];
-      }
-      
-      const teachersRef = collection(db, 'teachers');
-      const snapshot = await getDocs(teachersRef);
-      const teachers = [];
-      
-      snapshot.forEach((doc) => {
-        teachers.push({ id: doc.id, ...doc.data() });
-      });
-      
-      console.log(`AuthContext: Fetched ${teachers.length} teachers from database`);
-      return teachers;
-    } catch (error) {
-      console.error('AuthContext: Error fetching teachers:', error);
-      return [];
-    }
-  };
-
-  const getParents = async () => {
-    try {
-      if (!db) {
-        console.log('AuthContext: No Firestore, cannot fetch parents');
-        return [];
-      }
-      
-      const parentsRef = collection(db, 'parents');
-      const snapshot = await getDocs(parentsRef);
-      const parents = [];
-      
-      snapshot.forEach((doc) => {
-        parents.push({ id: doc.id, ...doc.data() });
-      });
-      
-      console.log(`AuthContext: Fetched ${parents.length} parents from database`);
-      return parents;
-    } catch (error) {
-      console.error('AuthContext: Error fetching parents:', error);
-      return [];
-    }
-  };
-
-  // 🔐 Uudet security ja GDPR metodit
-  const sendPasswordReset = async (email) => {
-    try {
-      return await AuthService.sendPasswordReset(email);
-    } catch (error) {
-      console.error('AuthContext: Password reset error:', error);
-      throw error;
-    }
-  };
-
-  const changePassword = async (currentPassword, newPassword) => {
-    try {
-      return await AuthService.changePassword(currentPassword, newPassword);
-    } catch (error) {
-      console.error('AuthContext: Password change error:', error);
-      throw error;
-    }
-  };
-
-  const deleteAccount = async (password) => {
-    try {
-      // 1. Poista kaikki käyttäjädata GDPR:n mukaisesti
-      await GDPRService.deleteAllUserData(password);
-      
-      // 2. Poista Firebase Auth käyttäjä
-      await AuthService.deleteAccount(password);
-      
-      // 3. Nollaa lokaali state
-      setUser(null);
-      
-      return { success: true, message: 'Käyttäjätili poistettu onnistuneesti' };
-    } catch (error) {
-      console.error('AuthContext: Account deletion error:', error);
-      throw error;
-    }
-  };
-
-  const exportUserData = async () => {
-    try {
-      return await GDPRService.exportUserData();
-    } catch (error) {
-      console.error('AuthContext: Data export error:', error);
-      throw error;
-    }
-  };
-
-  const getConsentSettings = async () => {
-    try {
-      return await GDPRService.getConsentSettings();
-    } catch (error) {
-      console.error('AuthContext: Consent settings error:', error);
-      throw error;
-    }
-  };
-
-  const updateConsentSettings = async (consents) => {
-    try {
-      return await GDPRService.saveConsentSettings(consents);
-    } catch (error) {
-      console.error('AuthContext: Consent update error:', error);
-      throw error;
-    }
-  };
-
-  const getPrivacySettings = async () => {
-    try {
-      return await GDPRService.getPrivacySettings();
-    } catch (error) {
-      console.error('AuthContext: Privacy settings error:', error);
-      throw error;
-    }
-  };
-
-  const updatePrivacySettings = async (settings) => {
-    try {
-      return await GDPRService.savePrivacySettings(settings);
-    } catch (error) {
-      console.error('AuthContext: Privacy settings update error:', error);
-      throw error;
-    }
-  };
-
-  const validatePassword = (password) => {
-    return AuthService.validatePassword(password);
-  };
-
-  const getPasswordStrength = (password) => {
-    return AuthService.getPasswordStrength(password);
-  };
-
-  const isEmailVerified = () => {
-    return AuthService.isEmailVerified();
-  };
-
-  const sendEmailVerification = async () => {
-    try {
-      return await AuthService.sendEmailVerification();
-    } catch (error) {
-      console.error('AuthContext: Email verification error:', error);
-      throw error;
-    }
-  };
-
-  // 🔄 Refresh user data from Firebase Auth
+  //  Refresh user data from Firebase Auth
   const refreshUser = async () => {
     try {
       if (auth?.currentUser) {
@@ -729,25 +484,7 @@ export const AuthProvider = ({ children }) => {
     logout,
     loading,
     isAuthenticated: !!user,
-    getTeachers,
-    getParents,
-    
-    // 🔐 Security features
-    sendPasswordReset,
-    changePassword,
-    validatePassword,
-    getPasswordStrength,
-    isEmailVerified,
-    sendEmailVerification,
-    refreshUser,
-    
-    // 🛡️ GDPR & Privacy
-    deleteAccount,
-    exportUserData,
-    getConsentSettings,
-    updateConsentSettings,
-    getPrivacySettings,
-    updatePrivacySettings
+    refreshUser
   };
 
   return (

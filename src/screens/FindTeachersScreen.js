@@ -13,8 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../styles/commonStyles';
-import { collection, query, orderBy, getDocs, where } from 'firebase/firestore';
-import { db } from '../config/firebaseConfig';
+import { useAppData } from '../context/AppDataContext';
 import TagSelector from '../components/TagSelector';
 import {
   SUBJECTS,
@@ -31,6 +30,7 @@ import {
 import { calculatePriceRange } from '../utils/tagUtils';
 
 const FindTeachersScreen = ({ navigation }) => {
+  const { getTeachers, searchTeachers, addToFavorites, removeFromFavorites, isFavorite } = useAppData();
   const [searchQuery, setSearchQuery] = useState('');
   const [teachers, setTeachers] = useState([]);
   const [filteredTeachers, setFilteredTeachers] = useState([]);
@@ -55,38 +55,12 @@ const FindTeachersScreen = ({ navigation }) => {
   }, [teachers, filters, searchQuery]);
 
   const loadTeachers = async () => {
-    if (!db) {
-      setTeachers(getDemoTeachers());
-      return;
-    }
-
     setLoading(true);
     try {
-      const q = query(
-        collection(db, 'teachers'),
-        orderBy('name', 'asc')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const teachersList = [];
-      querySnapshot.forEach((doc) => {
-        const teacherData = doc.data();
-        // Lasketaan automaattisesti price range tuntihinnan perusteella
-        const calculatedPriceRange = calculatePriceRange(teacherData.hourlyRate);
-        
-        teachersList.push({
-          id: doc.id,
-          ...teacherData,
-          displayName: teacherData.name || 'Nimetön opettaja',
-          priceRange: calculatedPriceRange, // Automaattisesti laskettu price range
-        });
-      });
-      
+      const teachersList = await getTeachers();
       setTeachers(teachersList);
-      console.log(`Ladattu ${teachersList.length} opettajaa tietokannasta`);
     } catch (error) {
-      console.error('Virhe opettajien lataamisessa:', error);
-      setTeachers(getDemoTeachers());
+      console.error('Error loading teachers:', error);
     } finally {
       setLoading(false);
     }
@@ -99,7 +73,7 @@ const FindTeachersScreen = ({ navigation }) => {
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(teacher => 
-        teacher.displayName?.toLowerCase().includes(query) ||
+        (teacher.name || teacher.fullName || teacher.displayName || '')?.toLowerCase().includes(query) ||
         teacher.description?.toLowerCase().includes(query) ||
         teacher.education?.toLowerCase().includes(query) ||
         getTagLabels(SUBJECTS, teacher.subjects || []).join(' ').toLowerCase().includes(query)
@@ -215,7 +189,7 @@ const FindTeachersScreen = ({ navigation }) => {
           <Ionicons name="person" size={40} color={colors.white} />
         </View>
         <View style={styles.teacherInfo}>
-          <Text style={styles.teacherName}>{item.displayName}</Text>
+          <Text style={styles.teacherName}>{item.name || item.fullName || item.displayName || 'Unknown Teacher'}</Text>
           <View style={styles.ratingContainer}>
             <Ionicons name="star" size={16} color="#FFD700" />
             <Text style={styles.rating}>{item.rating || 4.5}</Text>

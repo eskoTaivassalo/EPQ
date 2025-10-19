@@ -11,12 +11,20 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useSecurity } from '../context/SecurityContext';
 import { colors } from '../styles/commonStyles';
-import AuthService from '../services/authService';
-import SecurityService from '../services/securityService';
 
 const TeacherSignupScreen = ({ navigation }) => {
   const { register } = useAuth();
+  const { 
+    validatePassword, 
+    getPasswordStrength, 
+    sanitizeInput,
+    validateUsername,
+    validateEmail,
+    validatePhoneNumber,
+    validateDescription
+  } = useSecurity();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -63,8 +71,8 @@ const TeacherSignupScreen = ({ navigation }) => {
         setPasswordStrength(0);
         setPasswordValidation({ isValid: false, message: '' });
       } else {
-        const strength = AuthService.getPasswordStrength(value);
-        const validation = AuthService.validatePassword(value);
+        const strength = getPasswordStrength(value);
+        const validation = validatePassword(value);
         
         setPasswordStrength(strength);
         setPasswordValidation(validation);
@@ -88,103 +96,156 @@ const TeacherSignupScreen = ({ navigation }) => {
   };
 
   const validateForm = () => {
-    // 🔐 ENHANCED CLIENT-SIDE VALIDATION
+    console.log('🔧 Starting form validation...');
     
-    // Validoi nimi
-    if (!formData.fullName.trim()) {
-      Alert.alert('Virhe', 'Anna nimesi');
-      return false;
-    }
-    
-    const nameValidation = SecurityService.validateUsername(formData.fullName.trim());
-    if (!nameValidation.isValid) {
-      Alert.alert('Virhe', `Nimi: ${nameValidation.message}`);
-      return false;
-    }
-
-    // Validoi sähköposti
-    if (!formData.email.trim()) {
-      Alert.alert('Virhe', 'Anna sähköpostiosoitteesi');
-      return false;
-    }
-    
-    if (!AuthService.validateEmail(formData.email.trim())) {
-      Alert.alert('Virhe', 'Virheellinen sähköpostiosoite');
-      return false;
-    }
-
-    // Validoi salasana
-    if (!formData.password.trim()) {
-      Alert.alert('Virhe', 'Anna salasana');
-      return false;
-    }
-    
-    const passwordValidation = AuthService.validatePassword(formData.password);
-    if (!passwordValidation.isValid) {
-      Alert.alert('Heikko salasana', passwordValidation.message);
-      return false;
-    }
-
-    // Tarkista salasanan vahvuus
-    const passwordStrength = AuthService.getPasswordStrength(formData.password);
-    if (passwordStrength < 60) {
-      Alert.alert(
-        'Heikko salasana', 
-        `Salasanasi vahvuus on ${passwordStrength}/100. Käytä vahvempaa salasanaa turvallisuuden vuoksi.`
-      );
-      return false;
-    }
-
-    // Tarkista salasanojen vastaavuus
-    if (formData.password !== formData.confirmPassword) {
-      Alert.alert('Virhe', 'Salasanat eivät täsmää');
-      return false;
-    }
-
-    // Validoi specialization
-    if (!formData.specialization) {
-      Alert.alert('Virhe', 'Valitse asiantuntijuusalueesi');
-      return false;
-    }
-
-    // Validoi puhelinnumero jos annettu
-    if (formData.phoneNumber.trim()) {
-      const phoneValidation = SecurityService.validatePhoneNumber(formData.phoneNumber.trim());
-      if (!phoneValidation.isValid) {
-        Alert.alert('Virhe', `Puhelinnumero: ${phoneValidation.message}`);
+    try {
+      // 🔐 ENHANCED CLIENT-SIDE VALIDATION
+      
+      // Validoi nimi
+      if (!formData.fullName.trim()) {
+        console.log('🔧 Validation failed: No name');
+        Alert.alert('Virhe', 'Anna nimesi');
         return false;
       }
-    }
-
-    // Validoi kuvaukset
-    if (formData.qualifications.trim()) {
-      const qualValidation = SecurityService.validateDescription(formData.qualifications.trim());
-      if (!qualValidation.isValid) {
-        Alert.alert('Virhe', `Koulutus: ${qualValidation.message}`);
+      
+      console.log('🔧 Validating username...');
+      const nameValidation = validateUsername(formData.fullName.trim());
+      console.log('🔧 Username validation result:', nameValidation);
+      if (!nameValidation.isValid) {
+        console.log('🔧 Validation failed: Invalid name');
+        Alert.alert('Virhe', `Nimi: ${nameValidation.message}`);
         return false;
       }
-    }
 
-    if (formData.experience.trim()) {
-      const expValidation = SecurityService.validateDescription(formData.experience.trim());
-      if (!expValidation.isValid) {
-        Alert.alert('Virhe', `Kokemus: ${expValidation.message}`);
+      // Validoi sähköposti
+      if (!formData.email.trim()) {
+        console.log('🔧 Validation failed: No email');
+        Alert.alert('Virhe', 'Anna sähköpostiosoitteesi');
         return false;
       }
-    }
+      
+      console.log('🔧 Validating email...');
+      const emailValid = validateEmail(formData.email.trim());
+      console.log('🔧 Email validation result:', emailValid);
+      if (!emailValid) {
+        console.log('🔧 Validation failed: Invalid email');
+        Alert.alert('Virhe', 'Virheellinen sähköpostiosoite');
+        return false;
+      }
 
-    // Tarkista käyttöehdot
-    if (!formData.acceptTerms) {
-      Alert.alert('Virhe', 'Hyväksy käyttöehdot jatkaaksesi');
+      // Validoi salasana
+      if (!formData.password.trim()) {
+        console.log('🔧 Validation failed: No password');
+        Alert.alert('Virhe', 'Anna salasana');
+        return false;
+      }
+      
+      console.log('🔧 Validating password...');
+      const passwordValidation = validatePassword(formData.password);
+      console.log('🔧 Password validation result:', passwordValidation);
+      if (!passwordValidation.isValid) {
+        console.log('🔧 Validation failed: Invalid password');
+        Alert.alert('Heikko salasana', passwordValidation.message);
+        return false;
+      }
+
+      // Tarkista salasanan vahvuus
+      console.log('🔧 Checking password strength...');
+      const passwordStrength = getPasswordStrength(formData.password);
+      console.log('🔧 Password strength:', passwordStrength);
+      if (passwordStrength < 60) {
+        console.log('🔧 Validation failed: Weak password');
+        Alert.alert(
+          'Heikko salasana', 
+          `Salasanasi vahvuus on ${passwordStrength}/100. Käytä vahvempaa salasanaa turvallisuuden vuoksi.`
+        );
+        return false;
+      }
+
+      // Tarkista salasanojen vastaavuus
+      if (formData.password !== formData.confirmPassword) {
+        console.log('🔧 Validation failed: Passwords do not match');
+        Alert.alert('Virhe', 'Salasanat eivät täsmää');
+        return false;
+      }
+
+      // Validoi specialization
+      if (!formData.specialization) {
+        console.log('🔧 Validation failed: No specialization');
+        Alert.alert('Virhe', 'Valitse asiantuntijuusalueesi');
+        return false;
+      }
+
+      // Validoi puhelinnumero jos annettu
+      if (formData.phoneNumber.trim()) {
+        console.log('🔧 Validating phone...');
+        const phoneValidation = validatePhoneNumber(formData.phoneNumber.trim());
+        console.log('🔧 Phone validation result:', phoneValidation);
+        if (!phoneValidation.isValid) {
+          console.log('🔧 Validation failed: Invalid phone');
+          Alert.alert('Virhe', `Puhelinnumero: ${phoneValidation.message}`);
+          return false;
+        }
+      }
+
+      // Validoi kuvaukset
+      if (formData.qualifications.trim()) {
+        console.log('🔧 Validating qualifications...');
+        const qualValidation = validateDescription(formData.qualifications.trim());
+        console.log('🔧 Qualifications validation result:', qualValidation);
+        if (!qualValidation.isValid) {
+          console.log('🔧 Validation failed: Invalid qualifications');
+          Alert.alert('Virhe', `Koulutus: ${qualValidation.message}`);
+          return false;
+        }
+      }
+
+      if (formData.experience.trim()) {
+        console.log('🔧 Validating experience...');
+        const expValidation = validateDescription(formData.experience.trim());
+        console.log('🔧 Experience validation result:', expValidation);
+        if (!expValidation.isValid) {
+          console.log('🔧 Validation failed: Invalid experience');
+          Alert.alert('Virhe', `Kokemus: ${expValidation.message}`);
+          return false;
+        }
+      }
+
+      // Tarkista käyttöehdot
+      if (!formData.acceptTerms) {
+        console.log('🔧 Validation failed: Terms not accepted');
+        Alert.alert('Virhe', 'Hyväksy käyttöehdot jatkaaksesi');
+        return false;
+      }
+
+      console.log('🔧 All validations passed!');
+      return true;
+      
+    } catch (error) {
+      console.error('🔧 Validation error:', error);
+      Alert.alert('Virhe', 'Validoinnissa tapahtui virhe: ' + error.message);
       return false;
     }
-
-    return true;
   };
 
   const handleSignup = async () => {
-    if (!validateForm()) return;
+    console.log('🔧 TEACHER SIGNUP BUTTON PRESSED!');
+    console.log('🔧 Current form data:', {
+      fullName: formData.fullName,
+      email: formData.email,
+      hasPassword: !!formData.password,
+      passwordLength: formData.password?.length,
+      hasConfirmPassword: !!formData.confirmPassword,
+      specialization: formData.specialization,
+      acceptTerms: formData.acceptTerms
+    });
+    
+    if (!validateForm()) {
+      console.log('🔧 Form validation failed');
+      return;
+    }
 
+    console.log('🔧 Form validation passed, starting signup...');
     setLoading(true);
     try {
       const userData = {
@@ -199,9 +260,17 @@ const TeacherSignupScreen = ({ navigation }) => {
         acceptMarketing: formData.acceptMarketing
       };
 
+      console.log('🔧 Calling register with userData:', { 
+        name: userData.name, 
+        email: userData.email, 
+        role: userData.role 
+      });
+
       const result = await register(userData);
+      console.log('🔧 Register result:', result);
       
       if (result.success) {
+        console.log('🔧 Signup successful!');
         Alert.alert(
           '🎉 Tilin luonti onnistui!', 
           '📧 TÄRKEÄÄ: Vahvista sähköpostiosoitteesi 3 päivän kuluessa!\n\n' +
@@ -211,10 +280,11 @@ const TeacherSignupScreen = ({ navigation }) => {
         );
         // Navigation will happen automatically via AuthContext state change
       } else {
+        console.log('🔧 Signup failed:', result.error);
         throw new Error(result.error);
       }
     } catch (error) {
-      console.error('TeacherSignup: Registration error:', error);
+      console.error('🔧 TeacherSignup error:', error);
       
       // Käyttäjäystävällinen virheilmoitus
       let userMessage = 'Tilin luonti epäonnistui';

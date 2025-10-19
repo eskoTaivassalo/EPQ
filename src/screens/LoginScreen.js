@@ -24,6 +24,10 @@ const LoginScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
+    console.log('🔑 LOGIN BUTTON PRESSED!');
+    console.log('🔑 UserType:', userType);
+    console.log('🔑 Form data:', { email: formData.email, hasPassword: !!formData.password });
+    
     if (!formData.email.trim() || !formData.password.trim()) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -37,17 +41,23 @@ const LoginScreen = ({ route, navigation }) => {
     setLoading(true);
     
     try {
+      console.log('🔑 Calling login function...');
       const result = await login(userType, {
         email: formData.email,
         password: formData.password
       });
 
+      console.log('🔑 Login result:', result);
+
       if (result.success) {
+        console.log('🔑 Login successful!');
         // Navigation happens automatically in App.js when user state changes
       } else {
+        console.log('🔑 Login failed:', result.error);
         Alert.alert('Login failed', result.error || 'Unknown error');
       }
     } catch (error) {
+      console.error('🔑 Login error:', error);
       Alert.alert('Error', 'Login failed');
     } finally {
       setLoading(false);

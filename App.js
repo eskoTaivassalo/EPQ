@@ -6,6 +6,8 @@ import { View, ActivityIndicator } from 'react-native';
 
 // Context
 import { AuthProvider, useAuth } from './src/context/AuthContext';
+import { SecurityProvider } from './src/context/SecurityContext';
+import { AppDataProvider } from './src/context/AppDataContext';
 
 // Screens
 import WelcomeScreen from './src/screens/WelcomeScreen';
@@ -93,8 +95,12 @@ const AppNavigator = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <StatusBar style="light" backgroundColor={colors.primary} />
-      <AppNavigator />
+      <SecurityProvider>
+        <AppDataProvider>
+          <StatusBar style="light" backgroundColor={colors.primary} />
+          <AppNavigator />
+        </AppDataProvider>
+      </SecurityProvider>
     </AuthProvider>
   );
 }

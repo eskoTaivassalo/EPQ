@@ -11,12 +11,20 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../context/AuthContext';
+import { useSecurity } from '../context/SecurityContext';
 import { colors } from '../styles/commonStyles';
-import AuthService from '../services/authService';
-import SecurityService from '../services/securityService';
 
 const ParentSignupScreen = ({ navigation }) => {
   const { register } = useAuth();
+  const { 
+    validatePassword, 
+    getPasswordStrength, 
+    sanitizeInput,
+    validateUsername,
+    validateEmail,
+    validatePhoneNumber,
+    validateDescription
+  } = useSecurity();
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -56,7 +64,7 @@ const ParentSignupScreen = ({ navigation }) => {
   // 💪 Enhanced handleInputChange with real-time password validation
   const handleInputChange = (field, value) => {
     // 🛡️ Sanitize input for security
-    const sanitizedValue = SecurityService.sanitizeInput(value);
+    const sanitizedValue = sanitizeInput(value);
     
     setFormData(prev => ({
       ...prev,
@@ -65,8 +73,8 @@ const ParentSignupScreen = ({ navigation }) => {
     
     // Real-time password strength checking
     if (field === 'password' && sanitizedValue.length > 0) {
-      const strength = AuthService.getPasswordStrength(sanitizedValue);
-      const validation = AuthService.validatePassword(sanitizedValue);
+      const strength = getPasswordStrength(sanitizedValue);
+      const validation = validatePassword(sanitizedValue);
       
       setPasswordStrength(strength);
       setPasswordValidation(validation);
@@ -104,7 +112,7 @@ const ParentSignupScreen = ({ navigation }) => {
       return false;
     }
     
-    const nameValidation = SecurityService.validateUsername(formData.fullName.trim());
+    const nameValidation = validateUsername(formData.fullName.trim());
     if (!nameValidation.isValid) {
       Alert.alert('Virhe', `Nimi: ${nameValidation.message}`);
       return false;
@@ -116,7 +124,7 @@ const ParentSignupScreen = ({ navigation }) => {
       return false;
     }
     
-    if (!AuthService.validateEmail(formData.email.trim())) {
+    if (!validateEmail(formData.email.trim())) {
       Alert.alert('Virhe', 'Virheellinen sähköpostiosoite');
       return false;
     }
@@ -127,14 +135,14 @@ const ParentSignupScreen = ({ navigation }) => {
       return false;
     }
     
-    const passwordValidation = AuthService.validatePassword(formData.password);
+    const passwordValidation = validatePassword(formData.password);
     if (!passwordValidation.isValid) {
       Alert.alert('Heikko salasana', passwordValidation.message);
       return false;
     }
 
     // Tarkista salasanan vahvuus
-    const passwordStrength = AuthService.getPasswordStrength(formData.password);
+    const passwordStrength = getPasswordStrength(formData.password);
     if (passwordStrength < 60) {
       Alert.alert(
         'Heikko salasana', 
@@ -151,7 +159,7 @@ const ParentSignupScreen = ({ navigation }) => {
 
     // Validoi puhelinnumero jos annettu
     if (formData.phoneNumber && formData.phoneNumber.trim()) {
-      const phoneValidation = SecurityService.validatePhoneNumber(formData.phoneNumber.trim());
+      const phoneValidation = validatePhoneNumber(formData.phoneNumber.trim());
       if (!phoneValidation.isValid) {
         Alert.alert('Virhe', `Puhelinnumero: ${phoneValidation.message}`);
         return false;
@@ -168,8 +176,14 @@ const ParentSignupScreen = ({ navigation }) => {
   };
 
   const handleSignup = async () => {
-    if (!validateForm()) return;
+    console.log('🔧 PARENT SIGNUP BUTTON PRESSED!');
+    
+    if (!validateForm()) {
+      console.log('🔧 Parent form validation failed');
+      return;
+    }
 
+    console.log('🔧 Parent form validation passed, starting signup...');
     setLoading(true);
     try {
       const userData = {
@@ -185,9 +199,17 @@ const ParentSignupScreen = ({ navigation }) => {
         acceptMarketing: formData.acceptMarketing
       };
 
+      console.log('🔧 Calling register with parent userData:', { 
+        name: userData.name, 
+        email: userData.email, 
+        role: userData.role 
+      });
+
       const result = await register(userData);
+      console.log('🔧 Parent register result:', result);
       
       if (result.success) {
+        console.log('🔧 Parent signup successful!');
         Alert.alert(
           '🎉 Tilin luonti onnistui!', 
           '📧 TÄRKEÄÄ: Vahvista sähköpostiosoitteesi 3 päivän kuluessa!\n\n' +
@@ -197,9 +219,11 @@ const ParentSignupScreen = ({ navigation }) => {
         );
         // Navigation will happen automatically via AuthContext state change
       } else {
+        console.log('🔧 Parent signup failed:', result.error);
         throw new Error(result.error);
       }
     } catch (error) {
+      console.error('🔧 ParentSignup error:', error);
       Alert.alert('Error', error.message || 'Failed to create account');
     } finally {
       setLoading(false);
