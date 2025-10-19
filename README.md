@@ -75,17 +75,16 @@ npm install
    - **Authentication** (Email/Password provider)
    - **Firestore Database**
    - **Email verification** (Authentication > Templates)
-3. Päivitä `src/config/firebaseConfig.js` omilla tiedoillasi:
-```javascript
-export const firebaseConfig = {
-  apiKey: "your-api-key",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "your-app-id"
-};
-```
+3. **Luo firebaseConfig.js tiedosto**:
+   ```bash
+   # Kopioi esimerkkitiedosto
+   cp src/config/firebaseConfig.example.js src/config/firebaseConfig.js
+   ```
+4. Päivitä `src/config/firebaseConfig.js` omilla Firebase-tiedoillasi:
+   - Löydät tiedot: Firebase Console > Project Settings > Your apps
+   - Täytä kaikki kentät (apiKey, authDomain, projectId, jne.)
+   
+   ⚠️ **HUOM:** `firebaseConfig.js` on `.gitignore`-listalla turvallisuussyistä!
 
 ### 3. Käynnistä sovellus
 ```bash
