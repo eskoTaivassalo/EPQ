@@ -14,8 +14,8 @@ google-services.json
 GoogleService-Info.plist
 src/config/firebaseConfig.js
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
 
 # Native
 .kotlin/
