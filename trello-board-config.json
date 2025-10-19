@@ -1,0 +1,340 @@
+{
+  "name": "Parents&Teachers App - 8 Week Development Plan",
+  "desc": "Complete development and launch plan for the Parents&Teachers mobile application",
+  "lists": [
+    {
+      "name": "📋 BACKLOG",
+      "cards": [
+        {
+          "name": "Project Setup Documentation",
+          "desc": "Complete project documentation and setup guides"
+        },
+        {
+          "name": "Advanced Features (v1.1+)",
+          "desc": "Features for future releases after initial launch"
+        }
+      ]
+    },
+    {
+      "name": "🗓️ WEEK 1-2: CORE FEATURES",
+      "cards": [
+        {
+          "name": "Authentication & Security Enhancement",
+          "desc": "Firebase Security Rules, Password reset, Email verification",
+          "labels": ["High Priority", "Security"],
+          "due": "2025-10-24"
+        },
+        {
+          "name": "Profile Management System",
+          "desc": "Profile images, validation, tag optimization, UX improvements",
+          "labels": ["Core Feature"],
+          "due": "2025-10-25"
+        },
+        {
+          "name": "Teacher Search & Filtering",
+          "desc": "Search optimization, advanced filters, map view, favorites",
+          "labels": ["Core Feature"],
+          "due": "2025-10-26"
+        },
+        {
+          "name": "In-App Messaging System",
+          "desc": "Real-time messaging, push notifications, message status",
+          "labels": ["Core Feature"],
+          "due": "2025-10-27"
+        },
+        {
+          "name": "Booking System",
+          "desc": "Lesson booking, calendar integration, confirmation/cancellation",
+          "labels": ["Core Feature"],
+          "due": "2025-10-28"
+        },
+        {
+          "name": "Rating & Review System",
+          "desc": "Star rating, text reviews, moderation, average calculation",
+          "labels": ["Core Feature"],
+          "due": "2025-10-29"
+        },
+        {
+          "name": "Push Notifications Setup",
+          "desc": "Expo Notifications, email notifications, settings management",
+          "labels": ["Integration"],
+          "due": "2025-10-31"
+        },
+        {
+          "name": "Offline Functionality",
+          "desc": "AsyncStorage optimization, offline handling, data sync",
+          "labels": ["Performance"],
+          "due": "2025-11-01"
+        },
+        {
+          "name": "Performance Optimization",
+          "desc": "Bundle size, image optimization, lazy loading, memory management",
+          "labels": ["Performance"],
+          "due": "2025-11-02"
+        }
+      ]
+    },
+    {
+      "name": "🎨 WEEK 3-4: UI/UX & TESTING",
+      "cards": [
+        {
+          "name": "Design System Standardization",
+          "desc": "Color palette, typography, component library, accessibility",
+          "labels": ["UI/UX"],
+          "due": "2025-11-05"
+        },
+        {
+          "name": "UI Polish & Animations",
+          "desc": "Animations, smooth transitions, loading states, error states",
+          "labels": ["UI/UX"],
+          "due": "2025-11-06"
+        },
+        {
+          "name": "Responsive Design",
+          "desc": "Tablet support, screen sizes, landscape mode, web optimization",
+          "labels": ["UI/UX"],
+          "due": "2025-11-07"
+        },
+        {
+          "name": "Usability Testing",
+          "desc": "A/B testing, user journey mapping, UX improvements",
+          "labels": ["Testing", "UX"],
+          "due": "2025-11-08"
+        },
+        {
+          "name": "Accessibility Implementation",
+          "desc": "Screen reader, keyboard navigation, color contrast, voice over",
+          "labels": ["Accessibility"],
+          "due": "2025-11-09"
+        },
+        {
+          "name": "Internationalization (i18n)",
+          "desc": "Finnish/English translations, RTL support, dynamic switching",
+          "labels": ["Localization"],
+          "due": "2025-11-10"
+        },
+        {
+          "name": "Automated Testing Suite",
+          "desc": "Jest unit tests, Detox E2E tests, component testing, API testing",
+          "labels": ["Testing"],
+          "due": "2025-11-12"
+        },
+        {
+          "name": "Manual Testing Campaign",
+          "desc": "Comprehensive test cases, regression testing, edge cases",
+          "labels": ["Testing"],
+          "due": "2025-11-13"
+        },
+        {
+          "name": "Security & Load Testing",
+          "desc": "Penetration testing, API security, concurrent users, performance",
+          "labels": ["Security", "Performance"],
+          "due": "2025-11-14"
+        },
+        {
+          "name": "Beta Testing Setup",
+          "desc": "TestFlight, Google Play Internal Testing, beta recruitment",
+          "labels": ["Testing"],
+          "due": "2025-11-15"
+        }
+      ]
+    },
+    {
+      "name": "🚀 WEEK 5-6: LAUNCH PREP",
+      "cards": [
+        {
+          "name": "App Store Assets Creation",
+          "desc": "App icons, screenshots, store descriptions, privacy policy",
+          "labels": ["Store Preparation"],
+          "due": "2025-11-19"
+        },
+        {
+          "name": "iOS App Store Connect Setup",
+          "desc": "Metadata, age rating, review guidelines compliance",
+          "labels": ["iOS", "Store Preparation"],
+          "due": "2025-11-20"
+        },
+        {
+          "name": "Google Play Console Setup",
+          "desc": "App bundle, store listing, content rating",
+          "labels": ["Android", "Store Preparation"],
+          "due": "2025-11-21"
+        },
+        {
+          "name": "Production Environment",
+          "desc": "Firebase production, environment config, build testing",
+          "labels": ["DevOps"],
+          "due": "2025-11-22"
+        },
+        {
+          "name": "Analytics & Monitoring",
+          "desc": "Firebase Analytics, Crashlytics, performance monitoring",
+          "labels": ["Analytics"],
+          "due": "2025-11-23"
+        },
+        {
+          "name": "Legal & Compliance Review",
+          "desc": "Terms of Service, GDPR compliance, IP audit",
+          "labels": ["Legal"],
+          "due": "2025-11-24"
+        },
+        {
+          "name": "Marketing Materials",
+          "desc": "Website landing page, social media assets, press release",
+          "labels": ["Marketing"],
+          "due": "2025-11-26"
+        },
+        {
+          "name": "SEO & ASO Optimization",
+          "desc": "App Store Optimization, website SEO, social media setup",
+          "labels": ["Marketing", "SEO"],
+          "due": "2025-11-27"
+        },
+        {
+          "name": "Beta Feedback Integration",
+          "desc": "Feedback analysis, critical fixes, final optimization",
+          "labels": ["Testing", "Feedback"],
+          "due": "2025-11-28"
+        },
+        {
+          "name": "Release Candidate Build",
+          "desc": "Final build, internal testing, stakeholder approval",
+          "labels": ["Release"],
+          "due": "2025-11-29"
+        }
+      ]
+    },
+    {
+      "name": "📱 WEEK 7-8: LAUNCH & PRODUCTION",
+      "cards": [
+        {
+          "name": "Store Submissions",
+          "desc": "iOS App Store submission, Google Play submission, tracking",
+          "labels": ["Launch", "Critical"],
+          "due": "2025-12-03"
+        },
+        {
+          "name": "Launch Day Preparation",
+          "desc": "Timeline, customer support setup, FAQ, troubleshooting guides",
+          "labels": ["Launch"],
+          "due": "2025-12-04"
+        },
+        {
+          "name": "Marketing Campaign Launch",
+          "desc": "Website live, social media campaign, press release, influencers",
+          "labels": ["Marketing", "Launch"],
+          "due": "2025-12-05"
+        },
+        {
+          "name": "Real-time Monitoring Setup",
+          "desc": "User acquisition tracking, performance dashboards, error alerts",
+          "labels": ["Monitoring"],
+          "due": "2025-12-06"
+        },
+        {
+          "name": "Store Review Management",
+          "desc": "Review follow-up, feedback addressing, resubmission if needed",
+          "labels": ["Store Management"],
+          "due": "2025-12-07"
+        },
+        {
+          "name": "Soft Launch Execution",
+          "desc": "Limited market release, feedback monitoring, metrics analysis",
+          "labels": ["Launch"],
+          "due": "2025-12-08"
+        },
+        {
+          "name": "Full Global Launch",
+          "desc": "Global availability, full marketing campaign, community management",
+          "labels": ["Launch", "Critical"],
+          "due": "2025-12-10"
+        },
+        {
+          "name": "User Support & Issue Resolution",
+          "desc": "Customer queries, bug reports, feature requests, onboarding",
+          "labels": ["Support"],
+          "due": "2025-12-11"
+        },
+        {
+          "name": "Post-Launch Optimization",
+          "desc": "Real user data analysis, performance fixes, capacity scaling",
+          "labels": ["Optimization"],
+          "due": "2025-12-12"
+        },
+        {
+          "name": "Success Metrics & Planning",
+          "desc": "Business metrics, retrospective, future roadmap, team review",
+          "labels": ["Planning"],
+          "due": "2025-12-13"
+        }
+      ]
+    },
+    {
+      "name": "🔄 IN PROGRESS",
+      "cards": []
+    },
+    {
+      "name": "🧪 TESTING",
+      "cards": []
+    },
+    {
+      "name": "✅ DONE",
+      "cards": [
+        {
+          "name": "Basic App Structure",
+          "desc": "React Native setup, navigation, Firebase integration ✅"
+        },
+        {
+          "name": "Authentication System",
+          "desc": "Login/register for teachers and parents ✅"
+        },
+        {
+          "name": "Tag-based Profile System",
+          "desc": "Subject tags, experience levels, location tags ✅"
+        },
+        {
+          "name": "Teacher Search Functionality",
+          "desc": "Basic search and filtering by tags ✅"
+        },
+        {
+          "name": "Profile Views",
+          "desc": "Teacher and parent profile screens ✅"
+        }
+      ]
+    }
+  ],
+  "labels": [
+    {
+      "name": "High Priority",
+      "color": "red"
+    },
+    {
+      "name": "Core Feature",
+      "color": "orange"
+    },
+    {
+      "name": "UI/UX",
+      "color": "blue"
+    },
+    {
+      "name": "Testing",
+      "color": "green"
+    },
+    {
+      "name": "Security",
+      "color": "purple"
+    },
+    {
+      "name": "Performance",
+      "color": "yellow"
+    },
+    {
+      "name": "Launch",
+      "color": "pink"
+    },
+    {
+      "name": "Critical",
+      "color": "red"
+    }
+  ]
+}
