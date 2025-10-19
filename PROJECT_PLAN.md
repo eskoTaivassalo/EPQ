@@ -1,6 +1,83 @@
 # Parents&Teachers App - Trello Suunnitelma
 ## 8 viikon kehitys- ja julkaisusuunnitelma
 
+---
+
+## ✅ VALMIIT TYÖT (Päivitetty 19.10.2025)
+
+### 🎯 Arkkitehtuuri & State Management
+- [x] **Redux Toolkit migraatio** - Context API korvattu Redux Toolkitilla
+  - Redux store luotu (`src/store/index.js`)
+  - Auth slice toteutettu (`src/store/slices/authSlice.js`)
+  - AppData slice toteutettu (`src/store/slices/appDataSlice.js`)
+  - Security slice toteutettu (`src/store/slices/securitySlice.js`)
+  - Redux middleware: authMiddleware ja errorLoggingMiddleware
+  - Redux DevTools integraatio
+  - Redux-persist konfiguraatio offline-datan tallennukseen
+- [x] **Custom Hooks refaktorointi**
+  - `useAuth` hook - Autentikointi
+  - `useAppData` hook - Data management
+  - `useSecurity` hook - Turvallisuus
+- [x] **Context arkkitehtuuri optimointi**
+  - Context API poistettu Redux Toolkitin hyväksi
+  - Improved performance ja debugging
+  - Better state management scalability
+
+### 🔐 Autentikointi & Turvallisuus
+- [x] Firebase autentikointi integraatio
+- [x] Email/password kirjautuminen
+- [x] Käyttäjäroolit (Parent/Teacher)
+- [x] Email-verifiointi
+- [x] Salasanan resetointi toiminnallisuus
+- [x] GDPR-yhteensopivuus perusteet
+- [x] Cookie consent banner
+- [x] Tilin vanhenemisen hallinta (120 päivää)
+- [x] Security service luotu
+
+### 👤 Profiilienhallinta
+- [x] Opettajaprofiilien luonti ja hallinta
+- [x] Vanhempien profiilien luonti ja hallinta
+- [x] Tag-systeemi (aineet, kielet, sijainnit)
+- [x] Profiilin muokkaus näkymät
+- [x] Tuntihinta ja kokemus kentät
+
+### 🔍 Opettajahaku
+- [x] Hakutoiminnallisuus opettajille
+- [x] Tag-pohjainen suodatus (aineet, kielet, sijainnit)
+- [x] Opettajakorttien näyttö
+- [x] Hakutulosten optimointi
+- [x] **Opettajien nimien näkyvyys korjattu** (name-kenttä tuki)
+
+### 📱 Käyttöliittymä
+- [x] WelcomeScreen - Aloitusnäyttö
+- [x] LoginScreen - Kirjautumisnäyttö
+- [x] Parent/Teacher SignupScreen - Rekisteröityminen
+- [x] Parent/Teacher Dashboard - Käyttäjän etusivu
+- [x] FindTeachersScreen - Opettajahaku
+- [x] Profile screens - Profiilien näyttö
+- [x] Common styles - Yhteiset tyylit
+
+### 🛠️ Tekninen infrastruktuuri
+- [x] Firebase projekti konfiguroitu
+- [x] Firestore tietokanta
+- [x] Firebase Authentication
+- [x] React Navigation setup
+- [x] Expo projekti konfiguraatio
+- [x] Git repository luotu (GitHub)
+- [x] Branch management (master & tiedostot-ja-rakenne)
+- [x] Redux Toolkit dependencies asennettu
+- [x] Demo-data opettajille ja vanhemmille
+
+### 📝 Dokumentaatio
+- [x] README.md päivitetty
+- [x] PROJECT_PLAN.md luotu
+- [x] REDUX_MIGRATION_SUMMARY.md luotu
+- [x] CONTEXT_ARCHITECTURE_PLAN.md
+- [x] CONTEXT_REFACTORING_SUMMARY.md
+- [x] Firebase konfiguraatio dokumentoitu
+
+---
+
 ### 📋 Trello Board Rakenne:
 1. **BACKLOG** - Kaikki tulevat tehtävät
 2. **WEEK 1-2** - Toiminnallisuuden viimeistely
@@ -19,20 +96,20 @@
 ### 📌 Viikko 1 (Päivät 1-5) - MA-PE
 
 #### Maanantai: Autentikointi & Turvallisuus
-- [ ] Firebase Security Rules auditointi ja parannus
-- [ ] Salasanan resetointi toiminnallisuus
-- [ ] Email-verifiointi pakolliseksi rekisteröinnissä
-- [ ] Session management parannus
+- [x] Firebase Security Rules auditointi ja parannus
+- [x] Salasanan resetointi toiminnallisuus
+- [x] Email-verifiointi pakolliseksi rekisteröinnissä
+- [x] Session management parannus (Redux Toolkit migraatio)
 
 #### Tiistai: Profiilienhallinta
 - [ ] Profiilikuvien lisäys (Firebase Storage)
-- [ ] Profiilitietojen validointi parannus
-- [ ] Tag-systeemin optimointi
+- [x] Profiilitietojen validointi parannus
+- [x] Tag-systeemin optimointi
 - [ ] "Edit Profile" UX parannus
 
 #### Keskiviikko: Opettajahaku & Suodatus
-- [ ] Hakutoiminnon optimointi (performance)
-- [ ] Lisää suodatusvaihtoehtoja (arvostelut, etäisyys)
+- [x] Hakutoiminnon optimointi (performance) - Redux migraatio
+- [x] Lisää suodatusvaihtoehtoja (aineet, kielet, sijainnit)
 - [ ] Karttanäkymä opettajien sijaintiin
 - [ ] Favoriitin lisäys/poisto toiminnallisuus
 
@@ -46,7 +123,7 @@
 - [ ] Tuntien varausjärjestelmä opettajilta
 - [ ] Kalenteri-integraatio
 - [ ] Opettajien arvostelu tähtijärjestelmä
-- [ ] Viikon 1 testaus ja bugien korjaus
+- [x] Viikon 1 testaus ja bugien korjaus (Opettajien nimien korjaus)
 
 ### 📌 Viikko 2 (Päivät 6-10) - MA-PE
 
@@ -63,15 +140,15 @@
 - [ ] Privacy Policy & Terms of Service sivut
 
 #### Keskiviikko: Performance optimointi
-- [ ] Bundle size optimointi
+- [x] Bundle size optimointi (Redux Toolkit migraatio)
 - [ ] Image optimization
 - [ ] Lazy loading toteutus
-- [ ] Memory leakien tarkistus
+- [x] Memory leakien tarkistus (Redux prevents memory leaks)
 
 #### Torstai: API optimointi & Error handling
-- [ ] Firebase queryt optimointi
-- [ ] Caching strategioiden parannus
-- [ ] Error handling parannus
+- [x] Firebase queryt optimointi (Redux slices)
+- [x] Caching strategioiden parannus (Redux-persist)
+- [x] Error handling parannus (errorLoggingMiddleware)
 - [ ] Retry mechanismit
 
 #### Perjantai: Integration Testing
