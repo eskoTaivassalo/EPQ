@@ -37,9 +37,23 @@
 - [x] Cookie consent banner
 - [x] Tilin vanhenemisen hallinta (120 päivää)
 - [x] Security service luotu
-- [ ] **PUUTTUU: Firebase Security Rules (KRIITTINEN!)**
-- [ ] **PUUTTUU: Security testing**
-- [ ] **PUUTTUU: Session timeout handling**
+- [x] **Firebase Security Rules luotu ja dokumentoitu** ✅ (20.10.2025)
+  - ✅ Firestore rules DEPLOYATTU tuotantoon
+  - ✅ Firestore indexes DEPLOYATTU tuotantoon
+  - ⏳ Storage rules luotu (deployment 21.10.2025)
+  - ✅ Composite indexes määritelty
+  - ✅ Kattava dokumentaatio (FIREBASE_SECURITY_RULES.md)
+  - ✅ Deployment-ohjeisto (FIREBASE_DEPLOYMENT.md)
+- [x] **Session Management** ✅ (20.10.2025)
+  - ✅ SessionManager luotu (timeout, token monitoring, remember me)
+  - ✅ Redux integraatio valmis
+  - ✅ useAuth hook päivitetty
+  - ✅ SESSION_MANAGEMENT.md dokumentaatio
+  - ⏳ UI komponentit puuttuvat
+  - ⏳ Testaus vaaditaan
+- [ ] **Storage Rules deployment** - Odottaa Blaze-aktivointia (24h)
+- [ ] **Session Management UI** - Remember me checkbox
+- [ ] **Security testing** - Rules + Session toimivuus
 
 ### 👤 Profiilienhallinta
 - [x] Opettajaprofiilien luonti ja hallinta
@@ -110,10 +124,28 @@
 ### 📌 Viikko 1 (Päivät 1-5) - MA-PE
 
 #### Maanantai: Autentikointi & Turvallisuus
-- [ ] Firebase Security Rules auditointi ja parannus (EI TEHTY - Prioriteetti!)
+- [x] **Firebase Security Rules auditointi ja parannus** ✅ VALMIS! (20.10.2025)
+  - `firestore.rules` luotu (users, teachers, parents, messages, reviews, bookings)
+  - `storage.rules` luotu (profiilikuvat, liitteet, dokumentit)
+  - `firebase.json` konfiguroitu
+  - `firestore.indexes.json` luotu (7 composite indexiä)
+  - `FIREBASE_SECURITY_RULES.md` dokumentaatio luotu
+  - ✅ Firestore Rules DEPLOYATTU tuotantoon
+  - ✅ Firestore Indexes DEPLOYATTU
+  - ⏳ Storage Rules odottaa (Blaze-laskutus 24h, yritetään 21.10.2025)
 - [x] Salasanan resetointi toiminnallisuus (authService.js)
 - [x] Email-verifiointi pakolliseksi rekisteröinnissä
-- [ ] Session management parannus (Osittain - Redux tehty mutta testaus puuttuu)
+- [x] **Session management parannus** ✅ VALMIS! (20.10.2025)
+  - ✅ SessionManager luotu (`src/utils/sessionManager.js`)
+  - ✅ Session timeout (30 min inaktiivisuus)
+  - ✅ Firebase token monitoring (5 min interval)
+  - ✅ Remember me -toiminnallisuus (30 päivää)
+  - ✅ Activity tracking (AsyncStorage)
+  - ✅ Redux authSlice integraatio (4 uutta thunkia)
+  - ✅ useAuth hook päivitetty (session functions)
+  - ✅ SESSION_MANAGEMENT.md dokumentaatio (400+ riviä)
+  - ⏳ UI komponentit puuttuvat (Remember me checkbox)
+  - ⏳ Testaus vaaditaan (Unit + Integration tests)
 
 #### Tiistai: Profiilienhallinta
 - [ ] Profiilikuvien lisäys (Firebase Storage)

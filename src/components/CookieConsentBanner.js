@@ -8,9 +8,12 @@ import GDPRService from '../services/gdprService';
  * 
  * Näyttää GDPR-yhteensopivan cookie/tracking suostumusbannerin
  * Sisältää yksityiskohtaiset asetukset ja selkeät kuvaukset
+ * 
+ * @param {function} onConsentGiven - Callback kun consent annetaan
+ * @param {boolean} forceShow - Pakota banner näkyviin (testaus)
  */
 
-const CookieConsentBanner = ({ onConsentGiven }) => {
+const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
   const [showBanner, setShowBanner] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
   const [consents, setConsents] = useState({});
@@ -26,7 +29,14 @@ const CookieConsentBanner = ({ onConsentGiven }) => {
       const data = await GDPRService.getConsentBannerData();
       setBannerData(data);
       setConsents(data.currentConsent);
-      setShowBanner(data.showBanner);
+      
+      // 🧪 Jos forceShow = true, näytä aina (testaus)
+      if (forceShow) {
+        console.log('🧪 CookieConsentBanner: forceShow enabled, showing banner');
+        setShowBanner(true);
+      } else {
+        setShowBanner(data.showBanner);
+      }
     } catch (error) {
       console.error('Error initializing consent banner:', error);
     } finally {
@@ -36,14 +46,24 @@ const CookieConsentBanner = ({ onConsentGiven }) => {
 
   const handleAcceptAll = async () => {
     try {
+      console.log('🟢 handleAcceptAll called');
       const allConsents = {};
       bannerData?.consentTypes.forEach(type => {
         allConsents[type.type] = true;
       });
 
       await GDPRService.saveConsentSettings(allConsents);
+      console.log('✅ Consents saved:', allConsents);
+      
       setShowBanner(false);
-      onConsentGiven?.(allConsents);
+      console.log('🔴 setShowBanner(false) called');
+      
+      if (onConsentGiven) {
+        console.log('📞 Calling onConsentGiven callback');
+        onConsentGiven(allConsents);
+      } else {
+        console.warn('⚠️ onConsentGiven callback is undefined!');
+      }
     } catch (error) {
       console.error('Error accepting all consents:', error);
     }
@@ -51,14 +71,24 @@ const CookieConsentBanner = ({ onConsentGiven }) => {
 
   const handleRejectOptional = async () => {
     try {
+      console.log('🟡 handleRejectOptional called');
       const minimalConsents = {};
       bannerData?.consentTypes.forEach(type => {
         minimalConsents[type.type] = type.required;
       });
 
       await GDPRService.saveConsentSettings(minimalConsents);
+      console.log('✅ Minimal consents saved:', minimalConsents);
+      
       setShowBanner(false);
-      onConsentGiven?.(minimalConsents);
+      console.log('🔴 setShowBanner(false) called');
+      
+      if (onConsentGiven) {
+        console.log('📞 Calling onConsentGiven callback');
+        onConsentGiven(minimalConsents);
+      } else {
+        console.warn('⚠️ onConsentGiven callback is undefined!');
+      }
     } catch (error) {
       console.error('Error rejecting optional consents:', error);
     }
@@ -87,8 +117,11 @@ const CookieConsentBanner = ({ onConsentGiven }) => {
   };
 
   if (loading || !showBanner || !bannerData) {
+    console.log('🚫 Banner hidden - loading:', loading, 'showBanner:', showBanner, 'bannerData:', !!bannerData);
     return null;
   }
+
+  console.log('✅ Banner rendering - showBanner:', showBanner);
 
   return (
     <>
@@ -105,24 +138,36 @@ const CookieConsentBanner = ({ onConsentGiven }) => {
             Voit hallita asetuksiasi ja lukea lisää tietosuojaselosteestamme.
           </Text>
 
-          <View style={styles.bannerButtons}>
+          <View style={styles.bannerButtons} pointerEvents="box-none">
             <TouchableOpacity 
               style={styles.acceptAllButton}
-              onPress={handleAcceptAll}
+              activeOpacity={0.7}
+              onPress={() => {
+                console.log('👆 ACCEPT ALL BUTTON PRESSED!');
+                handleAcceptAll();
+              }}
             >
               <Text style={styles.acceptAllText}>Hyväksy kaikki</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.rejectButton}
-              onPress={handleRejectOptional}
+              activeOpacity={0.7}
+              onPress={() => {
+                console.log('👆 REJECT BUTTON PRESSED!');
+                handleRejectOptional();
+              }}
             >
               <Text style={styles.rejectText}>Vain välttämättömät</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.settingsButton}
-              onPress={() => setShowDetails(true)}
+              activeOpacity={0.7}
+              onPress={() => {
+                console.log('👆 SETTINGS BUTTON PRESSED!');
+                setShowDetails(true);
+              }}
             >
               <Text style={styles.settingsText}>Asetukset</Text>
             </TouchableOpacity>

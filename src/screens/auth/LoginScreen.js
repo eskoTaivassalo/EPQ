@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { colors, commonStyles } from '../../styles/commonStyles';
+import { AuthService } from '../../services/authService';
 
 const LoginScreen = ({ route, navigation }) => {
   const { userType } = route.params;
@@ -22,6 +23,7 @@ const LoginScreen = ({ route, navigation }) => {
     password: ''
   });
   const [loading, setLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
   const handleLogin = async () => {
     console.log('🔑 LOGIN BUTTON PRESSED!');
@@ -62,6 +64,54 @@ const LoginScreen = ({ route, navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPassword = async () => {
+    if (!formData.email.trim()) {
+      Alert.alert(
+        'Email Required', 
+        'Please enter your email address to reset your password.'
+      );
+      return;
+    }
+
+    if (!formData.email.includes('@')) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
+    Alert.alert(
+      'Reset Password',
+      `Send password reset email to ${formData.email}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Send',
+          onPress: async () => {
+            setResetLoading(true);
+            try {
+              await AuthService.sendPasswordReset(formData.email);
+              Alert.alert(
+                'Email Sent',
+                `Password reset instructions have been sent to ${formData.email}. Please check your inbox.`,
+                [{ text: 'OK' }]
+              );
+            } catch (error) {
+              console.error('Password reset error:', error);
+              Alert.alert(
+                'Error',
+                error.message || 'Failed to send password reset email. Please try again.'
+              );
+            } finally {
+              setResetLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const getRoleInfo = () => {
@@ -132,6 +182,16 @@ const LoginScreen = ({ route, navigation }) => {
                 secureTextEntry
               />
             </View>
+
+            <TouchableOpacity
+              style={styles.forgotPasswordButton}
+              onPress={handleForgotPassword}
+              disabled={resetLoading}
+            >
+              <Text style={styles.forgotPasswordText}>
+                {resetLoading ? 'Sending...' : 'Forgot Password?'}
+              </Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={[styles.loginButton, { backgroundColor: roleInfo.color }]}
@@ -222,6 +282,17 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
     color: colors.text,
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginTop: 8,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
   },
   loginButton: {
     padding: 18,

@@ -9,6 +9,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '../../config/firebaseConfig';
 import AuthService from '../../services/authService';
+import SessionManager from '../../utils/sessionManager';
 
 /**
  * 🔐 Auth Slice - Käyttäjän autentikointi ja sessio
@@ -24,6 +25,8 @@ const initialState = {
   isAuthenticated: false,
   error: null,
   lastLogin: null,
+  sessionInfo: null, // Session tiedot
+  rememberMe: false, // Remember me -tila
 };
 
 // Async Thunks for authentication operations
@@ -273,6 +276,9 @@ export const clearAllAuthData = createAsyncThunk(
     try {
       console.log('🧹 Redux: Clearing all authentication data');
       
+      // Stop session tracking
+      SessionManager.cleanup();
+      
       // Clear Firebase auth if available
       if (auth) {
         await signOut(auth);
@@ -285,11 +291,85 @@ export const clearAllAuthData = createAsyncThunk(
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('refreshToken');
       
+      // Reset session manager
+      await SessionManager.reset();
+      
       console.log('✅ Redux: All auth data cleared successfully');
       return null;
       
     } catch (error) {
       console.error('❌ Redux: Error clearing auth data:', error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// 🆕 Initialize Session - Käynnistä session seuranta
+export const initializeSession = createAsyncThunk(
+  'auth/initializeSession',
+  async (onSessionExpired, { rejectWithValue }) => {
+    try {
+      console.log('🕐 Redux: Initializing session tracking');
+      
+      const isValid = await SessionManager.initialize(onSessionExpired);
+      
+      if (!isValid) {
+        console.log('⏰ Redux: Session expired during initialization');
+        return { expired: true };
+      }
+      
+      const sessionInfo = await SessionManager.getSessionInfo();
+      console.log('✅ Redux: Session initialized:', sessionInfo);
+      
+      return sessionInfo;
+      
+    } catch (error) {
+      console.error('❌ Redux: Session initialization error:', error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// 🆕 Update Activity - Päivitä käyttäjän aktiviteetti
+export const updateActivity = createAsyncThunk(
+  'auth/updateActivity',
+  async (_, { rejectWithValue }) => {
+    try {
+      await SessionManager.updateLastActivity();
+      const sessionInfo = await SessionManager.getSessionInfo();
+      return sessionInfo;
+    } catch (error) {
+      console.error('❌ Redux: Activity update error:', error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// 🆕 Set Remember Me - Aseta "Muista minut" -tila
+export const setRememberMe = createAsyncThunk(
+  'auth/setRememberMe',
+  async (enabled, { rejectWithValue }) => {
+    try {
+      console.log(`🕐 Redux: Setting remember me to: ${enabled}`);
+      await SessionManager.setRememberMe(enabled);
+      const sessionInfo = await SessionManager.getSessionInfo();
+      return { enabled, sessionInfo };
+    } catch (error) {
+      console.error('❌ Redux: Remember me error:', error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// 🆕 Get Session Info - Hae session tiedot
+export const getSessionInfo = createAsyncThunk(
+  'auth/getSessionInfo',
+  async (_, { rejectWithValue }) => {
+    try {
+      const sessionInfo = await SessionManager.getSessionInfo();
+      return sessionInfo;
+    } catch (error) {
+      console.error('❌ Redux: Get session info error:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -312,6 +392,12 @@ const authSlice = createSlice({
       state.user = null;
       state.isAuthenticated = false;
       state.error = null;
+      state.sessionInfo = null;
+      state.rememberMe = false;
+    },
+    // 🆕 Update session info
+    updateSessionInfo: (state, action) => {
+      state.sessionInfo = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -406,15 +492,59 @@ const authSlice = createSlice({
         state.isAuthenticated = false;
         state.error = null;
         state.lastLogin = null;
+        state.sessionInfo = null;
+        state.rememberMe = false;
       })
       .addCase(clearAllAuthData.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+    
+    // 🆕 Initialize Session
+    builder
+      .addCase(initializeSession.fulfilled, (state, action) => {
+        if (action.payload.expired) {
+          // Session vanhentunut - logout
+          state.user = null;
+          state.isAuthenticated = false;
+          state.sessionInfo = null;
+        } else {
+          state.sessionInfo = action.payload;
+          state.rememberMe = action.payload.rememberMe;
+        }
+      })
+      .addCase(initializeSession.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+    
+    // 🆕 Update Activity
+    builder
+      .addCase(updateActivity.fulfilled, (state, action) => {
+        state.sessionInfo = action.payload;
+      })
+    
+    // 🆕 Set Remember Me
+    builder
+      .addCase(setRememberMe.fulfilled, (state, action) => {
+        state.rememberMe = action.payload.enabled;
+        state.sessionInfo = action.payload.sessionInfo;
+      })
+      .addCase(setRememberMe.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+    
+    // 🆕 Get Session Info
+    builder
+      .addCase(getSessionInfo.fulfilled, (state, action) => {
+        state.sessionInfo = action.payload;
+      })
+      .addCase(getSessionInfo.rejected, (state, action) => {
         state.error = action.payload;
       });
   },
 });
 
 // Export actions
-export const { clearError, setUser, clearAuth } = authSlice.actions;
+export const { clearError, setUser, clearAuth, updateSessionInfo } = authSlice.actions;
 
 // Selectors
 export const selectAuth = (state) => state.auth;
@@ -422,5 +552,7 @@ export const selectUser = (state) => state.auth.user;
 export const selectIsAuthenticated = (state) => state.auth.isAuthenticated;
 export const selectAuthLoading = (state) => state.auth.loading;
 export const selectAuthError = (state) => state.auth.error;
+export const selectSessionInfo = (state) => state.auth.sessionInfo; // 🆕
+export const selectRememberMe = (state) => state.auth.rememberMe; // 🆕
 
 export default authSlice.reducer;

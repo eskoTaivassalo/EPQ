@@ -7,11 +7,17 @@ import {
   loadStoredAuth,
   clearAllAuthData,
   clearError,
+  initializeSession,
+  updateActivity,
+  setRememberMe,
+  getSessionInfo,
   selectAuth,
   selectUser,
   selectIsAuthenticated,
   selectAuthLoading,
   selectAuthError,
+  selectSessionInfo,
+  selectRememberMe,
 } from '../store/slices/authSlice';
 
 /**
@@ -29,6 +35,8 @@ export const useAuth = () => {
   const isAuthenticated = useSelector(selectIsAuthenticated);
   const loading = useSelector(selectAuthLoading);
   const error = useSelector(selectAuthError);
+  const sessionInfo = useSelector(selectSessionInfo); // 🆕
+  const rememberMe = useSelector(selectRememberMe); // 🆕
 
   const login = async (credentials) => {
     try {
@@ -88,12 +96,54 @@ export const useAuth = () => {
     }
   };
 
+  // 🆕 Session Management Functions
+  const initSession = async (onExpiredCallback) => {
+    try {
+      const result = await dispatch(initializeSession(onExpiredCallback)).unwrap();
+      if (result.expired) {
+        return { success: false, expired: true };
+      }
+      return { success: true, sessionInfo: result };
+    } catch (error) {
+      return { success: false, error };
+    }
+  };
+
+  const trackActivity = async () => {
+    try {
+      await dispatch(updateActivity()).unwrap();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error };
+    }
+  };
+
+  const toggleRememberMe = async (enabled) => {
+    try {
+      await dispatch(setRememberMe(enabled)).unwrap();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error };
+    }
+  };
+
+  const fetchSessionInfo = async () => {
+    try {
+      const result = await dispatch(getSessionInfo()).unwrap();
+      return { success: true, sessionInfo: result };
+    } catch (error) {
+      return { success: false, error };
+    }
+  };
+
   return {
     // State
     user,
     loading,
     isAuthenticated,
     error,
+    sessionInfo, // 🆕
+    rememberMe, // 🆕
     
     // Actions
     login,
@@ -103,6 +153,12 @@ export const useAuth = () => {
     loadStoredAuth: loadStored,
     clearError: clearAuthError,
     clearAllAuthData: clearAllAuth,
+    
+    // 🆕 Session Management
+    initSession,
+    trackActivity,
+    toggleRememberMe,
+    fetchSessionInfo,
     
     // Full auth object for compatibility
     auth

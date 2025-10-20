@@ -51,7 +51,12 @@
 ### Backend & Authentication
 - **Firebase Authentication** - Turvallinen käyttäjien hallinta
 - **Firestore Database** - Reaaliaikainen NoSQL tietokanta  
-- **Firebase Security Rules** - Datan suojaus
+- **Firebase Security Rules** ✅ - Kattavat turvallisuussäännöt (20.10.2025)
+  - Autentikointi pakollinen kaikissa operaatioissa
+  - Omistajuusvalidointi (vain omat tiedot muokattavissa)
+  - Datavalidointi (pakolliset kentät + tyypit)
+  - 7 composite indexiä suorituskyvyn optimointiin
+- **Firebase Storage Rules** ✅ - Profiilikuvat ja dokumentit (max 5MB)
 - **Email verification** - Automaattinen sähköpostivahvistus
 
 ### Security & Data Protection
@@ -59,6 +64,9 @@
 - **Password Strength Validation** - Vahvojen salasanojen pakotus
 - **Account Expiration System** - Automaattinen tilin hallinta
 - **GDPR Compliance** - EU tietosuoja-asetuksen noudattaminen
+- **Security Rules** ✅ - Firestore ja Storage rules käytössä
+  - 📖 Dokumentaatio: `FIREBASE_SECURITY_RULES.md`
+  - 🚀 Deployment-ohje: `FIREBASE_DEPLOYMENT.md`
 
 ## 📱 Asennus ja käyttöönotto
 
@@ -85,6 +93,26 @@ npm install
    - Täytä kaikki kentät (apiKey, authDomain, projectId, jne.)
    
    ⚠️ **HUOM:** `firebaseConfig.js` on `.gitignore`-listalla turvallisuussyistä!
+
+5. **Deploy Firebase Security Rules** ⚠️ KRIITTINEN!
+   ```bash
+   # Asenna Firebase CLI
+   npm install -g firebase-tools
+   
+   # Kirjaudu Firebase:en
+   firebase login
+   
+   # Alusta projekti
+   firebase init
+   # Valitse: Firestore, Storage
+   # Käytä olemassa olevia rules-tiedostoja
+   
+   # Deploy rules ja indeksit
+   firebase deploy --only firestore:rules,storage:rules,firestore:indexes
+   ```
+   
+   📖 **Kattavat ohjeet:** `FIREBASE_DEPLOYMENT.md`  
+   📋 **Security Rules dokumentaatio:** `FIREBASE_SECURITY_RULES.md`
 
 ### 3. Käynnistä sovellus
 ```bash

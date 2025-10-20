@@ -34,6 +34,12 @@ import FindTeachersScreen from './src/screens/shared/FindTeachersScreen';
 // Screens - Dev
 import SecurityTestScreen from './src/screens/dev/SecurityTestScreen';
 
+// Components
+import CookieConsentBanner from './src/components/CookieConsentBanner';
+
+// Services
+import GDPRService from './src/services/gdprService';
+
 // Styles
 import { colors } from './src/styles/commonStyles';
 
@@ -49,15 +55,29 @@ const Loading = () => (
 // Navigation component that uses Redux auth
 
 import { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AppNavigator = () => {
   const { user, loading, isAuthenticated, loadStoredAuth } = useAuth();
   const [emailVerifiedDelay, setEmailVerifiedDelay] = useState(false);
+  const [showConsentBanner, setShowConsentBanner] = useState(false);
 
   // Load stored auth on app start
   useEffect(() => {
     loadStoredAuth();
   }, []);
+
+  // 🧪 TESTAUS: Näytä banner aina kun kirjaudutaan sisään
+  useEffect(() => {
+    console.log('🔍 DEBUG - isAuthenticated:', isAuthenticated);
+    console.log('🔍 DEBUG - user:', user);
+    
+    if (isAuthenticated && user) {
+      console.log('🧪 TESTING MODE: Showing GDPR banner on every login');
+      setShowConsentBanner(true);
+      console.log('🧪 Banner state set to TRUE');
+    }
+  }, [isAuthenticated, user]); // ✅ KORJATTU: Poistettu showConsentBanner dependencies-listasta
 
   // Viivästetään email verification -näkymän näyttöä päivityksen jälkeen
   useEffect(() => {
@@ -69,6 +89,33 @@ const AppNavigator = () => {
       setEmailVerifiedDelay(false);
     }
   }, [isAuthenticated, user?.emailVerified]);
+
+  const handleConsentGiven = async (consents) => {
+    console.log('📥 handleConsentGiven RECEIVED in App.js');
+    console.log('✅ User consents saved:', consents);
+    
+    console.log('🔄 Setting showConsentBanner to FALSE');
+    setShowConsentBanner(false);
+    console.log('✅ showConsentBanner state updated');
+
+    // Jos analytics-suostumus annettu, voi initata analytics
+    if (consents.analytics) {
+      console.log('📊 Analytics consent given - can initialize analytics');
+      // TODO: await initializeAnalytics();
+    }
+
+    // Jos marketing-suostumus annettu
+    if (consents.marketing) {
+      console.log('📢 Marketing consent given');
+      // TODO: await initializeMarketing();
+    }
+
+    // Jos personalization-suostumus annettu
+    if (consents.personalization) {
+      console.log('🎨 Personalization consent given');
+      // TODO: Enable personalized content
+    }
+  };
 
   if (loading || emailVerifiedDelay) {
     return <Loading />;
@@ -117,6 +164,14 @@ const AppNavigator = () => {
           </>
         )}
       </Stack.Navigator>
+      {console.log('🎨 RENDER - showConsentBanner:', showConsentBanner)}
+      {showConsentBanner && (
+        <CookieConsentBanner 
+          onConsentGiven={handleConsentGiven}
+          forceShow={true}  // 🧪 TESTAUS: Pakota banner näkyviin
+        />
+      )}
+      {showConsentBanner && console.log('🎨 CookieConsentBanner should be visible!')}
     </NavigationContainer>
   );
 };

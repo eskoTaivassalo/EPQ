@@ -1,0 +1,218 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+    
+    // Tarkista onko käyttäjä kirjautunut
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Tarkista onko käyttäjä dokumentin omistaja
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Tarkista onko email verifioitu
+    function isEmailVerified() {
+      return isAuthenticated() && request.auth.token.email_verified == true;
+    }
+    
+    // Validoi pakollinen kenttä
+    function hasField(field) {
+      return request.resource.data.keys().hasAll([field]);
+    }
+    
+    // Validoi että kenttä on string ja ei tyhjä
+    function isValidString(field) {
+      return hasField(field) && 
+             request.resource.data[field] is string && 
+             request.resource.data[field].size() > 0;
+    }
+    
+    // Validoi email-formaatti
+    function isValidEmail(email) {
+      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+    
+    // ========================================
+    // USERS COLLECTION
+    // ========================================
+    match /users/{userId} {
+      // Luku: Vain kirjautuneet käyttäjät voivat lukea käyttäjätietoja
+      allow read: if isAuthenticated();
+      
+      // Kirjoitus: Vain omistaja voi luoda/päivittää
+      allow create: if isOwner(userId) && 
+                      isValidString('email') && 
+                      isValidEmail(request.resource.data.email) &&
+                      hasField('userType') &&
+                      hasField('createdAt');
+      
+      allow update: if isOwner(userId);
+      
+      // Poisto: Vain omistaja voi poistaa
+      allow delete: if isOwner(userId);
+    }
+    
+    // ========================================
+    // TEACHERS COLLECTION
+    // ========================================
+    match /teachers/{teacherId} {
+      // Luku: Kaikki kirjautuneet voivat lukea opettajaprofiileja
+      allow read: if isAuthenticated();
+      
+      // Kirjoitus: Vain omistaja voi luoda/päivittää oman profiilinsa
+      allow create: if isOwner(teacherId) && 
+                      isValidString('name') &&
+                      isValidString('email') &&
+                      isValidEmail(request.resource.data.email) &&
+                      hasField('userType') &&
+                      request.resource.data.userType == 'teacher' &&
+                      hasField('createdAt');
+      
+      allow update: if isOwner(teacherId) &&
+                      // Estä userType:n muuttaminen
+                      request.resource.data.userType == resource.data.userType;
+      
+      // Poisto: Vain omistaja voi poistaa
+      allow delete: if isOwner(teacherId);
+    }
+    
+    // ========================================
+    // PARENTS COLLECTION
+    // ========================================
+    match /parents/{parentId} {
+      // Luku: Vain kirjautuneet voivat lukea vanhempien profiileja
+      // Opettajat voivat nähdä vanhempien profiileja kun he ottavat yhteyttä
+      allow read: if isAuthenticated();
+      
+      // Kirjoitus: Vain omistaja voi luoda/päivittää oman profiilinsa
+      allow create: if isOwner(parentId) && 
+                      isValidString('name') &&
+                      isValidString('email') &&
+                      isValidEmail(request.resource.data.email) &&
+                      hasField('userType') &&
+                      request.resource.data.userType == 'parent' &&
+                      hasField('createdAt');
+      
+      allow update: if isOwner(parentId) &&
+                      // Estä userType:n muuttaminen
+                      request.resource.data.userType == resource.data.userType;
+      
+      // Poisto: Vain omistaja voi poistaa
+      allow delete: if isOwner(parentId);
+    }
+    
+    // ========================================
+    // MESSAGES COLLECTION (Tuleva ominaisuus)
+    // ========================================
+    match /messages/{messageId} {
+      // Luku: Vain viestin lähettäjä tai vastaanottaja voi lukea
+      allow read: if isAuthenticated() && 
+                    (request.auth.uid == resource.data.senderId || 
+                     request.auth.uid == resource.data.receiverId);
+      
+      // Kirjoitus: Vain lähettäjä voi luoda viestin
+      allow create: if isAuthenticated() && 
+                      request.auth.uid == request.resource.data.senderId &&
+                      isValidString('content') &&
+                      hasField('receiverId') &&
+                      hasField('timestamp');
+      
+      // Päivitys: Vain viestin omistaja voi päivittää (esim. merkitä luetuksi)
+      allow update: if isAuthenticated() && 
+                      (request.auth.uid == resource.data.senderId || 
+                       request.auth.uid == resource.data.receiverId);
+      
+      // Poisto: Vain lähettäjä voi poistaa
+      allow delete: if isAuthenticated() && 
+                      request.auth.uid == resource.data.senderId;
+    }
+    
+    // ========================================
+    // CONVERSATIONS COLLECTION (Tuleva ominaisuus)
+    // ========================================
+    match /conversations/{conversationId} {
+      // Luku: Vain keskustelun osapuolet voivat lukea
+      allow read: if isAuthenticated() && 
+                    request.auth.uid in resource.data.participants;
+      
+      // Kirjoitus: Vain osallistujat voivat luoda/päivittää
+      allow create, update: if isAuthenticated() && 
+                              request.auth.uid in request.resource.data.participants;
+      
+      // Poisto: Kumpikaan osapuoli ei voi poistaa keskustelua
+      // (Vain admin voi poistaa, mikä vaatii Firebase Admin SDK:n)
+      allow delete: if false;
+    }
+    
+    // ========================================
+    // REVIEWS COLLECTION (Tuleva ominaisuus)
+    // ========================================
+    match /reviews/{reviewId} {
+      // Luku: Kaikki kirjautuneet voivat lukea arvosteluja
+      allow read: if isAuthenticated();
+      
+      // Kirjoitus: Vain vanhemmat voivat kirjoittaa arvosteluja opettajista
+      allow create: if isAuthenticated() && 
+                      isEmailVerified() &&
+                      hasField('teacherId') &&
+                      hasField('parentId') &&
+                      request.auth.uid == request.resource.data.parentId &&
+                      hasField('rating') &&
+                      request.resource.data.rating >= 1 &&
+                      request.resource.data.rating <= 5 &&
+                      hasField('timestamp');
+      
+      // Päivitys: Vain arvostelun kirjoittaja voi päivittää 24h sisällä
+      allow update: if isAuthenticated() && 
+                      request.auth.uid == resource.data.parentId &&
+                      (request.time - resource.data.timestamp) < duration.value(24, 'h');
+      
+      // Poisto: Vain arvostelun kirjoittaja voi poistaa
+      allow delete: if isAuthenticated() && 
+                      request.auth.uid == resource.data.parentId;
+    }
+    
+    // ========================================
+    // BOOKINGS COLLECTION (Tuleva ominaisuus)
+    // ========================================
+    match /bookings/{bookingId} {
+      // Luku: Vain varauksen osapuolet voivat lukea
+      allow read: if isAuthenticated() && 
+                    (request.auth.uid == resource.data.teacherId || 
+                     request.auth.uid == resource.data.parentId);
+      
+      // Kirjoitus: Vain vanhempi voi luoda varauksen
+      allow create: if isAuthenticated() && 
+                      request.auth.uid == request.resource.data.parentId &&
+                      hasField('teacherId') &&
+                      hasField('date') &&
+                      hasField('status') &&
+                      request.resource.data.status == 'pending';
+      
+      // Päivitys: Sekä opettaja että vanhempi voivat päivittää
+      allow update: if isAuthenticated() && 
+                      (request.auth.uid == resource.data.teacherId || 
+                       request.auth.uid == resource.data.parentId);
+      
+      // Poisto: Kumpikin osapuoli voi peruuttaa varauksen
+      allow delete: if isAuthenticated() && 
+                      (request.auth.uid == resource.data.teacherId || 
+                       request.auth.uid == resource.data.parentId);
+    }
+    
+    // ========================================
+    // ESTÄ MUUT KOKOELMAT
+    // ========================================
+    // Kaikki muut kokoelmat ovat kiellettyjä oletuksena
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
