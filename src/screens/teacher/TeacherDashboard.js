@@ -95,7 +95,7 @@ const TeacherDashboard = ({ navigation }) => {
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.headerTitle}>Welcome,</Text>
-            <Text style={styles.headerName}>Teacher {user?.name || 'User'}!</Text>
+            <Text style={styles.headerName}> {user?.name || 'User'}!</Text>
           </View>
           <TouchableOpacity 
             style={styles.logoutButton}

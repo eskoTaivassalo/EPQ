@@ -130,12 +130,12 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
         <View style={styles.bannerContent}>
           <View style={styles.bannerHeader}>
             <Ionicons name="shield-checkmark" size={24} color="#4CAF50" />
-            <Text style={styles.bannerTitle}>Tietosuoja & Evästeet</Text>
+            <Text style={styles.bannerTitle}>Privacy & Cookies</Text>
           </View>
           
           <Text style={styles.bannerText}>
-            Käytämme evästeitä ja seurantatekniikkoja palvelun parantamiseksi. 
-            Voit hallita asetuksiasi ja lukea lisää tietosuojaselosteestamme.
+            We use cookies and tracking technologies to improve our service. 
+            You can manage your preferences and read more in our privacy policy.
           </Text>
 
           <View style={styles.bannerButtons} pointerEvents="box-none">
@@ -147,7 +147,7 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
                 handleAcceptAll();
               }}
             >
-              <Text style={styles.acceptAllText}>Hyväksy kaikki</Text>
+              <Text style={styles.acceptAllText}>Accept all</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -158,7 +158,7 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
                 handleRejectOptional();
               }}
             >
-              <Text style={styles.rejectText}>Vain välttämättömät</Text>
+              <Text style={styles.rejectText}>Only necessary</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -169,7 +169,7 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
                 setShowDetails(true);
               }}
             >
-              <Text style={styles.settingsText}>Asetukset</Text>
+              <Text style={styles.settingsText}>Settings</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -184,7 +184,7 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Evästeasetukset</Text>
+            <Text style={styles.modalTitle}>Cookie Settings</Text>
             <TouchableOpacity 
               onPress={() => setShowDetails(false)}
               style={styles.closeButton}
@@ -195,8 +195,8 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
 
           <ScrollView style={styles.modalContent}>
             <Text style={styles.modalDescription}>
-              Voit hallita evästeiden ja seurannan käyttöä valitsemalla mitkä 
-              kategoriat hyväksyt. Välttämättömät evästeet ovat aina päällä.
+              You can manage the use of cookies and tracking by selecting which 
+              categories you accept. Necessary cookies are always enabled.
             </Text>
 
             {bannerData.consentTypes.map((consentType) => (
@@ -208,7 +208,7 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
                     </Text>
                     {consentType.required && (
                       <View style={styles.requiredBadge}>
-                        <Text style={styles.requiredText}>Pakollinen</Text>
+                        <Text style={styles.requiredText}>Required</Text>
                       </View>
                     )}
                   </View>
@@ -229,37 +229,36 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
                 {/* Lisätiedot per kategoria */}
                 {consentType.type === GDPRService.CONSENT_TYPES.ANALYTICS && (
                   <Text style={styles.consentDetails}>
-                    Sisältää: Google Analytics, sovelluksen käyttötilastot, 
-                    virheiden seuranta ja suorituskyvyn mittarit.
+                    Includes: Google Analytics, app usage statistics, 
+                    error tracking, and performance metrics.
                   </Text>
                 )}
 
                 {consentType.type === GDPRService.CONSENT_TYPES.MARKETING && (
                   <Text style={styles.consentDetails}>
-                    Sisältää: kohdistetut mainokset, uutiskirjeet, 
-                    suositukset ja remarketing.
+                    Includes: targeted ads, newsletters, 
+                    recommendations, and remarketing.
                   </Text>
                 )}
 
                 {consentType.type === GDPRService.CONSENT_TYPES.PERSONALIZATION && (
                   <Text style={styles.consentDetails}>
-                    Sisältää: henkilökohtaiset suositukset, mukautettu sisältö 
-                    ja käyttökokemuksen räätälöinti.
+                    Includes: personalized recommendations, customized content, 
+                    and tailored user experience.
                   </Text>
                 )}
               </View>
             ))}
 
             <View style={styles.privacyInfo}>
-              <Text style={styles.privacyTitle}>Tietosuoja</Text>
+              <Text style={styles.privacyTitle}>Privacy</Text>
               <Text style={styles.privacyText}>
-                Lue lisää tiedonkäsittelystämme tietosuojaselosteestamme. 
-                Voit milloin tahansa muuttaa asetuksiasi tai pyytää tietojesi poistamista.
+                Read more about our data processing in our privacy policy. 
+                You can change your settings or request data deletion at any time.
               </Text>
-              
               <TouchableOpacity style={styles.privacyLink}>
                 <Text style={styles.privacyLinkText}>
-                  📄 Lue tietosuojaseloste
+                  📄 Read privacy policy
                 </Text>
               </TouchableOpacity>
             </View>
@@ -270,7 +269,7 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
               style={styles.saveButton}
               onPress={handleCustomSave}
             >
-              <Text style={styles.saveButtonText}>Tallenna asetukset</Text>
+              <Text style={styles.saveButtonText}>Save settings</Text>
             </TouchableOpacity>
           </View>
         </View>
