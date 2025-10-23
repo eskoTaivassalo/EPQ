@@ -15,7 +15,7 @@
 4. Valitse välilehti: **General**
 5. Scrollaa alas kohtaan: **Your apps**
 6. Etsi **Web app** -osio (ei Android-osio!)
-7. Kopioi **Web client ID** (se näyttää tältä: `123456789-xxxxxx.apps.googleusercontent.com`)
+7. Kopioi **Web client ID** (se näyttää tältä: `123456789-xxxxxx. !)
 
 **TÄRKEÄÄ:** Tarvitset **WEB** Client ID:n, ei Android Client ID:tä!
 
