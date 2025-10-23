@@ -21,7 +21,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.Parents2Tteachers",
+      "package": "com.parents2teachers",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
