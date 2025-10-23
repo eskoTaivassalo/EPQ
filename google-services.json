@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "892513281177",
+    "project_id": "parents2teachers-1d8a3",
+    "storage_bucket": "parents2teachers-1d8a3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:892513281177:android:63a652effb07a0b68c4408",
+        "android_client_info": {
+          "package_name": "com.parents2teachers"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "892513281177-gcs96dkle6si7ptos5f6fuuoke2fohnp.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.parents2teachers",
+            "certificate_hash": "080c3d364a9b611e83c861a10d3fa4f86ba06057"
+          }
+        },
+        {
+          "client_id": "892513281177-v630fe7a65rpdoiqni3cpsqsk23qgb5u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4n1pMKZS2givuFmoS2PbwnvzqYNhCSiM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "892513281177-v630fe7a65rpdoiqni3cpsqsk23qgb5u.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

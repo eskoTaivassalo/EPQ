@@ -10,7 +10,6 @@ web-build/
 expo-env.d.ts
 
 # Firebase - Sensitiiviset tiedostot
-google-services.json
 GoogleService-Info.plist
 .env
 .env.*

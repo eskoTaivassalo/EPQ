@@ -21,11 +21,15 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.eskokakkonen.ParentsTeachersApp"
+      "package": "com.eskokakkonen.ParentsTeachersApp",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      "@react-native-google-signin/google-signin"
+    ],
     "extra": {
       "eas": {
         "projectId": "1c573a38-40b9-4d56-ae0c-d873ae044c8d"

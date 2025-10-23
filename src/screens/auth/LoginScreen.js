@@ -12,11 +12,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
+import { useDispatch } from 'react-redux';
+import { setUser } from '../../store/slices/authSlice';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { db } from '../../config/firebaseConfig';
+import { doc, getDoc } from 'firebase/firestore';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { AuthService } from '../../services/authService';
 
 const LoginScreen = ({ route, navigation }) => {
   const { userType } = route.params;
+  const dispatch = useDispatch();
   const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
@@ -24,6 +30,7 @@ const LoginScreen = ({ route, navigation }) => {
   });
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleLogin = async () => {
     console.log('🔑 LOGIN BUTTON PRESSED!');
@@ -63,6 +70,60 @@ const LoginScreen = ({ route, navigation }) => {
       Alert.alert('Error', 'Login failed');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      setGoogleLoading(true);
+      // Suorita Google-kirjautuminen Firebaseen
+      const userCredential = await AuthService.signInWithGoogle();
+      const firebaseUser = userCredential?.user;
+
+      // Hae käyttäjäprofiili Firestoresta (teachers -> parents)
+      let userDoc = null;
+      let userCollection = null;
+      try {
+        if (firebaseUser?.uid && db) {
+          const teacherRef = doc(db, 'teachers', firebaseUser.uid);
+          const teacherSnap = await getDoc(teacherRef);
+          if (teacherSnap.exists()) {
+            userDoc = teacherSnap;
+            userCollection = 'teachers';
+          } else {
+            const parentRef = doc(db, 'parents', firebaseUser.uid);
+            const parentSnap = await getDoc(parentRef);
+            if (parentSnap.exists()) {
+              userDoc = parentSnap;
+              userCollection = 'parents';
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Firestore profile fetch failed (Google login):', e);
+      }
+
+      let userData = {
+        uid: firebaseUser?.uid,
+        email: firebaseUser?.email,
+        emailVerified: firebaseUser?.emailVerified,
+        displayName: firebaseUser?.displayName,
+        photoURL: firebaseUser?.photoURL,
+        timestamp: Date.now(),
+      };
+
+      if (userDoc?.exists()) {
+        userData = { ...userData, ...userDoc.data() };
+      }
+
+      // Tallenna ja päivitä Redux
+      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      dispatch(setUser(userData));
+    } catch (error) {
+      console.error('Google login failed:', error);
+      Alert.alert('Login failed', error?.message || 'Google login failed');
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -204,6 +265,18 @@ const LoginScreen = ({ route, navigation }) => {
             </TouchableOpacity>
           </View>
 
+          {/* Google login */}
+          <TouchableOpacity
+            style={[styles.googleButton, googleLoading && { opacity: 0.7 }]}
+            onPress={handleGoogleLogin}
+            disabled={googleLoading}
+          >
+            <Ionicons name="logo-google" size={20} color={colors.white} style={{ marginRight: 8 }} />
+            <Text style={styles.googleButtonText}>
+              {googleLoading ? 'Signing in with Google…' : 'Continue with Google'}
+            </Text>
+          </TouchableOpacity>
+
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>
@@ -312,6 +385,25 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  googleButton: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#4285F4',
+    padding: 16,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  googleButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
   footer: {
     alignItems: 'center',
