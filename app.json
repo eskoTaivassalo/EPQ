@@ -21,7 +21,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.eskokakkonen.ParentsTeachersApp",
+      "package": "com.Parents2Tteachers",
       "googleServicesFile": "./google-services.json"
     },
     "web": {

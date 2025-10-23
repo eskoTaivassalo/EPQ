@@ -466,7 +466,7 @@ export class AuthService {
       providerData: user.providerData
     };
   }
-
+ 
   /**
    * 🔧 Konfiguroi Google Sign-In
    * Kutsutaan sovelluksen käynnistyessä

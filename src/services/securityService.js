@@ -8,7 +8,7 @@
  * - Content filtering
  * - Security headers
  */
-
+ 
 export class SecurityService {
   
   // Rate limiting - estää liian nopeat pyynnöt
