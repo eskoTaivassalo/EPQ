@@ -79,8 +79,21 @@ const ParentDashboard = ({ navigation }) => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    console.log('🚪 ParentDashboard: Logout button pressed');
+    try {
+      const result = await logout();
+      if (result.success) {
+        console.log('✅ ParentDashboard: Logout successful');
+        // Navigointi tapahtuu automaattisesti App.js:ssä kun isAuthenticated muuttuu
+      } else {
+        console.error('❌ ParentDashboard: Logout failed:', result.error);
+        alert('Logout failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ ParentDashboard: Logout error:', error);
+      alert('An error occurred during logout.');
+    }
   };
 
   return (

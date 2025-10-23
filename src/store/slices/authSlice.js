@@ -175,11 +175,19 @@ export const logoutUser = createAsyncThunk(
     try {
       console.log('🚪 Redux: Logout attempt');
       
+      // 1. Sign out from Firebase
       if (auth) {
         await signOut(auth);
+        console.log('✅ Redux: Firebase signOut successful');
       }
       
+      // 2. Clear AsyncStorage
       await AsyncStorage.removeItem('user');
+      console.log('✅ Redux: AsyncStorage user removed');
+      
+      // 3. Clear session data
+      await SessionManager.clearSession();
+      console.log('✅ Redux: Session cleared');
       
       console.log('✅ Redux: Logout successful');
       return null;
@@ -447,15 +455,23 @@ const authSlice = createSlice({
         state.loading = true;
       })
       .addCase(logoutUser.fulfilled, (state) => {
+        // Tyhjennä kaikki auth state
         state.loading = false;
         state.user = null;
         state.isAuthenticated = false;
         state.error = null;
         state.lastLogin = null;
+        state.sessionInfo = null;
+        state.rememberMe = false;
       })
       .addCase(logoutUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        // Tyhjennä silti state, vaikka logout epäonnistuisi
+        state.user = null;
+        state.isAuthenticated = false;
+        state.sessionInfo = null;
+        state.rememberMe = false;
       })
       
     // Refresh User

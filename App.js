@@ -39,6 +39,7 @@ import CookieConsentBanner from './src/components/CookieConsentBanner';
 
 // Services
 import GDPRService from './src/services/gdprService';
+import { AuthService } from './src/services/authService';
 
 // Styles
 import { colors } from './src/styles/commonStyles';
@@ -62,9 +63,17 @@ const AppNavigator = () => {
   const [emailVerifiedDelay, setEmailVerifiedDelay] = useState(false);
   const [showConsentBanner, setShowConsentBanner] = useState(false);
 
-  // Load stored auth on app start
+  // Load stored auth on app start & Configure Google Sign-In
   useEffect(() => {
     loadStoredAuth();
+    
+    // Konfiguroi Google Sign-In
+    try {
+      AuthService.configureGoogleSignIn();
+      console.log('✅ Google Sign-In configured in App.js');
+    } catch (error) {
+      console.error('❌ Failed to configure Google Sign-In:', error);
+    }
   }, []);
 
   // 🧪 TESTAUS: Näytä banner aina kun kirjaudutaan sisään

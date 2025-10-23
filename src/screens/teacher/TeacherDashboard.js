@@ -84,8 +84,21 @@ const TeacherDashboard = ({ navigation }) => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    console.log('🚪 TeacherDashboard: Logout button pressed');
+    try {
+      const result = await logout();
+      if (result.success) {
+        console.log('✅ TeacherDashboard: Logout successful');
+        // Navigointi tapahtuu automaattisesti App.js:ssä kun isAuthenticated muuttuu
+      } else {
+        console.error('❌ TeacherDashboard: Logout failed:', result.error);
+        alert('Logout failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('❌ TeacherDashboard: Logout error:', error);
+      alert('An error occurred during logout.');
+    }
   };
 
   return (

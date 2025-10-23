@@ -4,9 +4,12 @@ import {
   updatePassword,
   reauthenticateWithCredential,
   EmailAuthProvider,
-  deleteUser
+  deleteUser,
+  GoogleAuthProvider,
+  signInWithCredential
 } from 'firebase/auth';
 import { auth } from '../config/firebaseConfig';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 /**
  * Auth Service - Keskitetty autentikointipalvelu
@@ -462,6 +465,101 @@ export class AuthService {
       lastSignInTime: user.metadata.lastSignInTime,
       providerData: user.providerData
     };
+  }
+
+  /**
+   * 🔧 Konfiguroi Google Sign-In
+   * Kutsutaan sovelluksen käynnistyessä
+   */
+  static configureGoogleSignIn() {
+    try {
+      GoogleSignin.configure({
+        webClientId: '1:892513281177:web:1ed5301e11c86c538c4408', // Korvaa tämä Firebase consolesta
+        offlineAccess: true,
+      });
+      console.log('✅ Google Sign-In configured successfully');
+    } catch (error) {
+      console.error('❌ Error configuring Google Sign-In:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🔐 Kirjaudu sisään Google-tilillä
+   * @returns {Promise<UserCredential>} Firebase UserCredential
+   */
+  static async signInWithGoogle() {
+    try {
+      console.log('🔵 Starting Google Sign-In...');
+      
+      // Tarkista onko Google Play Services saatavilla
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      
+      // Kirjaudu Googleen
+      const { idToken } = await GoogleSignin.signIn();
+      
+      // Luo Firebase credential
+      const googleCredential = GoogleAuthProvider.credential(idToken);
+      
+      // Kirjaudu Firebaseen
+      const userCredential = await signInWithCredential(auth, googleCredential);
+      
+      console.log('✅ Google Sign-In successful');
+      console.log('👤 User:', userCredential.user.email);
+      
+      // Google-kirjautumisella ei tarvitse email-vahvistusta
+      // Merkitse tili vahvistetuksi automaattisesti
+      if (userCredential.user.uid) {
+        this.markAccountVerified(userCredential.user.uid);
+      }
+      
+      return userCredential;
+    } catch (error) {
+      console.error('❌ Google Sign-In error:', error);
+      
+      // Käyttäjäystävälliset virheilmoitukset
+      if (error.code === 'SIGN_IN_CANCELLED') {
+        throw new Error('Kirjautuminen peruutettiin');
+      } else if (error.code === 'IN_PROGRESS') {
+        throw new Error('Kirjautuminen on jo käynnissä');
+      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+        throw new Error('Google Play Services ei ole saatavilla');
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * 🚪 Kirjaudu ulos Google-tililtä
+   */
+  static async signOutFromGoogle() {
+    try {
+      const isSignedIn = await GoogleSignin.isSignedIn();
+      if (isSignedIn) {
+        await GoogleSignin.signOut();
+        console.log('✅ Signed out from Google');
+      }
+    } catch (error) {
+      console.error('❌ Error signing out from Google:', error);
+    }
+  }
+
+  /**
+   * 🔄 Tarkista Google-kirjautumisen tila
+   */
+  static async checkGoogleSignInStatus() {
+    try {
+      const isSignedIn = await GoogleSignin.isSignedIn();
+      if (isSignedIn) {
+        const userInfo = await GoogleSignin.getCurrentUser();
+        return userInfo;
+      }
+      return null;
+    } catch (error) {
+      console.error('❌ Error checking Google sign-in status:', error);
+      return null;
+    }
   }
 }
 

@@ -233,6 +233,15 @@ class SessionManager {
   }
 
   /**
+   * Tyhjentää kaikki session tiedot (alias reset-metodille)
+   * Käytetään logout-toiminnossa
+   */
+  async clearSession() {
+    console.log('🧹 SessionManager: Clearing session (logout)');
+    await this.reset();
+  }
+
+  /**
    * Palauttaa session tiedot
    */
   async getSessionInfo() {
