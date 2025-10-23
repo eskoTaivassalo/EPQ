@@ -474,7 +474,7 @@ export class AuthService {
   static configureGoogleSignIn() {
     try {
       GoogleSignin.configure({
-        webClientId: '1:892513281177:web:1ed5301e11c86c538c4408', // Korvaa tämä Firebase consolesta
+        webClientId: '892513281177-v630fe7a65rpdoiqni3cpsqsk23qgb5u.apps.googleusercontent.com', // Korvaa tämä Firebase consolesta
         offlineAccess: true,
       });
       console.log('✅ Google Sign-In configured successfully');
