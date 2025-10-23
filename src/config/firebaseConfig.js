@@ -21,40 +21,22 @@ let app;
 let auth;
 let db;
 let storage;
-let analytics;
 
 try {
   app = initializeApp(firebaseConfig);
-  
   // React Native specific Auth initialization with AsyncStorage persistence
   auth = initializeAuth(app, {
     persistence: getReactNativePersistence(AsyncStorage)
   });
-  
-  // Alusta Firestore
   db = getFirestore(app);
-  
-  // Alusta Storage
   storage = getStorage(app);
-  
-  // Alusta Analytics (vain webissä)
-  try {
-    const { getAnalytics } = require('firebase/analytics');
-    analytics = getAnalytics(app);
-    console.log('Firebase Analytics initialized');
-  } catch (e) {
-    console.log('Firebase Analytics not available (native build)');
-  }
-  
   console.log('Firebase initialized successfully with AsyncStorage persistence');
 } catch (error) {
   console.error('Firebase initialization error:', error);
-  
-  // Fallback jos Firebase ei ole konfiguroitu
   auth = null;
   db = null;
   storage = null;
 }
 
-export { auth, db, storage, analytics };
+export { auth, db, storage };
 export default app;
