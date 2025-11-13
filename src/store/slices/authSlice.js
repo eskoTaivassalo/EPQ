@@ -108,6 +108,7 @@ export const registerUser = createAsyncThunk(
   async (userData, { rejectWithValue }) => {
     try {
       console.log('📝 Redux: Registration attempt for:', userData.email);
+      console.log('📝 Redux: isGoogleAuth:', userData.isGoogleAuth);
       
       if (!auth || !db) {
         console.log('📝 Redux: No Firebase, using fallback registration');
@@ -121,13 +122,29 @@ export const registerUser = createAsyncThunk(
         throw new Error(fallbackResult.error);
       }
 
-      const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
-      const firebaseUser = userCredential.user;
-      
-      // Päivitä Firebase Auth profile
-      await updateProfile(firebaseUser, {
-        displayName: userData.name || userData.fullName
-      });
+      let firebaseUser;
+
+      // 🔵 JOS GOOGLE-KÄYTTÄJÄ: Käytä nykyistä auth.currentUser (jo kirjautunut)
+      if (userData.isGoogleAuth) {
+        console.log('📝 Redux: Google user - using existing Firebase auth');
+        firebaseUser = auth.currentUser;
+        
+        if (!firebaseUser) {
+          throw new Error('Google-autentikointi epäonnistui - käyttäjää ei löydy');
+        }
+        
+        console.log('✅ Redux: Using existing Google user:', firebaseUser.email);
+      } else {
+        // 📧 NORMAALI EMAIL/PASSWORD REKISTERÖINTI
+        console.log('📝 Redux: Creating new email/password user');
+        const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+        firebaseUser = userCredential.user;
+        
+        // Päivitä Firebase Auth profile
+        await updateProfile(firebaseUser, {
+          displayName: userData.name || userData.fullName
+        });
+      }
 
       // Tallenna lisätiedot Firestore:een oikeaan kokoelmaan (teachers tai parents)
       const firestoreData = {

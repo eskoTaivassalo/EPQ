@@ -7,7 +7,8 @@ import {
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +29,7 @@ const LoginScreen = ({ route, navigation }) => {
     email: '',
     password: ''
   });
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -75,55 +77,68 @@ const LoginScreen = ({ route, navigation }) => {
 
   const handleGoogleLogin = async () => {
     try {
+      console.log('🔵 Google Sign-In button pressed');
       setGoogleLoading(true);
-      // Suorita Google-kirjautuminen Firebaseen
-      const userCredential = await AuthService.signInWithGoogle();
-      const firebaseUser = userCredential?.user;
+      
+      // 1️⃣ HAE GOOGLE-TIEDOT (ei vielä Firebase-autentikointia!)
+      console.log('🔵 Fetching Google user info...');
+      const googleUserInfo = await AuthService.getGoogleUserInfo();
+      
+      if (!googleUserInfo) {
+        throw new Error('Google-tietojen haku epäonnistui');
+      }
+      
+      console.log('✅ Got Google user info:', googleUserInfo.email);
 
-      // Hae käyttäjäprofiili Firestoresta (teachers -> parents)
-      let userDoc = null;
-      let userCollection = null;
-      try {
-        if (firebaseUser?.uid && db) {
-          const teacherRef = doc(db, 'teachers', firebaseUser.uid);
-          const teacherSnap = await getDoc(teacherRef);
-          if (teacherSnap.exists()) {
-            userDoc = teacherSnap;
-            userCollection = 'teachers';
-          } else {
-            const parentRef = doc(db, 'parents', firebaseUser.uid);
-            const parentSnap = await getDoc(parentRef);
-            if (parentSnap.exists()) {
-              userDoc = parentSnap;
-              userCollection = 'parents';
-            }
+      // 2️⃣ OHJAA SUORAAN SIGNUP-LOMAKKEELLE (esitäytetty)
+      console.log('� Redirecting to signup form...');
+      
+      if (userType === 'teacher') {
+        navigation.navigate('TeacherSignup', {
+          googleUser: {
+            idToken: googleUserInfo.idToken,  // ⚠️ Tarvitaan myöhemmin Firebase-autentikointiin!
+            email: googleUserInfo.email,
+            displayName: googleUserInfo.displayName,
+            photoURL: googleUserInfo.photoURL,
           }
-        }
-      } catch (e) {
-        console.warn('Firestore profile fetch failed (Google login):', e);
+        });
+      } else {
+        navigation.navigate('ParentSignup', {
+          googleUser: {
+            idToken: googleUserInfo.idToken,  // ⚠️ Tarvitaan myöhemmin Firebase-autentikointiin!
+            email: googleUserInfo.email,
+            displayName: googleUserInfo.displayName,
+            photoURL: googleUserInfo.photoURL,
+          }
+        });
       }
 
-      let userData = {
-        uid: firebaseUser?.uid,
-        email: firebaseUser?.email,
-        emailVerified: firebaseUser?.emailVerified,
-        displayName: firebaseUser?.displayName,
-        photoURL: firebaseUser?.photoURL,
-        timestamp: Date.now(),
-      };
-
-      if (userDoc?.exists()) {
-        userData = { ...userData, ...userDoc.data() };
-      }
-
-      // Tallenna ja päivitä Redux
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
-      dispatch(setUser(userData));
+      // ✅ Lomake aukeaa esitäytettynä - käyttäjä täyttää loput tiedot
+      
     } catch (error) {
-      console.error('Google login failed:', error);
-      Alert.alert('Login failed', error?.message || 'Google login failed');
+      console.error('❌ Google login error:', error);
+      
+      // Käyttäjäystävälliset virheilmoitukset
+      let errorMessage = 'Google-kirjautuminen epäonnistui';
+      
+      if (error.code === 'DEVELOPER_ERROR') {
+        errorMessage = 'Sovelluksen konfiguraatio-ongelma. Tarkista SHA-sertifikaatit Firebase Consolessa.';
+      } else if (error.code === 'API_NOT_CONNECTED') {
+        errorMessage = 'Google Sign-In ei ole aktivoitu. Tarkista Firebase Console asetukset.';
+      } else if (error.code === 'SIGN_IN_CANCELLED') {
+        errorMessage = 'Kirjautuminen peruutettiin';
+        console.log('ℹ️ User cancelled Google sign-in');
+        return; // Ei näytetä virhettä, käyttäjä peruutti
+      } else if (error.code === 'NETWORK_ERROR') {
+        errorMessage = 'Verkkovirhe. Tarkista internetyhteytesi.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Kirjautuminen epäonnistui', errorMessage);
     } finally {
       setGoogleLoading(false);
+      console.log('🔵 Google loading state: false');
     }
   };
 
@@ -198,10 +213,17 @@ const LoginScreen = ({ route, navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
         style={styles.container}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 90}
       >
-        <View style={styles.content}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          enableOnAndroid={true}
+        >
+          <View style={styles.content}>
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity 
@@ -236,12 +258,30 @@ const LoginScreen = ({ route, navigation }) => {
             <View style={styles.inputContainer}>
               <Ionicons name="lock-closed-outline" size={20} color={colors.textLight} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
                 placeholder="Password"
                 value={formData.password}
                 onChangeText={(text) => setFormData({...formData, password: text})}
-                secureTextEntry
+                secureTextEntry={!showPassword}
+                autoComplete="password"
+                style={{
+                  flex: 1,
+                  paddingVertical: 15,
+                  paddingHorizontal: 0,
+                  fontSize: 16,
+                  color: colors.text,
+                  fontFamily: Platform.OS === 'android' ? 'monospace' : undefined,
+                }}
               />
+              <TouchableOpacity 
+                onPress={() => setShowPassword(!showPassword)}
+                style={{ padding: 10 }}
+              >
+                <Ionicons 
+                  name={showPassword ? "eye-off-outline" : "eye-outline"} 
+                  size={20} 
+                  color={colors.textLight} 
+                />
+              </TouchableOpacity>
             </View>
 
             <TouchableOpacity
@@ -284,6 +324,7 @@ const LoginScreen = ({ route, navigation }) => {
             </Text>
           </View>
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -355,6 +396,21 @@ const styles = StyleSheet.create({
     padding: 15,
     fontSize: 16,
     color: colors.text,
+  },
+  passwordInput: {
+    flex: 1,
+    padding: 15,
+    fontSize: 16,
+    color: colors.text,
+  },
+  passwordLength: {
+    fontSize: 12,
+    color: colors.textLight,
+    marginLeft: 8,
+    paddingRight: 10,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   forgotPasswordButton: {
     alignSelf: 'flex-end',

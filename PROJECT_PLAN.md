@@ -1,4 +1,30 @@
 # Parents&Teachers App - Trello Suunnitelma
+## 2025-11-13 ✅ Google Authentication VALMIS
+- **Google Sign-In integraatio TOIMII** 🎉
+  - ✅ @react-native-google-signin/google-signin v16.0.0 asennettu
+  - ✅ Firebase Console konfiguroitu (Web Client ID)
+  - ✅ SHA-1 ja SHA-256 sertifikaatit lisätty Firebase Consoleen
+  - ✅ Development Build -workflow käytössä (hot reload toimii)
+  - ✅ Google-autentikointi flow korjattu:
+    1. Käyttäjä klikkaa "Continue with Google"
+    2. Google-tiedot haetaan (EI vielä Firebase-autentikointia)
+    3. Signup-lomake aukeaa esitäytettynä (email, nimi)
+    4. Käyttäjä täyttää loput tiedot (bio, tags, jne.)
+    5. Lomakkeen lähetys → Firebase-autentikointi + Firestore-profiili luodaan
+  - ✅ Salasanakentät piilotettu Google-käyttäjiltä
+  - ✅ Google info -laatikko lisätty signup-lomakkeisiin
+  - ✅ authService.js: `getGoogleUserInfo()` ja `signInWithGoogleToken()` funktiot
+  - ✅ authSlice.js: Google-käyttäjien tunnistus `registerUser()`-funktiossa
+  - ✅ "email-already-in-use" -ongelma korjattu
+  - ✅ Show/Hide password -toiminto lisätty (silmä-ikoni)
+  - ⚠️ **TUNNETTU ONGELMA (MVP):** Salasanakentän bulletit eivät näy Huawei Honor 7 -laitteella
+    - Syy: Laitteeseen liittyvä Android-bugi vanhemmissa laitteissa
+    - Workaround: Show/hide password -painike lisätty
+    - Korjaus: Seuraavassa versiossa (v1.1) - custom font tai erikoismerkit
+
+## 2025-10-24
+- EAS build tehty, sovellus toimii nyt itsenäisenä kokonaisuutena.
+- Dockerin avulla buildit tehdään paikallisesti, eivät kuluta Expo-palvelun quota-rajaa. Docker-buildit voi tehdä rajattomasti omalla koneella.
 ## 8 viikon kehitys- ja julkaisusuunnitelma
 
 ---
@@ -30,6 +56,11 @@
 ### 🔐 Autentikointi & Turvallisuus
 - [x] Firebase autentikointi integraatio (perusteet)
 - [x] Email/password kirjautuminen
+- [x] **Google Sign-In integraatio** ✅ (13.11.2025)
+  - ✅ Google-kirjautuminen toimii end-to-end
+  - ✅ Pre-filled signup forms Google-käyttäjille
+  - ✅ Firebase Authentication + Firestore profile creation
+  - ✅ Development Build workflow
 - [x] Käyttäjäroolit (Parent/Teacher)
 - [x] Email-verifiointi
 - [x] Salasanan resetointi toiminnallisuus (authService.js)

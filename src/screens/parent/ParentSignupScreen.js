@@ -7,14 +7,17 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Alert
+  Alert,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useSecurity } from '../../hooks/useSecurity';
+import { AuthService } from '../../services/authService';
 import { colors } from '../../styles/commonStyles';
 
-const ParentSignupScreen = ({ navigation }) => {
+const ParentSignupScreen = ({ navigation, route }) => {
   const { register } = useAuth();
   const { 
     validatePassword, 
@@ -25,11 +28,15 @@ const ParentSignupScreen = ({ navigation }) => {
     validatePhoneNumber,
     validateDescription
   } = useSecurity();
+  
+  // Hae Google-käyttäjän tiedot jos ne on välitetty
+  const googleUser = route?.params?.googleUser;
+  
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    fullName: googleUser?.displayName || '',
+    email: googleUser?.email || '',
+    password: googleUser ? 'GOOGLE_AUTH_USER' : '', // Google-käyttäjät eivät tarvitse salasanaa
+    confirmPassword: googleUser ? 'GOOGLE_AUTH_USER' : '',
     phoneNumber: '',
     location: '',
     childrenAges: '',
@@ -129,32 +136,35 @@ const ParentSignupScreen = ({ navigation }) => {
       return false;
     }
 
-    // Validoi salasana
-    if (!formData.password.trim()) {
-      Alert.alert('Virhe', 'Anna salasana');
-      return false;
-    }
-    
-    const passwordValidation = validatePassword(formData.password);
-    if (!passwordValidation.isValid) {
-      Alert.alert('Heikko salasana', passwordValidation.message);
-      return false;
-    }
+    // ✅ Ohita salasanan validointi Google-käyttäjille
+    if (!googleUser) {
+      // Validoi salasana
+      if (!formData.password.trim()) {
+        Alert.alert('Virhe', 'Anna salasana');
+        return false;
+      }
+      
+      const passwordValidation = validatePassword(formData.password);
+      if (!passwordValidation.isValid) {
+        Alert.alert('Heikko salasana', passwordValidation.message);
+        return false;
+      }
 
-    // Tarkista salasanan vahvuus
-    const passwordStrength = getPasswordStrength(formData.password);
-    if (passwordStrength < 60) {
-      Alert.alert(
-        'Heikko salasana', 
-        `Salasanasi vahvuus on ${passwordStrength}/100. Käytä vahvempaa salasanaa turvallisuuden vuoksi.`
-      );
-      return false;
-    }
+      // Tarkista salasanan vahvuus
+      const passwordStrength = getPasswordStrength(formData.password);
+      if (passwordStrength < 60) {
+        Alert.alert(
+          'Heikko salasana', 
+          `Salasanasi vahvuus on ${passwordStrength}/100. Käytä vahvempaa salasanaa turvallisuuden vuoksi.`
+        );
+        return false;
+      }
 
-    // Tarkista salasanojen vastaavuus
-    if (formData.password !== formData.confirmPassword) {
-      Alert.alert('Virhe', 'Salasanat eivät täsmää');
-      return false;
+      // Tarkista salasanojen vastaavuus
+      if (formData.password !== formData.confirmPassword) {
+        Alert.alert('Virhe', 'Salasanat eivät täsmää');
+        return false;
+      }
     }
 
     // Validoi puhelinnumero jos annettu
@@ -177,6 +187,7 @@ const ParentSignupScreen = ({ navigation }) => {
 
   const handleSignup = async () => {
     console.log('🔧 PARENT SIGNUP BUTTON PRESSED!');
+    console.log('🔧 isGoogleUser:', !!googleUser);
     
     if (!validateForm()) {
       console.log('🔧 Parent form validation failed');
@@ -186,23 +197,32 @@ const ParentSignupScreen = ({ navigation }) => {
     console.log('🔧 Parent form validation passed, starting signup...');
     setLoading(true);
     try {
+      // 🔵 JOS GOOGLE-KÄYTTÄJÄ: Luo Firebase-autentikointi ENSIN
+      if (googleUser?.idToken) {
+        console.log('🔵 Google user detected - authenticating to Firebase...');
+        await AuthService.signInWithGoogleToken(googleUser.idToken);
+        console.log('✅ Firebase authentication successful');
+      }
+
       const userData = {
         name: formData.fullName,
         email: formData.email,
-        password: formData.password,
+        password: googleUser ? 'GOOGLE_AUTH_USER' : formData.password,  // Placeholder Google-käyttäjille
         role: 'parent',
         phoneNumber: formData.phoneNumber,
         location: formData.location,
         childrenAges: formData.childrenAges,
         specificNeeds: formData.specificNeeds,
         lookingFor: formData.lookingFor,
-        acceptMarketing: formData.acceptMarketing
+        acceptMarketing: formData.acceptMarketing,
+        isGoogleAuth: !!googleUser  // Merkitse Google-autentikointi
       };
 
       console.log('🔧 Calling register with parent userData:', { 
         name: userData.name, 
         email: userData.email, 
-        role: userData.role 
+        role: userData.role,
+        isGoogleAuth: userData.isGoogleAuth
       });
 
       const result = await register(userData);
@@ -242,7 +262,16 @@ const ParentSignupScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>Join as a Parent</Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{flex: 1}}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={styles.welcomeSection}>
           <Text style={styles.welcomeTitle}>Connect with Professionals Worldwide</Text>
           <Text style={styles.welcomeSubtitle}>
@@ -347,80 +376,98 @@ const ParentSignupScreen = ({ navigation }) => {
 
           <Text style={styles.sectionTitle}>Account Security</Text>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password *</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Minimum 6 characters"
-                value={formData.password}
-                onChangeText={(text) => handleInputChange('password', text)}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Ionicons 
-                  name={showPassword ? "eye-off" : "eye"} 
-                  size={20} 
-                  color={colors.textLight} 
-                />
-              </TouchableOpacity>
+          {/* ✅ INFO BOX: Google User */}
+          {googleUser && (
+            <View style={styles.googleInfoBox}>
+              <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+              <Text style={styles.googleInfoText}>
+                You're signing in with Google. No password needed! Just complete your profile below.
+              </Text>
             </View>
-            
-            {/* 💪 PASSWORD STRENGTH INDICATOR */}
-            {formData.password.length > 0 && (
-              <View style={styles.passwordStrengthContainer}>
-                <View style={styles.strengthBarBackground}>
-                  <View 
-                    style={[
-                      styles.strengthBar, 
-                      { 
-                        width: getPasswordStrengthInfo().width, 
-                        backgroundColor: getPasswordStrengthInfo().color 
-                      }
-                    ]} 
+          )}
+
+          {!googleUser && (
+            <>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Password *</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Minimum 6 characters"
+                    value={formData.password}
+                    onChangeText={(text) => handleInputChange('password', text)}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    textContentType="newPassword"
+                    autoComplete="password-new"
                   />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Ionicons 
+                      name={showPassword ? "eye-off" : "eye"} 
+                      size={20} 
+                      color={colors.textLight} 
+                    />
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.strengthInfo}>
-                  <Text style={[styles.strengthText, { color: getPasswordStrengthInfo().color }]}>
-                    {getPasswordStrengthInfo().text} ({passwordStrength}/100)
-                  </Text>
-                  {!passwordValidation.isValid && (
-                    <Text style={styles.passwordError}>
-                      {passwordValidation.message}
-                    </Text>
-                  )}
+                
+                {/* 💪 PASSWORD STRENGTH INDICATOR */}
+                {formData.password.length > 0 && (
+                  <View style={styles.passwordStrengthContainer}>
+                    <View style={styles.strengthBarBackground}>
+                      <View 
+                        style={[
+                          styles.strengthBar, 
+                          { 
+                            width: getPasswordStrengthInfo().width, 
+                            backgroundColor: getPasswordStrengthInfo().color 
+                          }
+                        ]} 
+                      />
+                    </View>
+                    <View style={styles.strengthInfo}>
+                      <Text style={[styles.strengthText, { color: getPasswordStrengthInfo().color }]}>
+                        {getPasswordStrengthInfo().text} ({passwordStrength}/100)
+                      </Text>
+                      {!passwordValidation.isValid && (
+                        <Text style={styles.passwordError}>
+                          {passwordValidation.message}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Confirm Password *</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Re-enter your password"
+                    value={formData.confirmPassword}
+                    onChangeText={(text) => handleInputChange('confirmPassword', text)}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    textContentType="newPassword"
+                    autoComplete="password-new"
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <Ionicons 
+                      name={showConfirmPassword ? "eye-off" : "eye"} 
+                      size={20} 
+                      color={colors.textLight} 
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
-            )}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Confirm Password *</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Re-enter your password"
-                value={formData.confirmPassword}
-                onChangeText={(text) => handleInputChange('confirmPassword', text)}
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Ionicons 
-                  name={showConfirmPassword ? "eye-off" : "eye"} 
-                  size={20} 
-                  color={colors.textLight} 
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
+            </>
+          )}
 
           <View style={styles.checkboxSection}>
             <TouchableOpacity
@@ -471,6 +518,7 @@ const ParentSignupScreen = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -587,10 +635,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   passwordInput: {
-    flex: 1,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 16,
+  flex: 1,
+  paddingHorizontal: 15,
+  paddingVertical: 12,
+  fontSize: 18,
+  },
+  passwordLengthIndicator: {
+  fontSize: 24,
+  color: colors.textLight,
+  marginRight: 4,
+  minWidth: 20,
+  textAlign: 'center',
   },
   eyeButton: {
     paddingHorizontal: 15,
@@ -675,6 +730,23 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#FF6B6B',
     fontStyle: 'italic',
+  },
+  
+  // ✅ GOOGLE USER INFO BOX STYLES
+  googleInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  googleInfoText: {
+    flex: 1,
+    marginLeft: 12,
+    fontSize: 14,
+    color: '#2E7D32',
+    lineHeight: 20,
   },
 });
 

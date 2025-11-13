@@ -7,14 +7,17 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Alert
+  Alert,
+  KeyboardAvoidingView,
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useSecurity } from '../../hooks/useSecurity';
+import { AuthService } from '../../services/authService';
 import { colors } from '../../styles/commonStyles';
 
-const TeacherSignupScreen = ({ navigation }) => {
+const TeacherSignupScreen = ({ navigation, route }) => {
   const { register } = useAuth();
   const { 
     validatePassword, 
@@ -25,11 +28,15 @@ const TeacherSignupScreen = ({ navigation }) => {
     validatePhoneNumber,
     validateDescription
   } = useSecurity();
+  
+  // Hae Google-käyttäjän tiedot jos ne on välitetty
+  const googleUser = route?.params?.googleUser;
+  
   const [formData, setFormData] = useState({
-    fullName: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
+    fullName: googleUser?.displayName || '',
+    email: googleUser?.email || '',
+    password: googleUser ? 'GOOGLE_AUTH_USER' : '', // Google-käyttäjät eivät tarvitse salasanaa
+    confirmPassword: googleUser ? 'GOOGLE_AUTH_USER' : '',
     phoneNumber: '',
     specialization: '',
     qualifications: '',
@@ -133,40 +140,45 @@ const TeacherSignupScreen = ({ navigation }) => {
         return false;
       }
 
-      // Validoi salasana
-      if (!formData.password.trim()) {
-        console.log('🔧 Validation failed: No password');
-        Alert.alert('Virhe', 'Anna salasana');
-        return false;
-      }
-      
-      console.log('🔧 Validating password...');
-      const passwordValidation = validatePassword(formData.password);
-      console.log('🔧 Password validation result:', passwordValidation);
-      if (!passwordValidation.isValid) {
-        console.log('🔧 Validation failed: Invalid password');
-        Alert.alert('Heikko salasana', passwordValidation.message);
-        return false;
-      }
+      // ✅ Ohita salasanan validointi Google-käyttäjille
+      if (!googleUser) {
+        // Validoi salasana
+        if (!formData.password.trim()) {
+          console.log('🔧 Validation failed: No password');
+          Alert.alert('Virhe', 'Anna salasana');
+          return false;
+        }
+        
+        console.log('🔧 Validating password...');
+        const passwordValidation = validatePassword(formData.password);
+        console.log('🔧 Password validation result:', passwordValidation);
+        if (!passwordValidation.isValid) {
+          console.log('🔧 Validation failed: Invalid password');
+          Alert.alert('Heikko salasana', passwordValidation.message);
+          return false;
+        }
 
-      // Tarkista salasanan vahvuus
-      console.log('🔧 Checking password strength...');
-      const passwordStrength = getPasswordStrength(formData.password);
-      console.log('🔧 Password strength:', passwordStrength);
-      if (passwordStrength < 60) {
-        console.log('🔧 Validation failed: Weak password');
-        Alert.alert(
-          'Heikko salasana', 
-          `Salasanasi vahvuus on ${passwordStrength}/100. Käytä vahvempaa salasanaa turvallisuuden vuoksi.`
-        );
-        return false;
-      }
+        // Tarkista salasanan vahvuus
+        console.log('🔧 Checking password strength...');
+        const passwordStrength = getPasswordStrength(formData.password);
+        console.log('🔧 Password strength:', passwordStrength);
+        if (passwordStrength < 60) {
+          console.log('🔧 Validation failed: Weak password');
+          Alert.alert(
+            'Heikko salasana', 
+            `Salasanasi vahvuus on ${passwordStrength}/100. Käytä vahvempaa salasanaa turvallisuuden vuoksi.`
+          );
+          return false;
+        }
 
-      // Tarkista salasanojen vastaavuus
-      if (formData.password !== formData.confirmPassword) {
-        console.log('🔧 Validation failed: Passwords do not match');
-        Alert.alert('Virhe', 'Salasanat eivät täsmää');
-        return false;
+        // Tarkista salasanojen vastaavuus
+        if (formData.password !== formData.confirmPassword) {
+          console.log('🔧 Validation failed: Passwords do not match');
+          Alert.alert('Virhe', 'Salasanat eivät täsmää');
+          return false;
+        }
+      } else {
+        console.log('🔧 Skipping password validation for Google user');
       }
 
       // Validoi specialization
@@ -237,7 +249,8 @@ const TeacherSignupScreen = ({ navigation }) => {
       passwordLength: formData.password?.length,
       hasConfirmPassword: !!formData.confirmPassword,
       specialization: formData.specialization,
-      acceptTerms: formData.acceptTerms
+      acceptTerms: formData.acceptTerms,
+      isGoogleUser: !!googleUser
     });
     
     if (!validateForm()) {
@@ -248,22 +261,31 @@ const TeacherSignupScreen = ({ navigation }) => {
     console.log('🔧 Form validation passed, starting signup...');
     setLoading(true);
     try {
+      // 🔵 JOS GOOGLE-KÄYTTÄJÄ: Luo Firebase-autentikointi ENSIN
+      if (googleUser?.idToken) {
+        console.log('🔵 Google user detected - authenticating to Firebase...');
+        await AuthService.signInWithGoogleToken(googleUser.idToken);
+        console.log('✅ Firebase authentication successful');
+      }
+
       const userData = {
         name: formData.fullName,
         email: formData.email,
-        password: formData.password,
+        password: googleUser ? 'GOOGLE_AUTH_USER' : formData.password,  // Placeholder Google-käyttäjille
         role: 'teacher',
         phoneNumber: formData.phoneNumber,
         specialization: formData.specialization,
         qualifications: formData.qualifications,
         experience: formData.experience,
-        acceptMarketing: formData.acceptMarketing
+        acceptMarketing: formData.acceptMarketing,
+        isGoogleAuth: !!googleUser  // Merkitse Google-autentikointi
       };
 
       console.log('🔧 Calling register with userData:', { 
         name: userData.name, 
         email: userData.email, 
-        role: userData.role 
+        role: userData.role,
+        isGoogleAuth: userData.isGoogleAuth
       });
 
       const result = await register(userData);
@@ -319,7 +341,16 @@ const TeacherSignupScreen = ({ navigation }) => {
         <Text style={styles.headerTitle}>Join as a Professional</Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{flex: 1}}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      >
+        <ScrollView 
+          style={styles.content} 
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         <View style={styles.welcomeSection}>
           <Text style={styles.welcomeTitle}>Showcase Your Skills, Be Found by Families</Text>
           <Text style={styles.welcomeSubtitle}>
@@ -413,82 +444,101 @@ const TeacherSignupScreen = ({ navigation }) => {
             />
           </View>
 
-          <Text style={styles.sectionTitle}>Account Security</Text>
+          {/* Näytä salasanakentät vain jos EI Google-kirjautumista */}
+          {!googleUser && (
+            <>
+              <Text style={styles.sectionTitle}>Account Security</Text>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password *</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Minimum 6 characters"
-                value={formData.password}
-                onChangeText={(text) => handleInputChange('password', text)}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Ionicons 
-                  name={showPassword ? "eye-off" : "eye"} 
-                  size={20} 
-                  color={colors.textLight} 
-                />
-              </TouchableOpacity>
-            </View>
-            
-            {/* 💪 PASSWORD STRENGTH INDICATOR */}
-            {formData.password.length > 0 && (
-              <View style={styles.passwordStrengthContainer}>
-                <View style={styles.strengthBarBackground}>
-                  <View 
-                    style={[
-                      styles.strengthBar, 
-                      { 
-                        width: getPasswordStrengthInfo().width, 
-                        backgroundColor: getPasswordStrengthInfo().color 
-                      }
-                    ]} 
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Password *</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Minimum 6 characters"
+                    value={formData.password}
+                    onChangeText={(text) => handleInputChange('password', text)}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    textContentType="newPassword"
+                    autoComplete="password-new"
                   />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Ionicons 
+                      name={showPassword ? "eye-off" : "eye"} 
+                      size={20} 
+                      color={colors.textLight} 
+                    />
+                  </TouchableOpacity>
                 </View>
-                <View style={styles.strengthInfo}>
-                  <Text style={[styles.strengthText, { color: getPasswordStrengthInfo().color }]}>
-                    {getPasswordStrengthInfo().text} ({passwordStrength}/100)
-                  </Text>
-                  {!passwordValidation.isValid && (
-                    <Text style={styles.passwordError}>
-                      {passwordValidation.message}
-                    </Text>
-                  )}
+                
+                {/* 💪 PASSWORD STRENGTH INDICATOR */}
+                {formData.password.length > 0 && (
+                  <View style={styles.passwordStrengthContainer}>
+                    <View style={styles.strengthBarBackground}>
+                      <View 
+                        style={[
+                          styles.strengthBar, 
+                          { 
+                            width: getPasswordStrengthInfo().width, 
+                            backgroundColor: getPasswordStrengthInfo().color 
+                          }
+                        ]} 
+                      />
+                    </View>
+                    <View style={styles.strengthInfo}>
+                      <Text style={[styles.strengthText, { color: getPasswordStrengthInfo().color }]}>
+                        {getPasswordStrengthInfo().text} ({passwordStrength}/100)
+                      </Text>
+                      {!passwordValidation.isValid && (
+                        <Text style={styles.passwordError}>
+                          {passwordValidation.message}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Confirm Password *</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Re-enter your password"
+                    value={formData.confirmPassword}
+                    onChangeText={(text) => handleInputChange('confirmPassword', text)}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    textContentType="newPassword"
+                    autoComplete="password-new"
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <Ionicons 
+                      name={showConfirmPassword ? "eye-off" : "eye"} 
+                      size={20} 
+                      color={colors.textLight} 
+                    />
+                  </TouchableOpacity>
                 </View>
               </View>
-            )}
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Confirm Password *</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Re-enter your password"
-                value={formData.confirmPassword}
-                onChangeText={(text) => handleInputChange('confirmPassword', text)}
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-              />
-              <TouchableOpacity
-                style={styles.eyeButton}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Ionicons 
-                  name={showConfirmPassword ? "eye-off" : "eye"} 
-                  size={20} 
-                  color={colors.textLight} 
-                />
-              </TouchableOpacity>
+            </>
+          )}
+          
+          {/* Näytä info jos Google-käyttäjä */}
+          {googleUser && (
+            <View style={styles.googleInfoBox}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
+              <Text style={styles.googleInfoText}>
+                Kirjauduttu Google-tilillä. Salasanaa ei tarvita.
+              </Text>
             </View>
-          </View>
+          )}
 
           <View style={styles.checkboxSection}>
             <TouchableOpacity
@@ -539,6 +589,7 @@ const TeacherSignupScreen = ({ navigation }) => {
           </View>
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -646,10 +697,17 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
   },
   passwordInput: {
-    flex: 1,
-    paddingHorizontal: 15,
-    paddingVertical: 12,
-    fontSize: 16,
+  flex: 1,
+  paddingHorizontal: 15,
+  paddingVertical: 12,
+  fontSize: 18,
+  },
+  passwordLengthIndicator: {
+  fontSize: 24,
+  color: colors.textLight,
+  marginRight: 4,
+  minWidth: 20,
+  textAlign: 'center',
   },
   eyeButton: {
     paddingHorizontal: 15,
@@ -723,6 +781,20 @@ const styles = StyleSheet.create({
   strengthInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  googleInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    padding: 16,
+    borderRadius: 8,
+    marginTop: 16,
+    gap: 12,
+  },
+  googleInfoText: {
+    flex: 1,
+    fontSize: 14,
+    color: colors.text,
     alignItems: 'center',
   },
   strengthText: {

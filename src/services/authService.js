@@ -485,7 +485,90 @@ export class AuthService {
   }
 
   /**
-   * 🔐 Kirjaudu sisään Google-tilillä
+   * � Hae Google-käyttäjän tiedot ILMAN Firebase-autentikointia
+   * Käytetään signup-lomakkeen esitäyttämiseen
+   */
+  static async getGoogleUserInfo() {
+    try {
+      console.log('🔵 Getting Google user info (no Firebase auth)...');
+      
+      // Tarkista onko Google Play Services saatavilla
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+      
+      // Kirjaudu Googleen (EI vielä Firebaseen)
+      const userInfo = await GoogleSignin.signIn();
+      console.log('🔵 Google Sign-In response:', userInfo);
+      
+      // Hae idToken
+      const idToken = userInfo?.data?.idToken || userInfo?.idToken;
+      const user = userInfo?.data?.user || userInfo?.user;
+      
+      if (!idToken) {
+        console.error('❌ No idToken received from Google Sign-In:', userInfo);
+        throw new Error('Google-kirjautuminen epäonnistui: ei saatu tunnistetta');
+      }
+      
+      console.log('✅ Got Google user info (not yet authenticated to Firebase)');
+      
+      // Palauta käyttäjätiedot JA idToken (tarvitaan myöhemmin Firebase-autentikointiin)
+      return {
+        idToken,
+        email: user?.email,
+        displayName: user?.name,
+        photoURL: user?.photo,
+        givenName: user?.givenName,
+        familyName: user?.familyName,
+      };
+    } catch (error) {
+      console.error('❌ Google user info fetch error:', error);
+      
+      if (error.code === 'SIGN_IN_CANCELLED' || error.code === '-5') {
+        throw new Error('Kirjautuminen peruutettiin');
+      } else if (error.code === 'IN_PROGRESS') {
+        throw new Error('Kirjautuminen on jo käynnissä');
+      } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+        throw new Error('Google Play Services ei ole saatavilla');
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
+   * 🔵 Luo Firebase-autentikointi Google idToken:illa
+   * Kutsutaan VASTA signup-lomakkeen lähetyksen jälkeen
+   */
+  static async signInWithGoogleToken(idToken) {
+    try {
+      console.log('🔵 Creating Firebase credential with Google idToken...');
+      
+      if (!idToken) {
+        throw new Error('idToken puuttuu');
+      }
+      
+      // Luo Firebase credential
+      const googleCredential = GoogleAuthProvider.credential(idToken);
+      
+      // Kirjaudu Firebaseen
+      const userCredential = await signInWithCredential(auth, googleCredential);
+      
+      console.log('✅ Firebase authentication successful');
+      console.log('👤 User:', userCredential.user.email);
+      
+      // Merkitse tili vahvistetuksi
+      if (userCredential.user.uid) {
+        this.markAccountVerified(userCredential.user.uid);
+      }
+      
+      return userCredential;
+    } catch (error) {
+      console.error('❌ Firebase authentication error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * �🔐 Kirjaudu sisään Google-tilillä (VANHA - olemassa oleville käyttäjille)
    * @returns {Promise<UserCredential>} Firebase UserCredential
    */
   static async signInWithGoogle() {
@@ -496,7 +579,18 @@ export class AuthService {
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       
       // Kirjaudu Googleen
-      const { idToken } = await GoogleSignin.signIn();
+      const userInfo = await GoogleSignin.signIn();
+      console.log('🔵 Google Sign-In response:', userInfo);
+      
+      // Hae idToken oikein uudesta API:sta
+      const idToken = userInfo?.data?.idToken || userInfo?.idToken;
+      
+      if (!idToken) {
+        console.error('❌ No idToken received from Google Sign-In:', userInfo);
+        throw new Error('Google-kirjautuminen epäonnistui: ei saatu tunnistetta');
+      }
+      
+      console.log('✅ Got idToken from Google');
       
       // Luo Firebase credential
       const googleCredential = GoogleAuthProvider.credential(idToken);
@@ -516,14 +610,18 @@ export class AuthService {
       return userCredential;
     } catch (error) {
       console.error('❌ Google Sign-In error:', error);
+      console.error('❌ Error code:', error.code);
+      console.error('❌ Error message:', error.message);
       
       // Käyttäjäystävälliset virheilmoitukset
-      if (error.code === 'SIGN_IN_CANCELLED') {
+      if (error.code === 'SIGN_IN_CANCELLED' || error.code === '-5') {
         throw new Error('Kirjautuminen peruutettiin');
       } else if (error.code === 'IN_PROGRESS') {
         throw new Error('Kirjautuminen on jo käynnissä');
       } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
         throw new Error('Google Play Services ei ole saatavilla');
+      } else if (error.message && error.message.includes('argument-error')) {
+        throw new Error('Virhe Google-tunnisteen käsittelyssä. Yritä uudelleen.');
       }
       
       throw error;
