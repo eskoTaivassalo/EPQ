@@ -35,6 +35,7 @@ const TeacherMyProfileScreen = ({ navigation }) => {
   const [profileData, setProfileData] = useState({
     name: user?.name || 'Teacher',
     email: user?.email || '',
+    phone: '',
     subjects: [],
     educationLevels: [],
     hourlyRate: '',
@@ -61,11 +62,24 @@ const TeacherMyProfileScreen = ({ navigation }) => {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
+            console.log('🟢 TeacherMyProfileScreen: Firestore teacher doc loaded', Object.keys(data));
+            if (data.profile) {
+              console.log('🟢 TeacherMyProfileScreen: Nested profile keys', Object.keys(data.profile));
+            } else {
+              console.warn('⚠️ TeacherMyProfileScreen: No nested profile object found');
+            }
             setProfileData(prev => ({
               ...prev,
+              // Top-level fields
               ...data,
+              // Merge nested profile fields if present (these hold actual form values)
+              ...(data.profile || {}),
               name: data?.name ?? prev.name,
-              email: data?.email ?? prev.email,
+              email: data?.email || data?.profile?.email || prev.email,
+              phone: data?.phone || data?.phoneNumber || data?.profile?.phoneNumber || prev.phone,
+              specialization: data?.specialization || data?.profile?.specialization || prev.specialization,
+              qualifications: data?.qualifications || data?.profile?.qualifications || prev.qualifications,
+              experience: data?.experience || data?.profile?.experience || prev.experience,
             }));
           }
         } catch (e) {
@@ -91,19 +105,67 @@ const TeacherMyProfileScreen = ({ navigation }) => {
     setLoading(true);
     try {
       const userDocRef = doc(db, 'teachers', user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      const currentData = userDocSnap.exists() ? userDocSnap.data() : {};
-      const updatedData = {
-        ...currentData,
-        ...profileData,
-        updatedAt: new Date().toISOString(),
+      
+      // Build the update payload with proper structure
+      // Save to both root level AND nested profile for compatibility
+      const updatePayload = {
+        // Root-level fields for easy access
+        name: profileData.name,
+        email: profileData.email,
+        phone: profileData.phone,
+        subjects: profileData.subjects,
+        teachingMethods: profileData.teachingMethods,
+        languages: profileData.languages,
+        availability: profileData.availability,
+        teachingStyles: profileData.teachingStyles,
+        location: profileData.location,
+        hourlyRate: profileData.hourlyRate,
+        experience: profileData.experience,
+        education: profileData.education,
+        description: profileData.description,
         isActive: true,
+        updatedAt: new Date().toISOString(),
+        // Keep nested profile structure for backward compatibility
+        profile: {
+          name: profileData.name,
+          email: profileData.email,
+          phone: profileData.phone,
+          phoneNumber: profileData.phone,
+          subjects: profileData.subjects,
+          teachingMethods: profileData.teachingMethods,
+          languages: profileData.languages,
+          availability: profileData.availability,
+          teachingStyles: profileData.teachingStyles,
+          location: profileData.location,
+          hourlyRate: profileData.hourlyRate,
+          experience: profileData.experience,
+          education: profileData.education,
+          description: profileData.description,
+        }
       };
-      await setDoc(userDocRef, updatedData, { merge: true });
+
+      console.log('💾 Saving teacher profile with fields:', Object.keys(updatePayload));
+      await setDoc(userDocRef, updatePayload, { merge: true });
+      console.log('✅ Teacher profile saved successfully');
+      
+      // Reload profile data from Firestore to reflect changes
+      const reloadedDoc = await getDoc(userDocRef);
+      if (reloadedDoc.exists()) {
+        const data = reloadedDoc.data();
+        setProfileData(prev => ({
+          ...prev,
+          ...data,
+          ...(data.profile || {}),
+          name: data?.name ?? prev.name,
+          email: data?.email || data?.profile?.email || prev.email,
+          phone: data?.phone || data?.phoneNumber || data?.profile?.phoneNumber || prev.phone,
+        }));
+      }
+      
       Alert.alert('Success', 'Profile saved successfully!');
       setIsEditing(false);
     } catch (e) {
-      console.error('Error saving profile:', e);
+      console.error('❌ Error saving teacher profile:', e);
       Alert.alert('Error', 'Failed to save profile');
     } finally {
       setLoading(false);
@@ -200,6 +262,20 @@ const TeacherMyProfileScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Contact Information</Text>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Phone Number</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. +358 40 1234567"
+                  value={profileData?.phone ?? ''}
+                  onChangeText={(text) => setProfileData({ ...profileData, phone: text })}
+                  keyboardType="phone-pad"
+                />
+              </View>
+            </View>
+
+            <View style={styles.section}>
               <Text style={styles.sectionTitle}>Pricing & Experience</Text>
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Hourly Rate (€) *</Text>
@@ -271,6 +347,9 @@ const TeacherMyProfileScreen = ({ navigation }) => {
               </View>
               <Text style={styles.profileName}>{profileData?.name || user?.name || 'Teacher'}</Text>
               <Text style={styles.profileEmail}>{profileData?.email || user?.email}</Text>
+              {profileData?.phone && (
+                <Text style={styles.profilePhone}>{profileData.phone}</Text>
+              )}
               <Text style={styles.profileType}>Teacher</Text>
             </View>
 
@@ -420,6 +499,11 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   profileEmail: {
+    fontSize: 16,
+    color: colors.textSecondary,
+    marginBottom: 5,
+  },
+  profilePhone: {
     fontSize: 16,
     color: colors.textSecondary,
     marginBottom: 5,

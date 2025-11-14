@@ -32,9 +32,13 @@ const ParentProfileScreen = ({ navigation }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState({
+    name: user?.displayName || user?.name || '',
+    email: user?.email || '',
+    phone: '',
     childrenAges: '',
     childrenGrades: [],
     subjectsNeeded: [],
+    lookingFor: [],
     preferredTeachingStyle: [],
     budget: '',
     priceRange: '',
@@ -44,7 +48,9 @@ const ParentProfileScreen = ({ navigation }) => {
     availability: [],
     languages: [],
     goals: '',
-    notes: ''
+    notes: '',
+    acceptMarketing: false,
+    isGoogleAuth: false,
   });
 
   useEffect(() => {
@@ -53,31 +59,49 @@ const ParentProfileScreen = ({ navigation }) => {
 
   const loadProfile = async () => {
     if (!db || !user?.uid) return;
-    
     try {
       const docRef = doc(db, 'parents', user.uid);
       const docSnap = await getDoc(docRef);
-      
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setProfileData({
-          childrenAges: data.childrenAges || '',
-          childrenGrades: data.childrenGrades || [],
-          subjectsNeeded: data.subjectsNeeded || [],
-          preferredTeachingStyle: data.preferredTeachingStyle || [],
-          budget: data.budget || '',
-          priceRange: data.priceRange || '',
-          location: data.location || [],
-          learningPreferences: data.learningPreferences || [],
-          specialNeeds: data.specialNeeds || [],
-          availability: data.availability || [],
-          languages: data.languages || [],
-          goals: data.goals || '',
-          notes: data.notes || ''
-        });
+      if (!docSnap.exists()) {
+        console.warn('ℹ️ ParentProfile: no parent document found');
+        return;
       }
+      const raw = docSnap.data();
+      const nested = raw.profile || {};
+      const doubleNested = nested.profile || {};
+      const merged = { ...raw, ...nested, ...doubleNested };
+      console.log('🟢 ParentProfile loaded keys:', Object.keys(raw));
+      if (raw.profile) console.log('🟢 ParentProfile nested keys:', Object.keys(raw.profile));
+      const toArray = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'string') return val.split(',').map(s => s.trim()).filter(Boolean);
+        return [];
+      };
+      setProfileData(prev => ({
+        ...prev,
+        name: merged.name || prev.name,
+        email: merged.email || prev.email,
+        phone: merged.phone || merged.phoneNumber || prev.phone,
+        childrenAges: merged.childrenAges || prev.childrenAges,
+        childrenGrades: toArray(merged.childrenGrades) || prev.childrenGrades,
+        subjectsNeeded: toArray(merged.subjectsNeeded).length ? toArray(merged.subjectsNeeded) : toArray(merged.lookingFor),
+        lookingFor: toArray(merged.lookingFor),
+        preferredTeachingStyle: toArray(merged.preferredTeachingStyle),
+        budget: merged.budget || prev.budget,
+        priceRange: merged.priceRange || prev.priceRange,
+        location: toArray(merged.location),
+        learningPreferences: toArray(merged.learningPreferences),
+        specialNeeds: toArray(merged.specialNeeds).length ? toArray(merged.specialNeeds) : (merged.specificNeeds ? [merged.specificNeeds] : []),
+        availability: toArray(merged.availability),
+        languages: toArray(merged.languages),
+        goals: merged.goals || prev.goals,
+        notes: merged.notes || merged.specificNeeds || prev.notes,
+        acceptMarketing: merged.acceptMarketing || false,
+        isGoogleAuth: !!merged.isGoogleAuth,
+      }));
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error('Error loading parent profile:', error);
     }
   };
 
@@ -94,22 +118,66 @@ const ParentProfileScreen = ({ navigation }) => {
 
     setLoading(true);
     try {
-      // Get current user data first
       const userDocRef = doc(db, 'parents', user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      const currentData = userDocSnap.exists() ? userDocSnap.data() : {};
-
-      const updatedData = {
-        ...currentData, // Keep existing data like name, email
-        ...profileData, // Update with new profile data
+      
+      // Build the update payload with proper structure
+      // Save to both root level AND nested profile for compatibility
+      const updatePayload = {
+        // Root-level fields for easy access
+        name: profileData.name,
+        email: profileData.email,
+        phone: profileData.phone,
+        childrenAges: profileData.childrenAges,
+        childrenGrades: profileData.childrenGrades,
+        subjectsNeeded: profileData.subjectsNeeded,
+        lookingFor: profileData.lookingFor,
+        preferredTeachingStyle: profileData.preferredTeachingStyle,
+        learningPreferences: profileData.learningPreferences,
+        specialNeeds: profileData.specialNeeds,
+        goals: profileData.goals,
+        budget: profileData.budget,
+        priceRange: profileData.priceRange,
+        location: profileData.location,
+        availability: profileData.availability,
+        languages: profileData.languages,
+        notes: profileData.notes,
+        acceptMarketing: profileData.acceptMarketing,
+        isGoogleAuth: profileData.isGoogleAuth,
         updatedAt: new Date().toISOString(),
+        // Keep nested profile structure for backward compatibility
+        profile: {
+          name: profileData.name,
+          email: profileData.email,
+          phone: profileData.phone,
+          phoneNumber: profileData.phone,
+          childrenAges: profileData.childrenAges,
+          childrenGrades: profileData.childrenGrades,
+          subjectsNeeded: profileData.subjectsNeeded,
+          lookingFor: profileData.lookingFor,
+          preferredTeachingStyle: profileData.preferredTeachingStyle,
+          learningPreferences: profileData.learningPreferences,
+          specialNeeds: profileData.specialNeeds,
+          specificNeeds: profileData.notes, // Legacy field
+          goals: profileData.goals,
+          budget: profileData.budget,
+          priceRange: profileData.priceRange,
+          location: profileData.location,
+          availability: profileData.availability,
+          languages: profileData.languages,
+          notes: profileData.notes,
+          acceptMarketing: profileData.acceptMarketing,
+          isGoogleAuth: profileData.isGoogleAuth,
+        }
       };
 
-      await setDoc(userDocRef, updatedData, { merge: true });
+      console.log('💾 Saving parent profile with fields:', Object.keys(updatePayload));
+      await setDoc(userDocRef, updatePayload, { merge: true });
+      console.log('✅ Parent profile saved successfully');
+      
       Alert.alert('Success', 'Profile saved successfully!');
       navigation.goBack();
     } catch (error) {
-      console.error('Error saving profile:', error);
+      console.error('❌ Error saving parent profile:', error);
       Alert.alert('Error', 'Failed to save profile');
     } finally {
       setLoading(false);
@@ -136,6 +204,15 @@ const ParentProfileScreen = ({ navigation }) => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account & Contact</Text>
+          <View style={styles.infoRow}><Text style={styles.infoLabel}>Name:</Text><Text style={styles.infoValue}>{profileData.name || 'Not set'}</Text></View>
+          <View style={styles.infoRow}><Text style={styles.infoLabel}>Email:</Text><Text style={styles.infoValue}>{profileData.email || 'Not set'}</Text></View>
+          <View style={styles.infoRow}><Text style={styles.infoLabel}>Phone:</Text><Text style={styles.infoValue}>{profileData.phone || 'Not provided'}</Text></View>
+          {profileData.acceptMarketing && (<View style={styles.badge}><Text style={styles.badgeText}>Marketing Opt-in</Text></View>)}
+          {profileData.isGoogleAuth && (<View style={[styles.badge,{backgroundColor:'#1A73E8'}]}><Text style={styles.badgeText}>Google</Text></View>)}
+        </View>
+
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Children Information</Text>
           
@@ -268,6 +345,26 @@ const ParentProfileScreen = ({ navigation }) => {
               numberOfLines={4}
             />
           </View>
+          {!!profileData.lookingFor.length && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Services / Support Needed</Text>
+              <View style={styles.chipContainer}>
+                {profileData.lookingFor.map((item, idx) => (
+                  <View key={idx} style={styles.displayChip}><Text style={styles.displayChipText}>{item}</Text></View>
+                ))}
+              </View>
+            </View>
+          )}
+          {!!profileData.specialNeeds.length && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Special Needs</Text>
+              <View style={styles.chipContainer}>
+                {profileData.specialNeeds.map((item, idx) => (
+                  <View key={idx} style={[styles.displayChip,{backgroundColor:'#FFE0B2'}]}><Text style={styles.displayChipText}>{item}</Text></View>
+                ))}
+              </View>
+            </View>
+          )}
         </View>
 
         <TouchableOpacity 
@@ -355,6 +452,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  infoRow: { flexDirection:'row', marginBottom:6 },
+  infoLabel: { fontWeight:'600', width:90, color: colors.text },
+  infoValue: { flex:1, color: colors.text },
+  badge: { alignSelf:'flex-start', backgroundColor: colors.primary, paddingHorizontal:10, paddingVertical:4, borderRadius:12, marginTop:6, marginRight:6 },
+  badgeText: { color: colors.white, fontSize:11, fontWeight:'600', letterSpacing:0.5 },
+  chipContainer: { flexDirection:'row', flexWrap:'wrap', gap:8, marginTop:6 },
+  displayChip: { backgroundColor:'#E3F2FD', paddingHorizontal:10, paddingVertical:6, borderRadius:14, marginBottom:8 },
+  displayChipText: { fontSize:12, color: colors.text },
 });
 
 export default ParentProfileScreen;

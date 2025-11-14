@@ -16,6 +16,18 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSecurity } from '../../hooks/useSecurity';
 import { AuthService } from '../../services/authService';
 import { colors } from '../../styles/commonStyles';
+import TagSelector from '../../components/TagSelector';
+import {
+  SUBJECTS,
+  EDUCATION_LEVELS,
+  LOCATIONS,
+  LANGUAGES,
+  TEACHING_METHODS,
+  PRICE_RANGES,
+  AVAILABILITY,
+  TEACHING_STYLES,
+  SPECIAL_NEEDS
+} from '../../constants/tags';
 
 const ParentSignupScreen = ({ navigation, route }) => {
   const { register } = useAuth();
@@ -38,10 +50,20 @@ const ParentSignupScreen = ({ navigation, route }) => {
     password: googleUser ? 'GOOGLE_AUTH_USER' : '', // Google-käyttäjät eivät tarvitse salasanaa
     confirmPassword: googleUser ? 'GOOGLE_AUTH_USER' : '',
     phoneNumber: '',
-    location: '',
     childrenAges: '',
-    specificNeeds: '',
+    childrenGrades: [],
+    subjectsNeeded: [],
     lookingFor: [],
+    preferredTeachingStyle: [],
+    learningPreferences: [],
+    specialNeeds: [],
+    goals: '',
+    budget: '',
+    priceRange: '',
+    location: [],
+    availability: [],
+    languages: [],
+    notes: '',
     acceptTerms: false,
     acceptMarketing: false
   });
@@ -52,21 +74,6 @@ const ParentSignupScreen = ({ navigation, route }) => {
   // 💪 PASSWORD STRENGTH INDICATORS
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [passwordValidation, setPasswordValidation] = useState({ isValid: true, message: '' });
-
-  const serviceTypes = [
-    'Child Development Support',
-    'Educational Tutoring',
-    'Behavioral Analysis',
-    'Speech-Language Therapy',
-    'Psychological Counseling',
-    'Special Needs Support',
-    'Academic Coaching',
-    'Social Skills Training',
-    'Family Counseling',
-    'Learning Disabilities Support',
-    'Autism Spectrum Support',
-    'Other'
-  ];
 
   // 💪 Enhanced handleInputChange with real-time password validation
   const handleInputChange = (field, value) => {
@@ -99,15 +106,6 @@ const ParentSignupScreen = ({ navigation, route }) => {
     } else {
       return { text: 'ERITTÄIN HEIKKO', color: '#DC2626', width: '20%' };
     }
-  };
-
-  const toggleService = (service) => {
-    setFormData(prev => ({
-      ...prev,
-      lookingFor: prev.lookingFor.includes(service)
-        ? prev.lookingFor.filter(s => s !== service)
-        : [...prev.lookingFor, service]
-    }));
   };
 
   const validateForm = () => {
@@ -210,10 +208,20 @@ const ParentSignupScreen = ({ navigation, route }) => {
         password: googleUser ? 'GOOGLE_AUTH_USER' : formData.password,  // Placeholder Google-käyttäjille
         role: 'parent',
         phoneNumber: formData.phoneNumber,
-        location: formData.location,
         childrenAges: formData.childrenAges,
-        specificNeeds: formData.specificNeeds,
+        childrenGrades: formData.childrenGrades,
+        subjectsNeeded: formData.subjectsNeeded,
         lookingFor: formData.lookingFor,
+        preferredTeachingStyle: formData.preferredTeachingStyle,
+        learningPreferences: formData.learningPreferences,
+        specialNeeds: formData.specialNeeds,
+        goals: formData.goals,
+        budget: formData.budget,
+        priceRange: formData.priceRange,
+        location: formData.location,
+        availability: formData.availability,
+        languages: formData.languages,
+        notes: formData.notes,
         acceptMarketing: formData.acceptMarketing,
         isGoogleAuth: !!googleUser  // Merkitse Google-autentikointi
       };
@@ -338,40 +346,116 @@ const ParentSignupScreen = ({ navigation, route }) => {
             />
           </View>
 
+          <TagSelector
+            title="School Grades/Levels"
+            tags={EDUCATION_LEVELS}
+            selectedTags={formData.childrenGrades}
+            onTagPress={(tags) => setFormData({...formData, childrenGrades: tags})}
+            showIcons={true}
+          />
+
+          <TagSelector
+            title="Subjects Needed Help With *"
+            tags={SUBJECTS}
+            selectedTags={formData.subjectsNeeded}
+            onTagPress={(tags) => setFormData({...formData, subjectsNeeded: tags})}
+            showIcons={true}
+          />
+
+          <Text style={styles.sectionTitle}>Learning Preferences</Text>
+
+          <TagSelector
+            title="Preferred Teaching Styles"
+            tags={TEACHING_STYLES}
+            selectedTags={formData.preferredTeachingStyle}
+            onTagPress={(tags) => setFormData({...formData, preferredTeachingStyle: tags})}
+            showIcons={true}
+          />
+
+          <TagSelector
+            title="Learning Methods"
+            tags={TEACHING_METHODS}
+            selectedTags={formData.learningPreferences}
+            onTagPress={(tags) => setFormData({...formData, learningPreferences: tags})}
+            showIcons={true}
+          />
+
+          <TagSelector
+            title="Special Needs or Learning Difficulties"
+            tags={SPECIAL_NEEDS}
+            selectedTags={formData.specialNeeds}
+            onTagPress={(tags) => setFormData({...formData, specialNeeds: tags})}
+            showIcons={true}
+          />
+
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Specific Needs or Goals</Text>
+            <Text style={styles.label}>Learning Goals</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="Tell us about any specific learning needs, developmental goals, or areas where you'd like support..."
-              value={formData.specificNeeds}
-              onChangeText={(text) => handleInputChange('specificNeeds', text)}
+              placeholder="What do you hope to achieve with tutoring?"
+              value={formData.goals}
+              onChangeText={(text) => handleInputChange('goals', text)}
               multiline
               numberOfLines={4}
             />
           </View>
 
+          <Text style={styles.sectionTitle}>Practical Details</Text>
+
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>What type of support are you looking for?</Text>
-            <Text style={styles.helper}>Select all that apply</Text>
-            <View style={styles.serviceGrid}>
-              {serviceTypes.map((service, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.serviceChip,
-                    formData.lookingFor.includes(service) && styles.selectedChip
-                  ]}
-                  onPress={() => toggleService(service)}
-                >
-                  <Text style={[
-                    styles.serviceText,
-                    formData.lookingFor.includes(service) && styles.selectedText
-                  ]}>
-                    {service}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <Text style={styles.label}>Budget per hour (€)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 25"
+              value={formData.budget}
+              onChangeText={(text) => handleInputChange('budget', text)}
+              keyboardType="numeric"
+            />
+          </View>
+
+          <TagSelector
+            title="Preferred Price Range"
+            tags={PRICE_RANGES}
+            selectedTags={[formData.priceRange]}
+            onTagPress={(tag) => setFormData({...formData, priceRange: tag})}
+            multiSelect={false}
+            showIcons={true}
+          />
+
+          <TagSelector
+            title="Preferred Locations"
+            tags={LOCATIONS}
+            selectedTags={formData.location}
+            onTagPress={(tags) => setFormData({...formData, location: tags})}
+            showIcons={true}
+          />
+
+          <TagSelector
+            title="Preferred Availability"
+            tags={AVAILABILITY}
+            selectedTags={formData.availability}
+            onTagPress={(tags) => setFormData({...formData, availability: tags})}
+            showIcons={true}
+          />
+
+          <TagSelector
+            title="Languages Preferred"
+            tags={LANGUAGES}
+            selectedTags={formData.languages}
+            onTagPress={(tags) => setFormData({...formData, languages: tags})}
+            showIcons={true}
+          />
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Additional Notes</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Any other information that might be helpful for teachers to know..."
+              value={formData.notes}
+              onChangeText={(text) => handleInputChange('notes', text)}
+              multiline
+              numberOfLines={4}
+            />
           </View>
 
           <Text style={styles.sectionTitle}>Account Security</Text>

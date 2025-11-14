@@ -32,7 +32,7 @@ const LoginScreen = ({ route, navigation }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
+  const [googleExistingLoading, setGoogleExistingLoading] = useState(false);
 
   const handleLogin = async () => {
     console.log('🔑 LOGIN BUTTON PRESSED!');
@@ -75,72 +75,6 @@ const LoginScreen = ({ route, navigation }) => {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    try {
-      console.log('🔵 Google Sign-In button pressed');
-      setGoogleLoading(true);
-      
-      // 1️⃣ HAE GOOGLE-TIEDOT (ei vielä Firebase-autentikointia!)
-      console.log('🔵 Fetching Google user info...');
-      const googleUserInfo = await AuthService.getGoogleUserInfo();
-      
-      if (!googleUserInfo) {
-        throw new Error('Google-tietojen haku epäonnistui');
-      }
-      
-      console.log('✅ Got Google user info:', googleUserInfo.email);
-
-      // 2️⃣ OHJAA SUORAAN SIGNUP-LOMAKKEELLE (esitäytetty)
-      console.log('� Redirecting to signup form...');
-      
-      if (userType === 'teacher') {
-        navigation.navigate('TeacherSignup', {
-          googleUser: {
-            idToken: googleUserInfo.idToken,  // ⚠️ Tarvitaan myöhemmin Firebase-autentikointiin!
-            email: googleUserInfo.email,
-            displayName: googleUserInfo.displayName,
-            photoURL: googleUserInfo.photoURL,
-          }
-        });
-      } else {
-        navigation.navigate('ParentSignup', {
-          googleUser: {
-            idToken: googleUserInfo.idToken,  // ⚠️ Tarvitaan myöhemmin Firebase-autentikointiin!
-            email: googleUserInfo.email,
-            displayName: googleUserInfo.displayName,
-            photoURL: googleUserInfo.photoURL,
-          }
-        });
-      }
-
-      // ✅ Lomake aukeaa esitäytettynä - käyttäjä täyttää loput tiedot
-      
-    } catch (error) {
-      console.error('❌ Google login error:', error);
-      
-      // Käyttäjäystävälliset virheilmoitukset
-      let errorMessage = 'Google-kirjautuminen epäonnistui';
-      
-      if (error.code === 'DEVELOPER_ERROR') {
-        errorMessage = 'Sovelluksen konfiguraatio-ongelma. Tarkista SHA-sertifikaatit Firebase Consolessa.';
-      } else if (error.code === 'API_NOT_CONNECTED') {
-        errorMessage = 'Google Sign-In ei ole aktivoitu. Tarkista Firebase Console asetukset.';
-      } else if (error.code === 'SIGN_IN_CANCELLED') {
-        errorMessage = 'Kirjautuminen peruutettiin';
-        console.log('ℹ️ User cancelled Google sign-in');
-        return; // Ei näytetä virhettä, käyttäjä peruutti
-      } else if (error.code === 'NETWORK_ERROR') {
-        errorMessage = 'Verkkovirhe. Tarkista internetyhteytesi.';
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
-      Alert.alert('Kirjautuminen epäonnistui', errorMessage);
-    } finally {
-      setGoogleLoading(false);
-      console.log('🔵 Google loading state: false');
-    }
-  };
 
   const handleForgotPassword = async () => {
     if (!formData.email.trim()) {
@@ -188,6 +122,193 @@ const LoginScreen = ({ route, navigation }) => {
         }
       ]
     );
+  };
+
+  // ✅ Existing account Google sign-in (no signup redirection)
+  const handleGoogleExistingLogin = async () => {
+    try {
+      console.log('🔵 Existing Google Sign-In button pressed');
+      setGoogleExistingLoading(true);
+      // Attempt direct Firebase auth
+      const userCredential = await AuthService.signInWithGoogle();
+      if (!userCredential || !userCredential.user) {
+        throw new Error('Google sign-in failed');
+      }
+      const { user } = userCredential;
+      const uid = user.uid;
+      console.log('✅ Google user authenticated:', user.email);
+      // Fetch both possible profile docs
+      const teacherDocRef = doc(db, 'teachers', uid);
+      const parentDocRef = doc(db, 'parents', uid);
+      const [teacherSnap, parentSnap] = await Promise.all([
+        getDoc(teacherDocRef),
+        getDoc(parentDocRef)
+      ]);
+
+      const teacherData = teacherSnap.exists() ? teacherSnap.data() : null;
+      const parentData = parentSnap.exists() ? parentSnap.data() : null;
+      console.log('🔍 Role presence -> teacher:', !!teacherData, 'parent:', !!parentData, 'requested screen userType:', userType);
+
+      const normalizeUser = (firebaseUser, roleValue, firestoreData) => {
+        if (!firebaseUser) return null;
+        const base = {
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          name: firebaseUser.displayName,
+          displayName: firebaseUser.displayName,
+          emailVerified: firebaseUser.emailVerified,
+          role: roleValue || firestoreData?.role || firestoreData?.userType,
+          userType: roleValue || firestoreData?.userType || firestoreData?.role,
+          timestamp: Date.now(),
+        };
+        if (!firestoreData) {
+          return base;
+        }
+        // Merge firestore root + nested profile
+        const nested = firestoreData.profile || {};
+        const doubleNested = nested.profile || {}; // fallback if profile.profile used accidentally
+        const mergedProfile = { ...doubleNested, ...nested }; // nested wins over doubleNested
+        const flattened = {
+          ...firestoreData,
+          ...mergedProfile,
+        };
+        // Preferred phone
+        const phone = flattened.phone || flattened.phoneNumber || mergedProfile.phone || mergedProfile.phoneNumber;
+        return {
+          ...base,
+          ...flattened,
+          phone,
+          subjects: flattened.subjects || mergedProfile.subjects || [],
+          educationLevels: flattened.educationLevels || mergedProfile.educationLevels || [],
+          location: flattened.location || mergedProfile.location || [],
+          teachingMethods: flattened.teachingMethods || mergedProfile.teachingMethods || [],
+          languages: flattened.languages || mergedProfile.languages || [],
+          teachingStyles: flattened.teachingStyles || mergedProfile.teachingStyles || [],
+          availability: flattened.availability || mergedProfile.availability || [],
+          hourlyRate: flattened.hourlyRate || mergedProfile.hourlyRate || '',
+          experience: flattened.experience || mergedProfile.experience || '',
+          description: flattened.description || mergedProfile.description || '',
+        };
+      };
+
+      const finalizeRoleLogin = async (chosenRole, data) => {
+        try {
+          const normalizedUser = normalizeUser(user, chosenRole, data);
+          console.log('✅ Finalizing login as', chosenRole, 'keys:', Object.keys(normalizedUser));
+          dispatch(setUser(normalizedUser));
+          await AsyncStorage.setItem('user', JSON.stringify(normalizedUser));
+          await AsyncStorage.setItem('userRole', normalizedUser.role);
+          await AsyncStorage.setItem('userId', uid);
+          // Also store a list of available roles for quick switching later
+          const roles = [
+            teacherData ? 'teacher' : null,
+            parentData ? 'parent' : null
+          ].filter(Boolean);
+          await AsyncStorage.setItem('availableRoles', JSON.stringify(roles));
+        } catch (e) {
+          console.error('❌ finalizeRoleLogin error:', e);
+          Alert.alert('Login Error', 'Failed to finalize login for role ' + chosenRole);
+        }
+      };
+
+      // Case: both profiles exist -> ask user
+      if (teacherData && parentData) {
+        Alert.alert(
+          'Choose Profile',
+          'You have both a teacher and a parent profile. Which one do you want to use now?',
+          [
+            { text: 'Parent', onPress: () => finalizeRoleLogin('parent', parentData) },
+            { text: 'Teacher', onPress: () => finalizeRoleLogin('teacher', teacherData) },
+            { text: 'Cancel', style: 'cancel' }
+          ],
+          { cancelable: true }
+        );
+        return;
+      }
+
+      // Case: only teacher exists and user is on parent screen -> offer choice to login or create parent profile
+      if (teacherData && !parentData) {
+        if (userType === 'parent') {
+          Alert.alert(
+            'Teacher Profile Found',
+            'You have a teacher profile. Log in as teacher or create a parent profile?',
+            [
+              { text: 'Create Parent Profile', onPress: async () => {
+                  const googleInfo = await AuthService.getGoogleUserInfo();
+                  navigation.navigate('ParentSignup', { googleUser: googleInfo });
+                }
+              },
+              { text: 'Log in as Teacher', onPress: () => finalizeRoleLogin('teacher', teacherData) },
+              { text: 'Cancel', style: 'cancel' }
+            ],
+            { cancelable: true }
+          );
+          return;
+        } else {
+          // On teacher screen -> just login
+          await finalizeRoleLogin('teacher', teacherData);
+          return;
+        }
+      }
+
+      // Case: only parent exists and user is on teacher screen -> offer choice
+      if (parentData && !teacherData) {
+        if (userType === 'teacher') {
+          Alert.alert(
+            'Parent Profile Found',
+            'You have a parent profile. Log in as parent or create a teacher profile?',
+            [
+              { text: 'Create Teacher Profile', onPress: async () => {
+                  const googleInfo = await AuthService.getGoogleUserInfo();
+                  navigation.navigate('TeacherSignup', { googleUser: googleInfo });
+                }
+              },
+              { text: 'Log in as Parent', onPress: () => finalizeRoleLogin('parent', parentData) },
+              { text: 'Cancel', style: 'cancel' }
+            ],
+            { cancelable: true }
+          );
+          return;
+        } else {
+          // On parent screen -> login directly
+          await finalizeRoleLogin('parent', parentData);
+          return;
+        }
+      }
+
+      // No profile found -> offer creation
+      console.log('ℹ️ No existing profile found for Google account');
+      Alert.alert(
+        'Profile not found',
+        'No teacher or parent profile exists for this Google account. Create one now?',
+        [
+          {
+            text: 'Create Teacher Profile',
+            onPress: async () => {
+              const googleInfo = await AuthService.getGoogleUserInfo();
+              navigation.navigate('TeacherSignup', { googleUser: googleInfo });
+            }
+          },
+          {
+            text: 'Create Parent Profile',
+            onPress: async () => {
+              const googleInfo = await AuthService.getGoogleUserInfo();
+              navigation.navigate('ParentSignup', { googleUser: googleInfo });
+            }
+          },
+          { text: 'Cancel', style: 'cancel' }
+        ],
+        { cancelable: true }
+      );
+    } catch (error) {
+      console.error('❌ Existing Google sign-in error:', error);
+      if (error.message?.toLowerCase().includes('peruutettiin') || error.message?.toLowerCase().includes('cancel')) {
+        return; // silent cancel
+      }
+      Alert.alert('Google Sign-In Failed', error.message || 'Unexpected error');
+    } finally {
+      setGoogleExistingLoading(false);
+    }
   };
 
   const getRoleInfo = () => {
@@ -303,19 +424,20 @@ const LoginScreen = ({ route, navigation }) => {
                 {loading ? 'Signing in...' : 'Sign In'}
               </Text>
             </TouchableOpacity>
+
+            {/* Existing account Google Sign-In */}
+            <TouchableOpacity
+              style={[styles.googleExistingButton, googleExistingLoading && { opacity: 0.7 }]}
+              onPress={handleGoogleExistingLogin}
+              disabled={googleExistingLoading}
+            >
+              <Ionicons name="logo-google" size={18} color={colors.white} style={{ marginRight: 8 }} />
+              <Text style={styles.googleExistingButtonText}>
+                {googleExistingLoading ? 'Signing in…' : 'Sign in with Google'}
+              </Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Google login */}
-          <TouchableOpacity
-            style={[styles.googleButton, googleLoading && { opacity: 0.7 }]}
-            onPress={handleGoogleLogin}
-            disabled={googleLoading}
-          >
-            <Ionicons name="logo-google" size={20} color={colors.white} style={{ marginRight: 8 }} />
-            <Text style={styles.googleButtonText}>
-              {googleLoading ? 'Signing in with Google…' : 'Continue with Google'}
-            </Text>
-          </TouchableOpacity>
 
           {/* Footer */}
           <View style={styles.footer}>
@@ -442,23 +564,23 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  googleButton: {
-    marginTop: 12,
+  googleExistingButton: {
+    marginTop: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#4285F4',
-    padding: 16,
-    borderRadius: 10,
+    backgroundColor: '#1A73E8',
+    padding: 14,
+    borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  googleButtonText: {
+  googleExistingButtonText: {
     color: colors.white,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
   footer: {

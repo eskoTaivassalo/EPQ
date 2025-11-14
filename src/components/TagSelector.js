@@ -12,10 +12,18 @@ const TagSelector = ({
   showIcons = false 
 }) => {
   const isSelected = (tag) => {
+    const tagValue = tag.id || tag;
+    
     if (multiSelect) {
-      return selectedTags.includes(tag.id || tag);
+      return selectedTags.includes(tagValue);
     }
-    return selectedTags === (tag.id || tag);
+    
+    // Single-select: handle both string and array formats
+    if (Array.isArray(selectedTags)) {
+      return selectedTags.length > 0 && selectedTags[0] === tagValue;
+    }
+    
+    return selectedTags === tagValue;
   };
 
   const handleTagPress = (tag) => {

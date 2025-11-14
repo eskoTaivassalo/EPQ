@@ -16,6 +16,17 @@ import { useAuth } from '../../hooks/useAuth';
 import { useSecurity } from '../../hooks/useSecurity';
 import { AuthService } from '../../services/authService';
 import { colors } from '../../styles/commonStyles';
+import TagSelector from '../../components/TagSelector';
+import {
+  SUBJECTS,
+  EDUCATION_LEVELS,
+  LOCATIONS,
+  LANGUAGES,
+  TEACHING_METHODS,
+  TEACHING_STYLES,
+  AVAILABILITY,
+  EXPERIENCE_LEVELS
+} from '../../constants/tags';
 
 const TeacherSignupScreen = ({ navigation, route }) => {
   const { register } = useAuth();
@@ -35,12 +46,23 @@ const TeacherSignupScreen = ({ navigation, route }) => {
   const [formData, setFormData] = useState({
     fullName: googleUser?.displayName || '',
     email: googleUser?.email || '',
-    password: googleUser ? 'GOOGLE_AUTH_USER' : '', // Google-käyttäjät eivät tarvitse salasanaa
+    password: googleUser ? 'GOOGLE_AUTH_USER' : '',
     confirmPassword: googleUser ? 'GOOGLE_AUTH_USER' : '',
     phoneNumber: '',
     specialization: '',
     qualifications: '',
     experience: '',
+    // Added profile fields
+    subjects: [],
+    educationLevels: [],
+    location: [],
+    teachingMethods: [],
+    languages: [],
+    teachingStyles: [],
+    availability: [],
+    hourlyRate: '',
+    education: '',
+    description: '',
     acceptTerms: false,
     acceptMarketing: false
   });
@@ -103,6 +125,16 @@ const TeacherSignupScreen = ({ navigation, route }) => {
   };
 
   const validateForm = () => {
+      // At least one subject
+      if (!formData.subjects.length) {
+        Alert.alert('Virhe', 'Valitse vähintään yksi opetettava aihe (Subjects)');
+        return false;
+      }
+      // Hourly rate required
+      if (!formData.hourlyRate.trim()) {
+        Alert.alert('Virhe', 'Anna tuntihinta (Hourly Rate)');
+        return false;
+      }
     console.log('🔧 Starting form validation...');
     
     try {
@@ -271,14 +303,43 @@ const TeacherSignupScreen = ({ navigation, route }) => {
       const userData = {
         name: formData.fullName,
         email: formData.email,
-        password: googleUser ? 'GOOGLE_AUTH_USER' : formData.password,  // Placeholder Google-käyttäjille
+        password: googleUser ? 'GOOGLE_AUTH_USER' : formData.password,
         role: 'teacher',
+        // Phone variants
         phoneNumber: formData.phoneNumber,
+        phone: formData.phoneNumber,
+        // Flat profile fields
+        subjects: formData.subjects,
+        educationLevels: formData.educationLevels,
+        location: formData.location,
+        teachingMethods: formData.teachingMethods,
+        languages: formData.languages,
+        teachingStyles: formData.teachingStyles,
+        availability: formData.availability,
+        hourlyRate: formData.hourlyRate,
+        education: formData.education,
+        description: formData.description,
         specialization: formData.specialization,
         qualifications: formData.qualifications,
         experience: formData.experience,
         acceptMarketing: formData.acceptMarketing,
-        isGoogleAuth: !!googleUser  // Merkitse Google-autentikointi
+        isGoogleAuth: !!googleUser,
+        profile: { // nested copy for backwards compatibility
+          phoneNumber: formData.phoneNumber,
+          specialization: formData.specialization,
+          qualifications: formData.qualifications,
+          experience: formData.experience,
+          subjects: formData.subjects,
+          educationLevels: formData.educationLevels,
+          location: formData.location,
+          teachingMethods: formData.teachingMethods,
+          languages: formData.languages,
+          teachingStyles: formData.teachingStyles,
+          availability: formData.availability,
+          hourlyRate: formData.hourlyRate,
+          education: formData.education,
+          description: formData.description,
+        }
       };
 
       console.log('🔧 Calling register with userData:', { 
@@ -441,6 +502,106 @@ const TeacherSignupScreen = ({ navigation, route }) => {
               value={formData.experience}
               onChangeText={(text) => handleInputChange('experience', text)}
               keyboardType="numeric"
+            />
+          </View>
+
+          {/* NEW: Subjects */}
+          <Text style={styles.sectionTitle}>Teaching Subjects *</Text>
+          <TagSelector
+            title="Select subjects you teach"
+            tags={SUBJECTS}
+            selectedTags={formData.subjects}
+            onTagPress={(tags) => handleInputChange('subjects', tags)}
+            showIcons
+          />
+
+          {/* Education Levels */}
+          <Text style={styles.sectionTitle}>Education Levels</Text>
+          <TagSelector
+            title="Which levels do you teach?"
+            tags={EDUCATION_LEVELS}
+            selectedTags={formData.educationLevels}
+            onTagPress={(tags) => handleInputChange('educationLevels', tags)}
+            showIcons
+          />
+
+          {/* Location + Teaching Methods */}
+          <Text style={styles.sectionTitle}>Location & Methods</Text>
+          <TagSelector
+            title="Where do you teach?"
+            tags={LOCATIONS}
+            selectedTags={formData.location}
+            onTagPress={(tags) => handleInputChange('location', tags)}
+            showIcons
+          />
+          <TagSelector
+            title="How do you teach?"
+            tags={TEACHING_METHODS}
+            selectedTags={formData.teachingMethods}
+            onTagPress={(tags) => handleInputChange('teachingMethods', tags)}
+            showIcons
+          />
+
+          {/* Hourly Rate */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Hourly Rate (€) *</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 25"
+              value={formData.hourlyRate}
+              onChangeText={(text) => handleInputChange('hourlyRate', text)}
+              keyboardType="numeric"
+            />
+          </View>
+
+          {/* Languages & Teaching Styles */}
+            <Text style={styles.sectionTitle}>Languages & Teaching Style</Text>
+            <TagSelector
+              title="Languages you speak"
+              tags={LANGUAGES}
+              selectedTags={formData.languages}
+              onTagPress={(tags) => handleInputChange('languages', tags)}
+              showIcons
+            />
+            <TagSelector
+              title="Your teaching style"
+              tags={TEACHING_STYLES}
+              selectedTags={formData.teachingStyles}
+              onTagPress={(tags) => handleInputChange('teachingStyles', tags)}
+              showIcons
+            />
+
+          {/* Availability */}
+          <Text style={styles.sectionTitle}>Availability</Text>
+          <TagSelector
+            title="When are you available?"
+            tags={AVAILABILITY}
+            selectedTags={formData.availability}
+            onTagPress={(tags) => handleInputChange('availability', tags)}
+            showIcons
+          />
+
+          {/* Education & Description */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Education & Qualifications (Formal)</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="e.g. M.Sc. in Education, University of Helsinki"
+              value={formData.education}
+              onChangeText={(text) => handleInputChange('education', text)}
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Public Profile Description</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Describe your teaching approach, achievements, philosophy..."
+              value={formData.description}
+              onChangeText={(text) => handleInputChange('description', text)}
+              multiline
+              numberOfLines={4}
             />
           </View>
 

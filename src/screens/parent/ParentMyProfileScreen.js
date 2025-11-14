@@ -41,16 +41,21 @@ const ParentMyProfileScreen = ({ navigation }) => {
 
   const loadProfile = async () => {
     if (!db || !user?.uid) return;
-    
     try {
       setLoading(true);
       const docRef = doc(db, 'parents', user.uid);
       const docSnap = await getDoc(docRef);
-      
       if (docSnap.exists()) {
-        setProfileData(docSnap.data());
+        const raw = docSnap.data();
+        const nested = raw.profile || {};
+        const doubleNested = nested.profile || {};
+        // Merge all levels so UI can read flattened fields
+        const merged = { ...raw, ...nested, ...doubleNested };
+        console.log('👪 ParentMyProfile raw keys:', Object.keys(raw));
+        if (raw.profile) console.log('👪 ParentMyProfile nested keys:', Object.keys(raw.profile));
+        setProfileData(merged);
       } else {
-        // If no profile data exists, show basic user info
+        // No stored profile yet, show minimal defaults
         setProfileData({
           name: user.name || 'Parent',
           email: user.email || '',

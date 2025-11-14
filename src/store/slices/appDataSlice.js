@@ -134,12 +134,33 @@ export const fetchTeachers = createAsyncThunk(
       
       const teachersCollection = collection(db, 'teachers');
       const teachersSnapshot = await getDocs(teachersCollection);
-      const teachersData = teachersSnapshot.docs.map(doc => ({
+      const rawTeachers = teachersSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
-      
-      console.log(`📊 Redux: Fetched ${teachersData.length} teachers from Firestore`);
+
+      // Normalize nested profile fields so UI can access them uniformly
+      const teachersData = rawTeachers.map(t => {
+        const p = t.profile || {};
+        return {
+          ...t,
+          // Merge shallow copies of nested profile
+          ...p,
+          subjects: t.subjects || p.subjects || [],
+          educationLevels: t.educationLevels || p.educationLevels || [],
+          location: t.location || p.location || [],
+          teachingMethods: t.teachingMethods || p.teachingMethods || [],
+          languages: t.languages || p.languages || [],
+          teachingStyles: t.teachingStyles || p.teachingStyles || [],
+          availability: t.availability || p.availability || [],
+          hourlyRate: t.hourlyRate || p.hourlyRate || p.pricePerHour || '',
+          experience: t.experience || p.experience || '',
+          description: t.description || p.description || '',
+          phone: t.phone || t.phoneNumber || p.phone || p.phoneNumber,
+        };
+      });
+
+      console.log(`📊 Redux: Fetched ${teachersData.length} teachers from Firestore (normalized)`);
       return teachersData;
       
     } catch (error) {

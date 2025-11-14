@@ -49,14 +49,6 @@ const TeacherDashboard = ({ navigation }) => {
     },
     {
       id: 5,
-      title: 'Find Teachers',
-      subtitle: 'Connect with other teachers',
-      icon: 'search',
-      color: '#FF9800',
-      screen: 'FindTeachers'
-    },
-    {
-      id: 6,
       title: 'Messages',
       subtitle: 'Chat with parents',
       icon: 'chatbubbles',
@@ -76,8 +68,6 @@ const TeacherDashboard = ({ navigation }) => {
   const handleMenuPress = (item) => {
     if (item.screen === 'Profile') {
       navigation.navigate('TeacherMyProfile');
-    } else if (item.screen === 'FindTeachers') {
-      navigation.navigate('FindTeachers');
     } else {
       // For now just show alert, later navigate to actual pages
       alert(`Navigate to: ${item.title}`);

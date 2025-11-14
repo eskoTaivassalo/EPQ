@@ -8,7 +8,9 @@ import {
   ScrollView,
   FlatList,
   ActivityIndicator,
-  Modal
+  Modal,
+  Alert,
+  Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -52,7 +54,6 @@ const FindTeachersScreen = ({ navigation }) => {
     experience: [],
     teachingStyles: []
   });
-
   useEffect(() => {
     loadTeachers();
   }, []);
@@ -67,6 +68,53 @@ const FindTeachersScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Error loading teachers:', error);
     }
+  };
+
+  const handleContactTeacher = (teacher) => {
+    const teacherName = teacher.name || teacher.fullName || teacher.displayName || 'this teacher';
+    
+    Alert.alert(
+      'Contact Teacher',
+      `How would you like to contact ${teacherName}?`,
+      [
+        {
+          text: 'Send Message',
+          onPress: () => {
+            // Tässä voidaan myöhemmin navigoida viestintänäkymään
+            Alert.alert(
+              'Message',
+              'Messaging feature coming soon! You will be able to send direct messages to teachers.',
+              [{ text: 'OK' }]
+            );
+          }
+        },
+        {
+          text: 'Call',
+          onPress: () => {
+            if (teacher.phone) {
+              Linking.openURL(`tel:${teacher.phone}`);
+            } else {
+              Alert.alert('No phone number', 'This teacher has not provided a phone number.');
+            }
+          }
+        },
+        {
+          text: 'Email',
+          onPress: () => {
+            if (teacher.email) {
+              Linking.openURL(`mailto:${teacher.email}`);
+            } else {
+              Alert.alert('No email', 'This teacher has not provided an email address.');
+            }
+          }
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        }
+      ],
+      { cancelable: true }
+    );
   };
 
   const applyFilters = () => {
@@ -212,15 +260,21 @@ const FindTeachersScreen = ({ navigation }) => {
       <View style={styles.tagsSection}>
         <Text style={styles.tagsSectionTitle}>Subjects:</Text>
         <View style={styles.tagsContainer}>
-          {getTagLabels(SUBJECTS, item.subjects || []).slice(0, 3).map((subject, index) => (
-            <View key={index} style={styles.tag}>
-              <Text style={styles.tagText}>{subject}</Text>
-            </View>
-          ))}
-          {(item.subjects?.length || 0) > 3 && (
-            <View style={styles.tag}>
-              <Text style={styles.tagText}>+{(item.subjects?.length || 0) - 3} more</Text>
-            </View>
+          {getTagLabels(SUBJECTS, item.subjects || []).length > 0 ? (
+            <>
+              {getTagLabels(SUBJECTS, item.subjects || []).slice(0, 3).map((subject, index) => (
+                <View key={index} style={styles.tag}>
+                  <Text style={styles.tagText}>{subject}</Text>
+                </View>
+              ))}
+              {(item.subjects?.length || 0) > 3 && (
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>+{(item.subjects?.length || 0) - 3} more</Text>
+                </View>
+              )}
+            </>
+          ) : (
+            <Text style={styles.emptyInlineText}>Not specified</Text>
           )}
         </View>
       </View>
@@ -240,11 +294,15 @@ const FindTeachersScreen = ({ navigation }) => {
       <View style={styles.tagsSection}>
         <Text style={styles.tagsSectionTitle}>Teaching Methods:</Text>
         <View style={styles.tagsContainer}>
-          {getTagLabels(TEACHING_METHODS, item.teachingMethods || []).map((method, index) => (
-            <View key={index} style={[styles.tag, styles.methodTag]}>
-              <Text style={styles.tagText}>{method}</Text>
-            </View>
-          ))}
+          {getTagLabels(TEACHING_METHODS, item.teachingMethods || []).length > 0 ? (
+            getTagLabels(TEACHING_METHODS, item.teachingMethods || []).map((method, index) => (
+              <View key={index} style={[styles.tag, styles.methodTag]}>
+                <Text style={styles.tagText}>{method}</Text>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.emptyInlineText}>Not specified</Text>
+          )}
         </View>
       </View>
 
@@ -254,7 +312,14 @@ const FindTeachersScreen = ({ navigation }) => {
         </Text>
       )}
 
-      <TouchableOpacity style={styles.contactButton}>
+      {(item.phone || item.phoneNumber || item.profile?.phoneNumber) && (
+        <Text style={styles.phoneText}>Phone: {item.phone || item.phoneNumber || item.profile?.phoneNumber}</Text>
+      )}
+
+      <TouchableOpacity 
+        style={styles.contactButton}
+        onPress={() => handleContactTeacher(item)}
+      >
         <Ionicons name="chatbubble" size={16} color={colors.white} />
         <Text style={styles.contactButtonText}>Contact Teacher</Text>
       </TouchableOpacity>
@@ -688,6 +753,16 @@ const styles = StyleSheet.create({
     color: colors.white,
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  emptyInlineText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+  },
+  phoneText: {
+    fontSize: 12,
+    color: colors.text,
+    marginBottom: 8,
   },
 });
 
