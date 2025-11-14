@@ -10,7 +10,8 @@ import {
   ActivityIndicator,
   Modal,
   Alert,
-  Linking
+  Linking,
+  Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,7 +40,8 @@ const FindTeachersScreen = ({ navigation }) => {
     searchTeachers, 
     addToFavorites, 
     removeFromFavorites, 
-    isFavorite 
+    isFavorite,
+    loadFavorites,
   } = useAppData();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,6 +58,8 @@ const FindTeachersScreen = ({ navigation }) => {
   });
   useEffect(() => {
     loadTeachers();
+    // Load favorites for current user if available
+    loadFavorites().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -244,7 +248,15 @@ const FindTeachersScreen = ({ navigation }) => {
     <View style={styles.teacherCard}>
       <View style={styles.teacherHeader}>
         <View style={styles.avatarContainer}>
-          <Ionicons name="person" size={40} color={colors.white} />
+          {item.photoURL ? (
+            <Image 
+              source={{ uri: item.photoURL }} 
+              style={styles.avatarImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <Ionicons name="person" size={40} color={colors.white} />
+          )}
         </View>
         <View style={styles.teacherInfo}>
           <Text style={styles.teacherName}>{item.name || item.fullName || item.displayName || 'Unknown Teacher'}</Text>
@@ -255,6 +267,17 @@ const FindTeachersScreen = ({ navigation }) => {
           </View>
           <Text style={styles.hourlyRate}>€{item.hourlyRate || '25'}/hour</Text>
         </View>
+        <TouchableOpacity
+          style={styles.favoriteButton}
+          onPress={() => (isFavorite(item.id) ? removeFromFavorites(item.id) : addToFavorites(item.id))}
+          accessibilityLabel={isFavorite(item.id) ? 'Remove from favorites' : 'Add to favorites'}
+       >
+          <Ionicons
+            name={isFavorite(item.id) ? 'heart' : 'heart-outline'}
+            size={24}
+            color={isFavorite(item.id) ? '#FF6B6B' : colors.textSecondary}
+          />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.tagsSection}>
@@ -316,13 +339,22 @@ const FindTeachersScreen = ({ navigation }) => {
         <Text style={styles.phoneText}>Phone: {item.phone || item.phoneNumber || item.profile?.phoneNumber}</Text>
       )}
 
-      <TouchableOpacity 
-        style={styles.contactButton}
-        onPress={() => handleContactTeacher(item)}
-      >
-        <Ionicons name="chatbubble" size={16} color={colors.white} />
-        <Text style={styles.contactButtonText}>Contact Teacher</Text>
-      </TouchableOpacity>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <TouchableOpacity 
+          style={[styles.contactButton, { flex: 1 }]}
+          onPress={() => handleContactTeacher(item)}
+        >
+          <Ionicons name="chatbubble" size={16} color={colors.white} />
+          <Text style={styles.contactButtonText}>Contact</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.contactButton, { flex: 1, backgroundColor: colors.primary }]}
+          onPress={() => navigation.navigate('ScheduleLesson', { teacherId: item.id })}
+        >
+          <Ionicons name="calendar" size={16} color={colors.white} />
+          <Text style={styles.contactButtonText}>Book</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -596,6 +628,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 12,
   },
+  favoriteButton: {
+    padding: 6,
+    alignSelf: 'flex-start',
+  },
   avatarContainer: {
     width: 60,
     height: 60,
@@ -604,6 +640,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
   teacherInfo: {
     flex: 1,

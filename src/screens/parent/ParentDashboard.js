@@ -15,7 +15,13 @@ import { colors, commonStyles } from '../../styles/commonStyles';
 
 const ParentDashboard = ({ navigation }) => {
   const { user, logout } = useAuth();
-  const { favorites } = useAppData();
+  const { getFavoriteTeachers, loadFavorites } = useAppData();
+
+  const favorites = getFavoriteTeachers();
+
+  React.useEffect(() => {
+    loadFavorites().catch(() => {});
+  }, []);
 
   const menuItems = [
     {
@@ -51,6 +57,14 @@ const ParentDashboard = ({ navigation }) => {
       screen: 'Bookings'
     },
     {
+      id: 7,
+      title: 'Calendar',
+      subtitle: 'Monthly lesson overview',
+      icon: 'calendar',
+      color: '#3F51B5',
+      screen: 'Calendar'
+    },
+    {
       id: 5,
       title: 'Payments',
       subtitle: 'Payment information and billing',
@@ -73,6 +87,12 @@ const ParentDashboard = ({ navigation }) => {
       navigation.navigate('FindTeachers');
     } else if (item.screen === 'Profile') {
       navigation.navigate('ParentMyProfile');
+    } else if (item.screen === 'Favorites') {
+      navigation.navigate('ParentFavorites');
+    } else if (item.screen === 'Bookings') {
+      navigation.navigate('ParentBookings');
+    } else if (item.screen === 'Calendar') {
+      navigation.navigate('Calendar');
     } else {
       // Other functions coming soon
       alert(`Function: ${item.title} - Coming Soon!`);
@@ -119,7 +139,7 @@ const ParentDashboard = ({ navigation }) => {
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
             <Ionicons name="heart" size={30} color="#F44336" />
-            <Text style={styles.statNumber}>5</Text>
+            <Text style={styles.statNumber}>{favorites.length}</Text>
             <Text style={styles.statLabel}>Favorites</Text>
           </View>
           <View style={styles.statCard}>

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../styles/commonStyles';
+import ProfileImagePicker from '../../components/ProfileImagePicker';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
 import {
@@ -121,9 +122,13 @@ const ParentMyProfileScreen = ({ navigation }) => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Profile Header */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatarContainer}>
-            <Ionicons name="person" size={60} color={colors.white} />
-          </View>
+          {/* 📸 Profiilikuva */}
+          <ProfileImagePicker
+            imageUri={profileData?.photoURL || user?.photoURL}
+            onImageSelected={() => {}}
+            size={100}
+            editable={false}
+          />
           <Text style={styles.profileName}>{profileData?.name || user?.name || 'Parent'}</Text>
           <Text style={styles.profileEmail}>{profileData?.email || user?.email}</Text>
           <Text style={styles.profileType}>Parent</Text>
@@ -270,15 +275,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  avatarContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
   },
   profileName: {
     fontSize: 24,

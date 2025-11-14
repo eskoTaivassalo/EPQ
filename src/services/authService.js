@@ -6,10 +6,13 @@ import {
   EmailAuthProvider,
   deleteUser,
   GoogleAuthProvider,
-  signInWithCredential
+  signInWithCredential,
+  updateProfile
 } from 'firebase/auth';
-import { auth } from '../config/firebaseConfig';
+import { auth, db } from '../config/firebaseConfig';
+import { doc, updateDoc } from 'firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import imagePickerService from './imagePickerService';
 
 /**
  * Auth Service - Keskitetty autentikointipalvelu
@@ -657,6 +660,116 @@ export class AuthService {
     } catch (error) {
       console.error('❌ Error checking Google sign-in status:', error);
       return null;
+    }
+  }
+
+  /**
+   * 📸 Päivitä profiilikuva
+   * 
+   * Lataa profiilikuvan Firebase Storageen ja päivittää URL:n
+   * Firebase Authiin ja Firestoreen.
+   * 
+   * @param {string} imageUri - Paikallinen kuvan URI
+   * @param {string} userId - Käyttäjän ID
+   * @param {string} userType - Käyttäjätyyppi ('teacher' tai 'parent')
+   * @returns {string|null} - Kuvan julkinen URL tai null jos epäonnistui
+   */
+  static async updateProfileImage(imageUri, userId, userType) {
+    try {
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+
+      console.log('📸 Updating profile image...');
+      console.log('  User ID:', userId);
+      console.log('  User type:', userType);
+      console.log('  Image URI:', imageUri);
+
+      // Lataa kuva Firebase Storageen
+      const downloadURL = await imagePickerService.uploadImage(imageUri, userId, 'profile.jpg');
+
+      if (!downloadURL) {
+        throw new Error('Failed to upload image');
+      }
+
+      console.log('✅ Image uploaded, updating profile...');
+
+      // Päivitä Firebase Auth profiilikuva
+      await updateProfile(currentUser, {
+        photoURL: downloadURL
+      });
+
+      console.log('✅ Firebase Auth profile updated');
+
+      // Päivitä Firestore profiilikuva
+      const collectionName = userType === 'teacher' ? 'teachers' : 'parents';
+      const userDocRef = doc(db, collectionName, userId);
+      
+      await updateDoc(userDocRef, {
+        photoURL: downloadURL,
+        updatedAt: new Date().toISOString()
+      });
+
+      console.log('✅ Firestore profile updated');
+
+      return downloadURL;
+    } catch (error) {
+      console.error('❌ Error updating profile image:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🗑️ Poista profiilikuva
+   * 
+   * Poistaa profiilikuvan Firebase Storagesta ja päivittää
+   * Firebase Authin ja Firestoren.
+   * 
+   * @param {string} userId - Käyttäjän ID
+   * @param {string} userType - Käyttäjätyyppi ('teacher' tai 'parent')
+   * @returns {boolean} - True jos onnistui
+   */
+  static async deleteProfileImage(userId, userType) {
+    try {
+      const currentUser = auth.currentUser;
+      
+      if (!currentUser) {
+        throw new Error('No user logged in');
+      }
+
+      console.log('🗑️ Deleting profile image...');
+      console.log('  User ID:', userId);
+      console.log('  User type:', userType);
+
+      // Poista kuva Firebase Storagesta
+      await imagePickerService.deleteImage(userId, 'profile.jpg');
+
+      console.log('✅ Image deleted from storage');
+
+      // Päivitä Firebase Auth profiilikuva
+      await updateProfile(currentUser, {
+        photoURL: null
+      });
+
+      console.log('✅ Firebase Auth profile updated');
+
+      // Päivitä Firestore profiilikuva
+      const collectionName = userType === 'teacher' ? 'teachers' : 'parents';
+      const userDocRef = doc(db, collectionName, userId);
+      
+      await updateDoc(userDocRef, {
+        photoURL: null,
+        updatedAt: new Date().toISOString()
+      });
+
+      console.log('✅ Firestore profile updated');
+
+      return true;
+    } catch (error) {
+      console.error('❌ Error deleting profile image:', error);
+      throw error;
     }
   }
 }

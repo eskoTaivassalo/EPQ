@@ -17,6 +17,7 @@ import { useSecurity } from '../../hooks/useSecurity';
 import { AuthService } from '../../services/authService';
 import { colors } from '../../styles/commonStyles';
 import TagSelector from '../../components/TagSelector';
+import ProfileImagePicker from '../../components/ProfileImagePicker';
 import {
   SUBJECTS,
   EDUCATION_LEVELS,
@@ -71,6 +72,7 @@ const TeacherSignupScreen = ({ navigation, route }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [passwordValidation, setPasswordValidation] = useState({ isValid: false, message: '' });
+  const [profileImageUri, setProfileImageUri] = useState(googleUser?.photoURL || null);
 
   const specializations = [
     'Child Development Expert',
@@ -354,6 +356,23 @@ const TeacherSignupScreen = ({ navigation, route }) => {
       
       if (result.success) {
         console.log('🔧 Signup successful!');
+        
+        // 📸 Lataa profiilikuva jos valittu
+        if (profileImageUri && result.user?.uid) {
+          try {
+            console.log('📸 Uploading profile image...');
+            await AuthService.updateProfileImage(profileImageUri, result.user.uid, 'teacher');
+            console.log('✅ Profile image uploaded successfully');
+          } catch (imageError) {
+            console.error('❌ Error uploading profile image:', imageError);
+            // Älä estä rekisteröintiä profiilikuvan latausvirheen takia
+            Alert.alert(
+              'Huomio',
+              'Profiilikuvan lataaminen epäonnistui, mutta tilisi on luotu onnistuneesti. Voit lisätä profiilikuvan myöhemmin.'
+            );
+          }
+        }
+        
         Alert.alert(
           '🎉 Tilin luonti onnistui!', 
           '📧 TÄRKEÄÄ: Vahvista sähköpostiosoitteesi 3 päivän kuluessa!\n\n' +
@@ -421,6 +440,14 @@ const TeacherSignupScreen = ({ navigation, route }) => {
 
         <View style={styles.form}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
+          
+          {/* 📸 Profiilikuvan valinta */}
+          <ProfileImagePicker
+            imageUri={profileImageUri}
+            onImageSelected={setProfileImageUri}
+            size={120}
+            editable={true}
+          />
           
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Full Name *</Text>

@@ -56,6 +56,22 @@ const TeacherDashboard = ({ navigation }) => {
       screen: 'Messages'
     },
     {
+      id: 6,
+      title: 'Requests',
+      subtitle: 'Booking requests from parents',
+      icon: 'calendar',
+      color: '#FF9800',
+      screen: 'TeacherBookings'
+    },
+    {
+      id: 8,
+      title: 'Calendar',
+      subtitle: 'Monthly lesson overview',
+      icon: 'calendar',
+      color: '#3F51B5',
+      screen: 'Calendar'
+    },
+    {
       id: 7,
       title: 'Profile',
       subtitle: 'Create teacher profile',
@@ -68,6 +84,10 @@ const TeacherDashboard = ({ navigation }) => {
   const handleMenuPress = (item) => {
     if (item.screen === 'Profile') {
       navigation.navigate('TeacherMyProfile');
+    } else if (item.screen === 'TeacherBookings') {
+      navigation.navigate('TeacherBookings');
+    } else if (item.screen === 'Calendar') {
+      navigation.navigate('Calendar');
     } else {
       // For now just show alert, later navigate to actual pages
       alert(`Navigate to: ${item.title}`);

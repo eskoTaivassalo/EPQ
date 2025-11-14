@@ -16,6 +16,8 @@ import { combineReducers } from '@reduxjs/toolkit';
 import authSlice from './slices/authSlice';
 import securitySlice from './slices/securitySlice';
 import appDataSlice from './slices/appDataSlice';
+import bookingsSlice from './slices/bookingsSlice';
+import notificationsSlice from './slices/notificationsSlice';
 
 // Middleware
 import authMiddleware from './middleware/authMiddleware';
@@ -43,6 +45,8 @@ const rootReducer = combineReducers({
   auth: authSlice,
   security: securitySlice,
   appData: appDataSlice,
+  bookings: bookingsSlice,
+  notifications: notificationsSlice,
 });
 
 // Persisted reducer

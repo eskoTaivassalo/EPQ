@@ -1,5 +1,13 @@
 import { createSlice, createAsyncThunk, createSelector } from '@reduxjs/toolkit';
-import { getDocs, collection, doc, setDoc, getDoc } from 'firebase/firestore';
+import { 
+  getDocs, 
+  collection, 
+  doc, 
+  setDoc, 
+  getDoc, 
+  updateDoc,
+} from 'firebase/firestore';
+import { arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db, auth } from '../../config/firebaseConfig';
 
 /**
@@ -349,6 +357,75 @@ export const createParentProfile = createAsyncThunk(
   }
 );
 
+// =============================
+// Favorites - Firestore-backed
+// =============================
+
+export const loadFavoritesForCurrentUser = createAsyncThunk(
+  'appData/loadFavoritesForCurrentUser',
+  async (_, { rejectWithValue }) => {
+    try {
+      if (!auth?.currentUser) {
+        console.log('❤️ Favorites: No authenticated user, returning empty');
+        return [];
+      }
+      if (!db) throw new Error('Firebase database not initialized');
+
+      const parentRef = doc(db, 'parents', auth.currentUser.uid);
+      const snapshot = await getDoc(parentRef);
+      if (!snapshot.exists()) {
+        console.log('❤️ Favorites: Parent doc not found, returning empty');
+        return [];
+      }
+      const data = snapshot.data() || {};
+      const favorites = data.favoriteTeacherIds || [];
+      console.log(`❤️ Favorites: Loaded ${favorites.length} favorites from Firestore`);
+      return favorites;
+    } catch (error) {
+      console.error('❌ Favorites: Load error', error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const addFavoriteTeacher = createAsyncThunk(
+  'appData/addFavoriteTeacher',
+  async (teacherId, { rejectWithValue }) => {
+    try {
+      if (!auth?.currentUser) throw new Error('Not authenticated');
+      if (!db) throw new Error('Firebase database not initialized');
+      const parentRef = doc(db, 'parents', auth.currentUser.uid);
+      await updateDoc(parentRef, {
+        favoriteTeacherIds: arrayUnion(teacherId)
+      });
+      console.log('❤️ Favorites: Added', teacherId);
+      return teacherId;
+    } catch (error) {
+      console.error('❌ Favorites: Add error', error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+export const removeFavoriteTeacher = createAsyncThunk(
+  'appData/removeFavoriteTeacher',
+  async (teacherId, { rejectWithValue }) => {
+    try {
+      if (!auth?.currentUser) throw new Error('Not authenticated');
+      if (!db) throw new Error('Firebase database not initialized');
+      const parentRef = doc(db, 'parents', auth.currentUser.uid);
+      await updateDoc(parentRef, {
+        favoriteTeacherIds: arrayRemove(teacherId)
+      });
+      console.log('❤️ Favorites: Removed', teacherId);
+      return teacherId;
+    } catch (error) {
+      console.error('❌ Favorites: Remove error', error);
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 // AppData Slice
 const appDataSlice = createSlice({
   name: 'appData',
@@ -465,6 +542,43 @@ const appDataSlice = createSlice({
       .addCase(createParentProfile.fulfilled, (state, action) => {
         state.parents.push(action.payload);
       });
+
+    // Favorites
+    builder
+      .addCase(loadFavoritesForCurrentUser.pending, (state) => {
+        state.favoritesLoading = true;
+      })
+      .addCase(loadFavoritesForCurrentUser.fulfilled, (state, action) => {
+        state.favoritesLoading = false;
+        state.favoriteTeachers = action.payload || [];
+      })
+      .addCase(loadFavoritesForCurrentUser.rejected, (state) => {
+        state.favoritesLoading = false;
+      })
+      .addCase(addFavoriteTeacher.pending, (state) => {
+        state.favoritesLoading = true;
+      })
+      .addCase(addFavoriteTeacher.fulfilled, (state, action) => {
+        state.favoritesLoading = false;
+        const id = action.payload;
+        if (!state.favoriteTeachers.includes(id)) {
+          state.favoriteTeachers.push(id);
+        }
+      })
+      .addCase(addFavoriteTeacher.rejected, (state) => {
+        state.favoritesLoading = false;
+      })
+      .addCase(removeFavoriteTeacher.pending, (state) => {
+        state.favoritesLoading = true;
+      })
+      .addCase(removeFavoriteTeacher.fulfilled, (state, action) => {
+        state.favoritesLoading = false;
+        const id = action.payload;
+        state.favoriteTeachers = state.favoriteTeachers.filter(tid => tid !== id);
+      })
+      .addCase(removeFavoriteTeacher.rejected, (state) => {
+        state.favoritesLoading = false;
+      });
   },
 });
 
@@ -494,6 +608,7 @@ export const selectSearchQuery = (state) => state.appData.searchQuery;
 export const selectSearchFilters = (state) => state.appData.searchFilters;
 export const selectFavoriteTeachers = (state) => state.appData.favoriteTeachers;
 export const selectSettings = (state) => state.appData.settings;
+export const selectFavoritesLoading = (state) => state.appData.favoritesLoading;
 
 // Complex selectors
 export const selectTeacherById = (teacherId) => (state) =>

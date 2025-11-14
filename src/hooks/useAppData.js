@@ -28,6 +28,10 @@ import {
   selectFavoriteTeachers,
   selectFavoriteTeachersData,
   selectSettings,
+  selectFavoritesLoading,
+  loadFavoritesForCurrentUser,
+  addFavoriteTeacher,
+  removeFavoriteTeacher,
 } from '../store/slices/appDataSlice';
 
 /**
@@ -53,6 +57,7 @@ export const useAppData = () => {
   const favoriteTeachers = useSelector(selectFavoriteTeachers);
   const favoriteTeachersData = useSelector(selectFavoriteTeachersData);
   const settings = useSelector(selectSettings);
+  const favoritesLoading = useSelector(selectFavoritesLoading);
 
   // Teacher operations
   const getTeachers = async (forceRefresh = false) => {
@@ -72,6 +77,10 @@ export const useAppData = () => {
   const getTeacherById = React.useCallback((teacherId) => {
     return teachers.find(t => t.id === teacherId);
   }, [teachers]);
+
+  const getParentById = React.useCallback((parentId) => {
+    return parents.find(p => p.id === parentId);
+  }, [parents]);
 
   const createTeacher = async (teacherData) => {
     try {
@@ -140,12 +149,22 @@ export const useAppData = () => {
   };
 
   // Favorites operations
-  const addFavorite = (teacherId) => {
-    dispatch(addToFavorites(teacherId));
+  const addFavorite = async (teacherId) => {
+    try {
+      await dispatch(addFavoriteTeacher(teacherId)).unwrap();
+    } catch (e) {
+      console.error('Favorites add failed, falling back to local state:', e);
+      dispatch(addToFavorites(teacherId));
+    }
   };
 
-  const removeFavorite = (teacherId) => {
-    dispatch(removeFromFavorites(teacherId));
+  const removeFavorite = async (teacherId) => {
+    try {
+      await dispatch(removeFavoriteTeacher(teacherId)).unwrap();
+    } catch (e) {
+      console.error('Favorites remove failed, falling back to local state:', e);
+      dispatch(removeFromFavorites(teacherId));
+    }
   };
 
   const getFavoriteTeachers = () => {
@@ -154,6 +173,15 @@ export const useAppData = () => {
 
   const isFavorite = (teacherId) => {
     return favoriteTeachers.includes(teacherId);
+  };
+
+  const loadFavorites = async () => {
+    try {
+      await dispatch(loadFavoritesForCurrentUser()).unwrap();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error };
+    }
   };
 
   // Demo data
@@ -244,6 +272,7 @@ export const useAppData = () => {
     searchQuery,
     searchFilters,
     favoriteTeachers,
+  favoritesLoading,
     settings,
     
     // Teacher Operations
@@ -254,6 +283,7 @@ export const useAppData = () => {
     
     // Parent Operations
     getParents,
+    getParentById,
     createParentProfile: createParent,
     
     // Search & Discovery
@@ -266,7 +296,9 @@ export const useAppData = () => {
     addToFavorites: addFavorite,
     removeFromFavorites: removeFavorite,
     getFavoriteTeachers,
-    isFavoriteTeacher: isFavorite,
+  isFavoriteTeacher: isFavorite,
+  isFavorite, // alias for convenience
+  loadFavorites,
     
     // Demo Data
     getDemoTeachers,

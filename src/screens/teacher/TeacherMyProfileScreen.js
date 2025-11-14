@@ -14,6 +14,8 @@ import { useAuth } from '../../hooks/useAuth';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../styles/commonStyles';
 import TagSelector from '../../components/TagSelector';
+import ProfileImagePicker from '../../components/ProfileImagePicker';
+import { AuthService } from '../../services/authService';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
 import {
@@ -47,7 +49,9 @@ const TeacherMyProfileScreen = ({ navigation }) => {
     availability: [],
     education: '',
     description: '',
+    photoURL: user?.photoURL || null,
   });
+  const [profileImageUri, setProfileImageUri] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -80,7 +84,9 @@ const TeacherMyProfileScreen = ({ navigation }) => {
               specialization: data?.specialization || data?.profile?.specialization || prev.specialization,
               qualifications: data?.qualifications || data?.profile?.qualifications || prev.qualifications,
               experience: data?.experience || data?.profile?.experience || prev.experience,
+              photoURL: data?.photoURL || prev.photoURL,
             }));
+            setProfileImageUri(data?.photoURL || null);
           }
         } catch (e) {
           console.error('Error loading profile:', e);
@@ -143,6 +149,19 @@ const TeacherMyProfileScreen = ({ navigation }) => {
           description: profileData.description,
         }
       };
+
+      // 📸 Päivitä profiilikuva jos muutettu
+      if (profileImageUri && profileImageUri !== profileData.photoURL) {
+        try {
+          console.log('📸 Updating profile image...');
+          const photoURL = await AuthService.updateProfileImage(profileImageUri, user.uid, 'teacher');
+          updatePayload.photoURL = photoURL;
+          console.log('✅ Profile image updated');
+        } catch (imageError) {
+          console.error('❌ Error updating profile image:', imageError);
+          Alert.alert('Huomio', 'Profiilikuvan päivitys epäonnistui, mutta muut tiedot tallennettiin.');
+        }
+      }
 
       console.log('💾 Saving teacher profile with fields:', Object.keys(updatePayload));
       await setDoc(userDocRef, updatePayload, { merge: true });
@@ -219,6 +238,15 @@ const TeacherMyProfileScreen = ({ navigation }) => {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {isEditing && (
+          <ProfileImagePicker
+            imageUri={profileImageUri || profileData.photoURL}
+            onImageSelected={setProfileImageUri}
+            size={120}
+            editable={true}
+          />
+        )}
+
         {isEditing ? (
           <>
             <View style={styles.section}>
@@ -342,9 +370,12 @@ const TeacherMyProfileScreen = ({ navigation }) => {
         ) : (
           <>
             <View style={styles.profileHeader}>
-              <View style={styles.avatarContainer}>
-                <Ionicons name="person" size={60} color={colors.white} />
-              </View>
+              <ProfileImagePicker
+                imageUri={profileData?.photoURL}
+                onImageSelected={() => {}}
+                size={100}
+                editable={false}
+              />
               <Text style={styles.profileName}>{profileData?.name || user?.name || 'Teacher'}</Text>
               <Text style={styles.profileEmail}>{profileData?.email || user?.email}</Text>
               {profileData?.phone && (

@@ -32,13 +32,11 @@ service firebase.storage {
     // ========================================
     // Polku: /profiles/{userId}/{filename}
     match /profiles/{userId}/{filename} {
-      // Luku: Kaikki kirjautuneet voivat nähdä profiilikuvia
-      allow read: if isAuthenticated();
+      // Luku: Julkinen luku (VAIN KEHITYKSESSÄ - Vaihda tuotantoon!)
+      allow read: if true;
       
-      // Kirjoitus: Vain omistaja voi ladata kuvia
-      allow write: if isOwner(userId) && 
-                     isImage() && 
-                     isValidSize();
+      // Kirjoitus: Vain kirjautuneet käyttäjät voivat ladata kuvia (kehitystestaus)
+      allow write: if isAuthenticated() && isImage() && isValidSize();
       
       // Poisto: Vain omistaja voi poistaa
       allow delete: if isOwner(userId);

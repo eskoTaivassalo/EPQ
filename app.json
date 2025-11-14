@@ -13,7 +13,12 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to the camera to take profile photos.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select profile photos.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to save photos to your photo library."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -22,13 +27,26 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.parents2teachers",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "@react-native-google-signin/google-signin"
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app needs access to your photos to let you select profile pictures.",
+          "cameraPermission": "The app needs access to your camera to let you take profile pictures."
+        }
+      ]
     ],
     "extra": {
       "eas": {
