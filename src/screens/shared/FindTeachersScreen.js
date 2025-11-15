@@ -348,11 +348,14 @@ const FindTeachersScreen = ({ navigation }) => {
           <Text style={styles.contactButtonText}>Contact</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.contactButton, { flex: 1, backgroundColor: colors.primary }]}
-          onPress={() => navigation.navigate('ScheduleLesson', { teacherId: item.id })}
+          style={[styles.contactButton, { flex: 1, backgroundColor: '#3F51B5' }]}
+          onPress={() => navigation.navigate('TeacherWeeklyAvailability', { 
+            teacherId: item.id,
+            teacherName: item.name || item.fullName || item.displayName || 'Teacher'
+          })}
         >
           <Ionicons name="calendar" size={16} color={colors.white} />
-          <Text style={styles.contactButtonText}>Book</Text>
+          <Text style={styles.contactButtonText}>Week</Text>
         </TouchableOpacity>
       </View>
     </View>

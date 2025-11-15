@@ -154,10 +154,13 @@ const FavoritesScreen = ({ navigation }) => {
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.contactButton, { flex: 1, backgroundColor: colors.primary }]}
-          onPress={() => navigation.navigate('ScheduleLesson', { teacherId: item.id })}
+          onPress={() => navigation.navigate('TeacherWeeklyAvailability', { 
+            teacherId: item.id,
+            teacherName: item.name || item.fullName || item.displayName || 'Teacher'
+          })}
         >
           <Ionicons name="calendar" size={16} color={colors.white} />
-          <Text style={styles.contactButtonText}>Book</Text>
+          <Text style={styles.contactButtonText}>Calendar</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -9,6 +9,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
+import NotificationBell from '../../components/NotificationBell';
 import { colors, commonStyles } from '../../styles/commonStyles';
 
 const TeacherDashboard = ({ navigation }) => {
@@ -21,50 +22,26 @@ const TeacherDashboard = ({ navigation }) => {
       subtitle: 'Manage students',
       icon: 'people',
       color: colors.primary,
-      screen: 'Students'
+      screen: 'TeacherStudents'
     },
     {
       id: 2,
-      title: 'Grading',
-      subtitle: 'Grade assignments',
-      icon: 'clipboard',
-      color: colors.secondary,
-      screen: 'Grading'
-    },
-    {
-      id: 3,
-      title: 'Assignments',
-      subtitle: 'Create and manage tasks',
-      icon: 'document-text',
-      color: '#9C27B0',
-      screen: 'Assignments'
-    },
-    {
-      id: 4,
-      title: 'Schedule',
-      subtitle: 'Timetable and classes',
-      icon: 'calendar',
-      color: '#2196F3',
-      screen: 'Schedule'
-    },
-    {
-      id: 5,
-      title: 'Messages',
-      subtitle: 'Chat with parents',
-      icon: 'chatbubbles',
-      color: '#4CAF50',
-      screen: 'Messages'
-    },
-    {
-      id: 6,
-      title: 'Requests',
-      subtitle: 'Booking requests from parents',
+      title: 'Bookings & Requests',
+      subtitle: 'Handle parent requests',
       icon: 'calendar',
       color: '#FF9800',
       screen: 'TeacherBookings'
     },
     {
-      id: 8,
+      id: 3,
+      title: 'Availability',
+      subtitle: 'Publish your free times',
+      icon: 'time',
+      color: '#00BCD4',
+      screen: 'TeacherAvailability'
+    },
+    {
+      id: 4,
       title: 'Calendar',
       subtitle: 'Monthly lesson overview',
       icon: 'calendar',
@@ -72,27 +49,24 @@ const TeacherDashboard = ({ navigation }) => {
       screen: 'Calendar'
     },
     {
-      id: 7,
+      id: 5,
+      title: 'Messages',
+      subtitle: 'Chat with parents',
+      icon: 'chatbubbles',
+      color: '#4CAF50',
+      screen: 'Conversations'
+    },
+    {
+      id: 6,
       title: 'Profile',
-      subtitle: 'Create teacher profile',
+      subtitle: 'Your teacher profile',
       icon: 'person-circle',
       color: '#607D8B',
-      screen: 'Profile'
+      screen: 'TeacherMyProfile'
     }
   ];
 
-  const handleMenuPress = (item) => {
-    if (item.screen === 'Profile') {
-      navigation.navigate('TeacherMyProfile');
-    } else if (item.screen === 'TeacherBookings') {
-      navigation.navigate('TeacherBookings');
-    } else if (item.screen === 'Calendar') {
-      navigation.navigate('Calendar');
-    } else {
-      // For now just show alert, later navigate to actual pages
-      alert(`Navigate to: ${item.title}`);
-    }
-  };
+  const handleMenuPress = (item) => navigation.navigate(item.screen);
 
   const handleLogout = async () => {
     console.log('🚪 TeacherDashboard: Logout button pressed');
@@ -120,53 +94,37 @@ const TeacherDashboard = ({ navigation }) => {
             <Text style={styles.headerTitle}>Welcome,</Text>
             <Text style={styles.headerName}> {user?.name || 'User'}!</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            <Ionicons name="log-out-outline" size={24} color={colors.white} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <NotificationBell />
+            <TouchableOpacity 
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
+              <Ionicons name="log-out-outline" size={24} color={colors.white} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="people" size={30} color={colors.primary} />
-            <Text style={styles.statNumber}>24</Text>
-            <Text style={styles.statLabel}>Students</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="clipboard-outline" size={30} color={colors.secondary} />
-            <Text style={styles.statNumber}>12</Text>
-            <Text style={styles.statLabel}>Gradings</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="mail-outline" size={30} color="#2196F3" />
-            <Text style={styles.statNumber}>5</Text>
-            <Text style={styles.statLabel}>Messages</Text>
-          </View>
+        {/* Quick Link: Bookings & Requests */}
+        <View style={styles.quickLinkContainer}>
+          <Text style={styles.sectionTitle}>Quick Links</Text>
+          <TouchableOpacity 
+            style={styles.quickLinkButton}
+            onPress={() => navigation.navigate('TeacherBookings')}
+          >
+            <View style={styles.quickLinkIcon}>
+              <Ionicons name="calendar" size={24} color={colors.white} />
+            </View>
+            <View style={styles.quickLinkContent}>
+              <Text style={styles.quickLinkTitle}>Bookings & Requests</Text>
+              <Text style={styles.quickLinkSubtitle}>View and manage upcoming lessons</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+          </TouchableOpacity>
         </View>
-
-        {/* Quick Actions */}
-        <View style={styles.quickActionsContainer}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActions}>
-            <TouchableOpacity style={styles.quickAction}>
-              <Ionicons name="add-circle" size={30} color={colors.primary} />
-              <Text style={styles.quickActionText}>Add Task</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction}>
-              <Ionicons name="school" size={30} color={colors.secondary} />
-              <Text style={styles.quickActionText}>Grade</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickAction}>
-              <Ionicons name="send" size={30} color="#2196F3" />
-              <Text style={styles.quickActionText}>Send Message</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        {/* Stats and Quick Actions removed for a cleaner UI */}
 
         {/* Menu Items */}
         <View style={styles.menuContainer}>
@@ -189,37 +147,7 @@ const TeacherDashboard = ({ navigation }) => {
           ))}
         </View>
 
-        {/* Recent Activity */}
-        <View style={styles.activityContainer}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>Math tests graded</Text>
-              <Text style={styles.activityTime}>1 hour ago</Text>
-            </View>
-          </View>
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Ionicons name="mail" size={20} color="#2196F3" />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>New message from parent</Text>
-              <Text style={styles.activityTime}>3 hours ago</Text>
-            </View>
-          </View>
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Ionicons name="add-circle" size={20} color={colors.secondary} />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>New assignment created</Text>
-              <Text style={styles.activityTime}>Yesterday</Text>
-            </View>
-          </View>
-        </View>
+        {/* Recent Activity could be reintroduced later with real data */}
       </ScrollView>
     </SafeAreaView>
   );
@@ -241,6 +169,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
   },
+  
   headerTitle: {
     color: colors.white,
     fontSize: 16,
@@ -254,9 +183,50 @@ const styles = StyleSheet.create({
   logoutButton: {
     padding: 8,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   content: {
     flex: 1,
     padding: 20,
+  },
+  quickLinkContainer: {
+    marginBottom: 20,
+  },
+  quickLinkButton: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 4,
+  },
+  quickLinkIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 10,
+    backgroundColor: colors.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  quickLinkContent: {
+    flex: 1,
+  },
+  quickLinkTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  quickLinkSubtitle: {
+    fontSize: 12,
+    color: colors.textLight,
+    marginTop: 2,
   },
   statsContainer: {
     flexDirection: 'row',

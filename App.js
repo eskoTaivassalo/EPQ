@@ -21,8 +21,10 @@ import EmailVerificationScreen from './src/screens/auth/EmailVerificationScreen'
 // Screens - Teacher
 import TeacherSignupScreen from './src/screens/teacher/TeacherSignupScreen';
 import TeacherDashboard from './src/screens/teacher/TeacherDashboard';
+import TeacherStudentsScreen from './src/screens/teacher/TeacherStudentsScreen';
 import TeacherMyProfileScreen from './src/screens/teacher/TeacherMyProfileScreen';
 import TeacherBookingsScreen from './src/screens/teacher/TeacherBookingsScreen';
+import TeacherAvailabilityScreen from './src/screens/teacher/TeacherAvailabilityScreen';
 
 // Screens - Parent
 import ParentSignupScreen from './src/screens/parent/ParentSignupScreen';
@@ -31,19 +33,25 @@ import ParentProfileScreen from './src/screens/parent/ParentProfileScreen';
 import ParentMyProfileScreen from './src/screens/parent/ParentMyProfileScreen';
 import FavoritesScreen from './src/screens/parent/FavoritesScreen';
 import ParentBookingsScreen from './src/screens/parent/ParentBookingsScreen';
+import TeacherAvailableSlotsScreen from './src/screens/parent/TeacherAvailableSlotsScreen';
+import TeacherWeeklyAvailabilityScreen from './src/screens/parent/TeacherWeeklyAvailabilityScreen';
 
 // Screens - Shared
 import FindTeachersScreen from './src/screens/shared/FindTeachersScreen';
-import ScheduleLessonScreen from './src/screens/shared/ScheduleLessonScreen';
 import NotificationsScreen from './src/screens/shared/NotificationsScreen';
 import CalendarScreen from './src/screens/shared/CalendarScreen';
+import ConversationsScreen from './src/screens/shared/ConversationsScreen';
+import ConversationThreadScreen from './src/screens/shared/ConversationThreadScreen';
 
 // Screens - Dev
 import SecurityTestScreen from './src/screens/dev/SecurityTestScreen';
+// Drawer removed due to Reanimated issues
 
 // Components
 import CookieConsentBanner from './src/components/CookieConsentBanner';
 import NotificationBell from './src/components/NotificationBell';
+// ChatButton removed from header to reduce duplication; messages accessible via Tools/menus
+// import ChatButton from './src/components/ChatButton';
 
 // Services
 import GDPRService from './src/services/gdprService';
@@ -182,20 +190,19 @@ const AppNavigator = () => {
                 <Stack.Screen 
                   name="TeacherDashboard" 
                   component={TeacherDashboard}
-                  options={{
-                    headerShown: true,
-                    headerRight: () => <NotificationBell />,
-                    headerStyle: { backgroundColor: colors.secondary },
-                    headerTintColor: colors.white,
-                    title: 'Dashboard'
-                  }}
+                  options={{ headerShown: false }}
                 />
                 <Stack.Screen name="TeacherMyProfile" component={TeacherMyProfileScreen} />
                 <Stack.Screen name="TeacherBookings" component={TeacherBookingsScreen} />
+                <Stack.Screen name="TeacherAvailability" component={TeacherAvailabilityScreen} />
+                <Stack.Screen name="TeacherStudents" component={TeacherStudentsScreen} />
+                {/* Allow teachers to open a parent's profile from Students list */}
+                <Stack.Screen name="ParentProfile" component={ParentProfileScreen} />
                 <Stack.Screen name="Calendar" component={CalendarScreen} />
                 <Stack.Screen name="FindTeachers" component={FindTeachersScreen} />
-                <Stack.Screen name="ScheduleLesson" component={ScheduleLessonScreen} />
                 <Stack.Screen name="Notifications" component={NotificationsScreen} />
+                <Stack.Screen name="Conversations" component={ConversationsScreen} />
+                <Stack.Screen name="ConversationThread" component={ConversationThreadScreen} />
                 <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
               </>
             ) : (
@@ -203,22 +210,19 @@ const AppNavigator = () => {
                 <Stack.Screen 
                   name="ParentDashboard" 
                   component={ParentDashboard}
-                  options={{
-                    headerShown: true,
-                    headerRight: () => <NotificationBell />,
-                    headerStyle: { backgroundColor: colors.secondary },
-                    headerTintColor: colors.white,
-                    title: 'Dashboard'
-                  }}
+                  options={{ headerShown: false }}
                 />
                 <Stack.Screen name="ParentMyProfile" component={ParentMyProfileScreen} />
                 <Stack.Screen name="ParentProfile" component={ParentProfileScreen} />
                 <Stack.Screen name="ParentFavorites" component={FavoritesScreen} />
                 <Stack.Screen name="FindTeachers" component={FindTeachersScreen} />
-                <Stack.Screen name="ScheduleLesson" component={ScheduleLessonScreen} />
                 <Stack.Screen name="ParentBookings" component={ParentBookingsScreen} />
+                <Stack.Screen name="TeacherAvailableSlots" component={TeacherAvailableSlotsScreen} />
+                <Stack.Screen name="TeacherWeeklyAvailability" component={TeacherWeeklyAvailabilityScreen} />
                 <Stack.Screen name="Calendar" component={CalendarScreen} />
                 <Stack.Screen name="Notifications" component={NotificationsScreen} />
+                <Stack.Screen name="Conversations" component={ConversationsScreen} />
+                <Stack.Screen name="ConversationThread" component={ConversationThreadScreen} />
                 <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
               </>
             )}

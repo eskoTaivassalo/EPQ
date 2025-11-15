@@ -52,9 +52,12 @@ const ParentBookingsScreen = ({ navigation }) => {
               </Text>
             </View>
           </View>
-          <TouchableOpacity style={styles.viewBtn} onPress={() => navigation.navigate('ScheduleLesson', { teacherId: item.teacherId })}>
+          <TouchableOpacity style={styles.viewBtn} onPress={() => navigation.navigate('TeacherWeeklyAvailability', { 
+            teacherId: item.teacherId,
+            teacherName: teacher?.name || teacher?.fullName || teacher?.displayName || 'Teacher'
+          })}>
             <Ionicons name="calendar" size={18} color={colors.white} />
-            <Text style={styles.viewBtnText}>Reschedule</Text>
+            <Text style={styles.viewBtnText}>See calendar</Text>
           </TouchableOpacity>
         </View>
         <View style={styles.row}>

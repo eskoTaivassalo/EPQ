@@ -548,3 +548,35 @@
 - 17:00-18:00: Planning & communication (1h)
 
 *Tämä suunnitelma on elävä dokumentti ja päivittyy projektin edetessä. Jokainen milestone tarkistetaan ja tarvittaessa mukautetaan.*
+
+## 2025-11-14 ✅ TOTEUTETUT OMINAISUUDET JA KORJAUKSET
+- **Roolivalinta Google-kirjautumisessa**
+  - Käyttäjä voi valita Parent/Teacher roolin Google-loginissa
+  - Molemmat profiilit mahdollisia yhdellä tilillä
+  - Roolivalinta tallennetaan ja voidaan vaihtaa
+- **Profiilidatan normalisointi**
+  - Kaikki profiilidata flattenoidaan (root + profile + profile.profile)
+  - Yhteinen util-funktio `profileNormalizer.js` käytössä
+  - Parent/Teacher profiilit lataavat ja näyttävät kaikki kentät
+- **ParentSignupScreen laajennettu**
+  - Kaikki profiilikentät (tagit, budjetti, kielet, sijainnit, jne.) mukana
+  - TagSelector käytössä jokaisessa kentässä
+  - Price Range single-select bugi korjattu (TagSelector tukee array/string)
+- **Profiilin muokkaus**
+  - Muokkausnäkymä tallentaa tiedot sekä root- että profile-objektiin
+  - Tallennuksen jälkeen tiedot päivittyvät heti profiilinäytössä
+  - TeacherMyProfileScreen reloadaa datan tallennuksen jälkeen
+- **FindTeachersScreen**
+  - Opettajien tiedot näkyvät normalized muodossa
+  - Vanhempien hakukortit näyttävät puhelinnumeron ja kaikki tagit
+- **Session Management**
+  - SessionManager, timeout, token refresh, remember me
+  - Redux-persist ja AsyncStorage käytössä
+- **GDPR ja Security**
+  - GDPR-banneri, privacy policy, security rules, email verification
+- **UI/UX**
+  - Kaikki TagSelectorit tukevat multi- ja single-select
+  - Profiilissa chipit, badge, ja fallback-tekstit
+  - Kaikki kentät muokattavissa ja tallennettavissa
+- **Dokumentaatio**
+  - Kaikki arkkitehtuuri, refaktorointi ja migration-dokumentit päivitetty

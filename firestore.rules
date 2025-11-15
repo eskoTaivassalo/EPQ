@@ -109,29 +109,85 @@ service cloud.firestore {
     }
     
     // ========================================
-    // MESSAGES COLLECTION (Tuleva ominaisuus)
+    // MESSAGES COLLECTION
+    // Tukee kahta skeemaa: vanha (senderId/receiverId/content/timestamp)
+    // ja uusi (teacherId/parentId/senderType/text/createdAt)
     // ========================================
     match /messages/{messageId} {
-      // Luku: Vain viestin lähettäjä tai vastaanottaja voi lukea
-      allow read: if isAuthenticated() && 
-                    (request.auth.uid == resource.data.senderId || 
-                     request.auth.uid == resource.data.receiverId);
-      
-      // Kirjoitus: Vain lähettäjä voi luoda viestin
-      allow create: if isAuthenticated() && 
-                      request.auth.uid == request.resource.data.senderId &&
-                      isValidString('content') &&
-                      hasField('receiverId') &&
-                      hasField('timestamp');
-      
-      // Päivitys: Vain viestin omistaja voi päivittää (esim. merkitä luetuksi)
-      allow update: if isAuthenticated() && 
-                      (request.auth.uid == resource.data.senderId || 
-                       request.auth.uid == resource.data.receiverId);
-      
-      // Poisto: Vain lähettäjä voi poistaa
-      allow delete: if isAuthenticated() && 
-                      request.auth.uid == resource.data.senderId;
+      function isLegacyMessage() {
+        return resource.data.senderId != null && resource.data.receiverId != null;
+      }
+      function isNewMessage() {
+        return resource.data.teacherId != null && resource.data.parentId != null;
+      }
+
+      // Luku: viestin osapuolet voivat lukea (tuki sekä legacy- että uusi skeema)
+      // Vältetään keys().hasAll -tarkistusta, jotta kyselyt eivät kaadu puuttuviin kenttiin
+      allow read: if isAuthenticated() && (
+        (resource.data.teacherId == request.auth.uid) ||
+        (resource.data.parentId == request.auth.uid) ||
+        (resource.data.senderId == request.auth.uid) ||
+        (resource.data.receiverId == request.auth.uid)
+      );
+
+      // Luonti: vain lähettäjä (legacy) TAI oikea rooli (uusi)
+      allow create: if isAuthenticated() && (
+        (
+          // Legacy schema
+          hasField('senderId') && hasField('receiverId') && hasField('content') && hasField('timestamp') &&
+          request.auth.uid == request.resource.data.senderId
+        ) || (
+          // New schema (teacher-parent)
+          hasField('teacherId') && hasField('parentId') && hasField('senderType') && hasField('text') &&
+          (
+            (request.resource.data.senderType == 'teacher' && request.auth.uid == request.resource.data.teacherId) ||
+            (request.resource.data.senderType == 'parent' && request.auth.uid == request.resource.data.parentId)
+          )
+        )
+      );
+
+      // Päivitys: vain osapuolet
+      allow update: if isAuthenticated() && (
+        (
+          isLegacyMessage() && (
+            request.auth.uid == resource.data.senderId ||
+            request.auth.uid == resource.data.receiverId
+          )
+        ) || (
+          isNewMessage() && (
+            request.auth.uid == resource.data.teacherId ||
+            request.auth.uid == resource.data.parentId
+          )
+        )
+      );
+
+      // Poisto: rajataan lähettäjään (legacy) tai opettajaan (uusi)
+      allow delete: if isAuthenticated() && (
+        (
+          isLegacyMessage() && request.auth.uid == resource.data.senderId
+        ) || (
+          isNewMessage() && request.auth.uid == resource.data.teacherId
+        )
+      );
+    }
+
+    // ========================================
+    // GRADES COLLECTION
+    // ========================================
+    match /grades/{gradeId} {
+      // Luku: vain osapuolet
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.teacherId ||
+        request.auth.uid == resource.data.parentId
+      );
+
+      // Luonti: vain opettaja
+      allow create: if isAuthenticated() &&
+        request.auth.uid == request.resource.data.teacherId &&
+        hasField('parentId') && hasField('subject') && hasField('score') && hasField('maxScore');
+
+      // Päivitys/poisto: vain opettaja (tarvittaessa)
+      allow update, delete: if isAuthenticated() && request.auth.uid == resource.data.teacherId;
     }
     
     // ========================================
@@ -180,7 +236,37 @@ service cloud.firestore {
     }
     
     // ========================================
-    // BOOKINGS COLLECTION (Tuleva ominaisuus)
+    // AVAILABILITY SLOTS COLLECTION
+    // ========================================
+    match /availabilitySlots/{slotId} {
+      // Luku: Kaikki kirjautuneet voivat nähdä saatavuudet
+      allow read: if isAuthenticated();
+
+      // Luonti: Vain opettaja itse voi luoda omat slotit
+      allow create: if isAuthenticated() &&
+                      request.resource.data.teacherId == request.auth.uid &&
+                      request.resource.data.status == 'available' &&
+                      hasField('date') && hasField('start') && hasField('end') && hasField('durationMin');
+
+      // Päivitys:
+      // - Varaus: vanhempi voi muuttaa 'available' -> 'booked' ja asettaa parentId = oma uid
+      // - Ylläpito: opettaja voi päivittää omia slottejaan
+      allow update: if isAuthenticated() && (
+          (
+            resource.data.status == 'available' &&
+            request.resource.data.status == 'booked' &&
+            request.resource.data.parentId == request.auth.uid &&
+            request.resource.data.teacherId == resource.data.teacherId
+          ) ||
+          (request.auth.uid == resource.data.teacherId)
+        );
+
+      // Poisto: Vain opettaja voi poistaa omat slotit
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.teacherId;
+    }
+
+    // ========================================
+    // BOOKINGS COLLECTION
     // ========================================
     match /bookings/{bookingId} {
       // Luku: Vain varauksen osapuolet voivat lukea
@@ -188,15 +274,14 @@ service cloud.firestore {
                     (request.auth.uid == resource.data.teacherId || 
                      request.auth.uid == resource.data.parentId);
       
-      // Kirjoitus: Vain vanhempi voi luoda varauksen
+      // Kirjoitus: Vain vanhempi voi luoda varauksen (tila 'booked' tai 'pending')
       allow create: if isAuthenticated() && 
                       request.auth.uid == request.resource.data.parentId &&
-                      hasField('teacherId') &&
-                      hasField('date') &&
-                      hasField('status') &&
-                      request.resource.data.status == 'pending';
+                      hasField('teacherId') && hasField('slotId') &&
+                      hasField('date') && hasField('start') && hasField('end') &&
+                      (request.resource.data.status == 'booked' || request.resource.data.status == 'pending');
       
-      // Päivitys: Sekä opettaja että vanhempi voivat päivittää
+      // Päivitys: Sekä opettaja että vanhempi voivat päivittää (esim. peruuttaa)
       allow update: if isAuthenticated() && 
                       (request.auth.uid == resource.data.teacherId || 
                        request.auth.uid == resource.data.parentId);

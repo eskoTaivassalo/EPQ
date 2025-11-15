@@ -10,6 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
+import NotificationBell from '../../components/NotificationBell';
 import { useAppData } from '../../hooks/useAppData';
 import { colors, commonStyles } from '../../styles/commonStyles';
 
@@ -27,7 +28,7 @@ const ParentDashboard = ({ navigation }) => {
     {
       id: 1,
       title: 'Find Teachers',
-      subtitle: 'Discover the best teachers worldwide',
+      subtitle: 'Discover teachers worldwide',
       icon: 'search',
       color: '#E91E63',
       screen: 'FindTeachers'
@@ -42,8 +43,8 @@ const ParentDashboard = ({ navigation }) => {
     },
     {
       id: 3,
-      title: 'Conversations',
-      subtitle: 'Messages with teachers',
+      title: 'Messages',
+      subtitle: 'Chat with teachers',
       icon: 'chatbubbles',
       color: '#2196F3',
       screen: 'Messages'
@@ -57,25 +58,17 @@ const ParentDashboard = ({ navigation }) => {
       screen: 'Bookings'
     },
     {
-      id: 7,
+      id: 5,
       title: 'Calendar',
-      subtitle: 'Monthly lesson overview',
+      subtitle: 'Monthly overview',
       icon: 'calendar',
       color: '#3F51B5',
       screen: 'Calendar'
     },
     {
-      id: 5,
-      title: 'Payments',
-      subtitle: 'Payment information and billing',
-      icon: 'card',
-      color: colors.secondary,
-      screen: 'Payments'
-    },
-    {
       id: 6,
       title: 'My Profile',
-      subtitle: 'Your information and settings',
+      subtitle: 'Information and settings',
       icon: 'person-circle',
       color: '#607D8B',
       screen: 'Profile'
@@ -93,6 +86,8 @@ const ParentDashboard = ({ navigation }) => {
       navigation.navigate('ParentBookings');
     } else if (item.screen === 'Calendar') {
       navigation.navigate('Calendar');
+    } else if (item.screen === 'Messages') {
+      navigation.navigate('Conversations');
     } else {
       // Other functions coming soon
       alert(`Function: ${item.title} - Coming Soon!`);
@@ -125,34 +120,38 @@ const ParentDashboard = ({ navigation }) => {
             <Text style={styles.headerTitle}>Welcome,</Text>
             <Text style={styles.headerName}>{user?.name || 'Parent'}!</Text>
           </View>
-          <TouchableOpacity 
-            style={styles.logoutButton}
-            onPress={handleLogout}
-          >
-            <Ionicons name="log-out-outline" size={24} color={colors.white} />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <NotificationBell />
+            <TouchableOpacity 
+              style={styles.logoutButton}
+              onPress={handleLogout}
+            >
+              <Ionicons name="log-out-outline" size={24} color={colors.white} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Ionicons name="heart" size={30} color="#F44336" />
-            <Text style={styles.statNumber}>{favorites.length}</Text>
-            <Text style={styles.statLabel}>Favorites</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="calendar-outline" size={30} color="#4CAF50" />
-            <Text style={styles.statNumber}>3</Text>
-            <Text style={styles.statLabel}>Bookings</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="chatbubble-outline" size={30} color="#2196F3" />
-            <Text style={styles.statNumber}>2</Text>
-            <Text style={styles.statLabel}>Messages</Text>
-          </View>
+        {/* Quick Link: My Bookings */}
+        <View style={styles.quickSearchContainer}>
+          <Text style={styles.sectionTitle}>Quick Links</Text>
+          <TouchableOpacity 
+            style={styles.quickSearchButton}
+            onPress={() => handleMenuPress({screen: 'Bookings'})}
+          >
+            <View style={[styles.quickSearchIcon, {backgroundColor: '#4CAF50'}]}>
+              <Ionicons name="calendar" size={24} color={colors.white} />
+            </View>
+            <View style={styles.quickSearchContent}>
+              <Text style={styles.quickSearchTitle}>My Bookings</Text>
+              <Text style={styles.quickSearchSubtitle}>Upcoming lessons and requests</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+          </TouchableOpacity>
         </View>
+
+        {/* Stats removed to reduce clutter; can be re-added with real data */}
 
         {/* Quick Search */}
         <View style={styles.quickSearchContainer}>
@@ -249,6 +248,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
   },
+  
   headerTitle: {
     color: colors.white,
     fontSize: 16,
@@ -261,6 +261,10 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     padding: 8,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   content: {
     flex: 1,

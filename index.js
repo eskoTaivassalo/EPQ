@@ -1,4 +1,5 @@
 import 'react-native-gesture-handler';
+// Reanimated removed with Drawer rollback
 import { registerRootComponent } from 'expo';
 
 import App from './App';
