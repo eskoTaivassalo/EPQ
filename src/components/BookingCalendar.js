@@ -104,7 +104,9 @@ export default function BookingCalendar({ bookings = [], onSelectDate }) {
 function dotColorByStatus(status) {
   switch(status) {
     case 'pending': return { backgroundColor: '#FFC107' };
-    case 'confirmed': return { backgroundColor: '#4CAF50' };
+    case 'confirmed':
+    case 'accepted':
+      return { backgroundColor: '#4CAF50' };
     case 'declined': return { backgroundColor: '#F44336' };
     case 'cancelled_by_teacher':
     case 'cancelled_by_parent':

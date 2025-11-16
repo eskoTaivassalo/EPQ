@@ -26,7 +26,7 @@ const TeacherBookingsScreen = ({ navigation }) => {
   const accept = (booking) => {
     dispatch(updateBookingStatus({ 
       bookingId: booking.id, 
-      status: 'confirmed',
+      status: 'accepted',
       parentId: booking.parentId,
       teacherName: user?.displayName || user?.name || 'Opettaja',
       date: booking.date
@@ -74,7 +74,7 @@ const TeacherBookingsScreen = ({ navigation }) => {
         {item.notes && item.notes.trim() && (
           <Text style={styles.notes} numberOfLines={2}>Notes: {item.notes}</Text>
         )}
-        {item.status === 'pending' && (
+        {(item.status === 'pending' || item.status === 'booked') && (
           <View style={styles.actions}>
             <TouchableOpacity style={[styles.btn, { backgroundColor: '#4CAF50' }]} onPress={() => accept(item)}>
               <Text style={styles.btnText}>Accept</Text>

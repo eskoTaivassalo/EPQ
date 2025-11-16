@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,210 @@ import {
   ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchTeacherBookings, selectBookings, updateBookingStatus } from '../../store/slices/bookingsSlice';
+import { useAppData } from '../../hooks/useAppData';
+import * as NotificationService from '../../services/notificationService';
 import NotificationBell from '../../components/NotificationBell';
+import SimpleDrawer from '../../components/SimpleDrawer';
+import AppLogo from '../../components/AppLogo';
 import { colors, commonStyles } from '../../styles/commonStyles';
 
 const TeacherDashboard = ({ navigation }) => {
   const { user, logout } = useAuth();
+  const dispatch = useDispatch();
+  const bookings = useSelector(selectBookings) || [];
+  const { getParentById } = useAppData();
+  const [drawerVisible, setDrawerVisible] = useState(false);
+
+  useEffect(() => {
+    // Only fetch if user is authenticated
+    if (user?.uid) {
+      console.log('[TeacherDashboard] Fetching bookings for user:', user.uid);
+      dispatch(fetchTeacherBookings());
+    } else {
+      console.log('[TeacherDashboard] Waiting for user authentication...');
+    }
+  }, [dispatch, user?.uid]);
+
+  // Schedule notifications for upcoming bookings (teacher role)
+  useEffect(() => {
+    if (bookings.length > 0) {
+      console.log('📅 Scheduling notifications for teacher bookings...');
+      NotificationService.scheduleAllUpcomingReminders(bookings, 'teacher');
+    }
+  }, [bookings]);
+
+  // Treat legacy 'booked' as pending as well
+  const isPendingLike = (status) => status === 'pending' || status === 'booked';
+  const pendingRequests = bookings.filter(b => isPendingLike(b.status)).slice(0, 3);
+
+  // Calculate This Week stats from real bookings
+  const getWeekBounds = () => {
+    const now = new Date();
+    // Use local date to avoid timezone issues
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const date = now.getDate();
+    const dayOfWeek = now.getDay(); // 0=Sunday, 1=Monday, etc.
+    
+    // Calculate days from Monday (handle Sunday as last day of week)
+    const diffToMonday = (dayOfWeek === 0 ? -6 : 1 - dayOfWeek);
+    
+    // Week start: Monday at 00:00 local time
+    const weekStart = new Date(year, month, date + diffToMonday, 0, 0, 0, 0);
+    
+    // Week end: Sunday at 23:59 local time
+    const weekEnd = new Date(year, month, date + diffToMonday + 6, 23, 59, 59, 999);
+    
+    return { weekStart, weekEnd };
+  };
+
+  const { weekStart, weekEnd } = getWeekBounds();
+  
+  // Debug: log to understand data structure
+  console.log('📅 This Week Debug:', {
+    totalBookings: bookings.length,
+    weekStart: weekStart.toISOString(),
+    weekEnd: weekEnd.toISOString(),
+    sampleBooking: bookings[0] || 'none'
+  });
+
+  const thisWeekBookings = bookings.filter(b => {
+    if (!b.date) {
+      console.log('⚠️ Booking missing date:', b.id);
+      return false;
+    }
+    
+    // Parse booking date - handle both ISO strings and date-only strings
+    const bookingDate = new Date(b.date);
+    
+    // Extract just the date part for comparison (ignore time)
+    const bookingDateOnly = new Date(
+      bookingDate.getFullYear(),
+      bookingDate.getMonth(),
+      bookingDate.getDate()
+    );
+    
+    const weekStartDateOnly = new Date(
+      weekStart.getFullYear(),
+      weekStart.getMonth(),
+      weekStart.getDate()
+    );
+    
+    const weekEndDateOnly = new Date(
+      weekEnd.getFullYear(),
+      weekEnd.getMonth(),
+      weekEnd.getDate()
+    );
+    
+    const isConfirmed = b.status === 'accepted' || b.status === 'confirmed';
+    const isInWeek = bookingDateOnly >= weekStartDateOnly && bookingDateOnly <= weekEndDateOnly;
+    
+    console.log('🔍 Checking booking:', {
+      id: b.id,
+      date: b.date,
+      bookingDateOnly: bookingDateOnly.toISOString().split('T')[0],
+      weekRange: `${weekStartDateOnly.toISOString().split('T')[0]} to ${weekEndDateOnly.toISOString().split('T')[0]}`,
+      status: b.status,
+      isConfirmed,
+      isInWeek,
+      matches: isConfirmed && isInWeek
+    });
+    
+    return isConfirmed && isInWeek;
+  });
+
+  console.log('✅ This Week Bookings:', thisWeekBookings.length);
+
+  // If this week has no lessons, calculate next week instead
+  let displayWeekBookings = thisWeekBookings;
+  let weekLabel = 'This Week';
+  
+  if (thisWeekBookings.length === 0) {
+    console.log('📅 This week empty, calculating next week...');
+    
+    // Calculate next week bounds
+    const nextWeekStart = new Date(weekStart);
+    nextWeekStart.setDate(nextWeekStart.getDate() + 7);
+    const nextWeekEnd = new Date(weekEnd);
+    nextWeekEnd.setDate(nextWeekEnd.getDate() + 7);
+    
+    displayWeekBookings = bookings.filter(b => {
+      if (!b.date) return false;
+      const bookingDate = new Date(b.date);
+      const bookingDateOnly = new Date(
+        bookingDate.getFullYear(),
+        bookingDate.getMonth(),
+        bookingDate.getDate()
+      );
+      const nextWeekStartDateOnly = new Date(
+        nextWeekStart.getFullYear(),
+        nextWeekStart.getMonth(),
+        nextWeekStart.getDate()
+      );
+      const nextWeekEndDateOnly = new Date(
+        nextWeekEnd.getFullYear(),
+        nextWeekEnd.getMonth(),
+        nextWeekEnd.getDate()
+      );
+      const isConfirmed = b.status === 'accepted' || b.status === 'confirmed';
+      const isInNextWeek = bookingDateOnly >= nextWeekStartDateOnly && bookingDateOnly <= nextWeekEndDateOnly;
+      return isConfirmed && isInNextWeek;
+    });
+    
+    weekLabel = 'Next Week';
+    console.log('📅 Next Week Bookings:', displayWeekBookings.length);
+  }
+
+  const displayWeekLessons = displayWeekBookings.length;
+  const displayWeekStudents = new Set(displayWeekBookings.map(b => b.parentId)).size;
+  // Estimate total hours: assume 1 hour per lesson if duration not specified
+  const displayWeekHours = displayWeekBookings.reduce((sum, b) => {
+    return sum + (b.duration || 1);
+  }, 0);
+
+  const handleAccept = async (booking) => {
+    const meetingUrl = `https://meet.jit.si/PTA-${booking.id}`;
+    
+    console.log('🎥 MEETING LINK CREATED:', meetingUrl);
+    console.log('📋 Booking ID:', booking.id);
+    console.log('🔗 Copy this link to test in browser:', meetingUrl);
+    
+    await dispatch(updateBookingStatus({ 
+      bookingId: booking.id, 
+      status: 'accepted',
+      parentId: booking.parentId,
+      teacherName: user?.displayName || user?.name || 'Opettaja',
+      date: booking.date
+    }));
+    
+    // Show confirmation with meeting link
+    alert(`✅ Booking accepted!\n\n📹 Video meeting link:\n${meetingUrl}\n\nYou can join from Dashboard → Upcoming Lessons\n\n(Link also copied to console)`);
+  };
+
+  const handleDecline = (booking) => {
+    dispatch(updateBookingStatus({ 
+      bookingId: booking.id, 
+      status: 'declined',
+      parentId: booking.parentId,
+      teacherName: user?.displayName || user?.name || 'Opettaja',
+      date: booking.date
+    }));
+  };
+
+  const drawerMenuItems = [
+    { label: 'Dashboard', screen: 'TeacherDashboard', icon: 'home' },
+    { label: 'My Profile', screen: 'TeacherMyProfile', icon: 'person' },
+    { label: 'Students', screen: 'TeacherStudents', icon: 'people' },
+    { label: 'Availability', screen: 'TeacherAvailability', icon: 'time' },
+    { label: 'Messages', screen: 'Conversations', icon: 'chatbubbles' },
+    { label: 'Notifications', screen: 'Notifications', icon: 'notifications' },
+    { label: 'Settings', screen: 'Settings', icon: 'settings' },
+  ];
 
   const menuItems = [
     {
@@ -90,65 +287,211 @@ const TeacherDashboard = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Welcome,</Text>
             <Text style={styles.headerName}> {user?.name || 'User'}!</Text>
           </View>
           <View style={styles.headerActions}>
             <NotificationBell />
             <TouchableOpacity 
-              style={styles.logoutButton}
-              onPress={handleLogout}
+              style={styles.menuButton}
+              onPress={() => setDrawerVisible(true)}
             >
-              <Ionicons name="log-out-outline" size={24} color={colors.white} />
+              <Ionicons name="menu" size={28} color={colors.white} />
             </TouchableOpacity>
           </View>
         </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Quick Link: Bookings & Requests */}
-        <View style={styles.quickLinkContainer}>
-          <Text style={styles.sectionTitle}>Quick Links</Text>
-          <TouchableOpacity 
-            style={styles.quickLinkButton}
-            onPress={() => navigation.navigate('TeacherBookings')}
-          >
-            <View style={styles.quickLinkIcon}>
-              <Ionicons name="calendar" size={24} color={colors.white} />
-            </View>
-            <View style={styles.quickLinkContent}>
-              <Text style={styles.quickLinkTitle}>Bookings & Requests</Text>
-              <Text style={styles.quickLinkSubtitle}>View and manage upcoming lessons</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-          </TouchableOpacity>
-        </View>
-        {/* Stats and Quick Actions removed for a cleaner UI */}
-
-        {/* Menu Items */}
-        <View style={styles.menuContainer}>
-          <Text style={styles.sectionTitle}>Tools</Text>
-          {menuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.menuItem}
-              onPress={() => handleMenuPress(item)}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: item.color }]}>
-                <Ionicons name={item.icon} size={24} color={colors.white} />
-              </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+        {/* Upcoming Lessons (from accepted/confirmed bookings) */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Upcoming Lessons</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Calendar')}>
+              <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
-          ))}
+          </View>
+          {(() => {
+            const now = Date.now();
+            const isUpcoming = (b) => (b.status === 'accepted' || b.status === 'confirmed') && new Date(b.date).getTime() >= now;
+            const upcoming = bookings.filter(isUpcoming).sort((a,b)=> new Date(a.date) - new Date(b.date)).slice(0,3);
+            
+            console.log('📋 Upcoming Lessons:', {
+              totalBookings: bookings.length,
+              upcomingCount: upcoming.length,
+              upcomingWithMeetingUrl: upcoming.filter(b => b.meetingUrl).length,
+              sample: upcoming[0] ? {
+                id: upcoming[0].id,
+                status: upcoming[0].status,
+                date: upcoming[0].date,
+                hasMeetingUrl: !!upcoming[0].meetingUrl,
+                meetingUrl: upcoming[0].meetingUrl
+              } : 'none'
+            });
+            
+            if (upcoming.length === 0) {
+              return (
+                <View style={styles.emptyRequestsCard}>
+                  <Ionicons name="calendar-outline" size={40} color={colors.textSecondary} />
+                  <Text style={styles.emptyRequestsText}>No upcoming lessons</Text>
+                </View>
+              );
+            }
+            return upcoming.map(b => {
+              const d = new Date(b.date);
+              const parent = getParentById(b.parentId);
+              const dayLabel = new Date().toDateString() === d.toDateString() ? 'Today' : d.toLocaleDateString('en-US', { weekday:'short' });
+              const timeLabel = d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+              return (
+                <View key={b.id} style={styles.lessonCard}>
+                  <View style={styles.lessonTimeContainer}>
+                    <Text style={styles.lessonTime}>{timeLabel}</Text>
+                    <Text style={styles.lessonDate}>{dayLabel}</Text>
+                  </View>
+                  <View style={styles.lessonDetails}>
+                    <Text style={styles.lessonStudent}>{parent?.name || parent?.fullName || parent?.displayName || 'Parent'}</Text>
+                    {b.notes ? (
+                      <Text style={styles.lessonSubject} numberOfLines={1}>{b.notes}</Text>
+                    ) : null}
+                  </View>
+                  {b.meetingUrl ? (
+                    <TouchableOpacity style={styles.lessonAction} onPress={() => Linking.openURL(b.meetingUrl)}>
+                      <Ionicons name="videocam" size={24} color={colors.primary} />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.lessonAction} onPress={() => navigation.navigate('Calendar')}>
+                      <Ionicons name="calendar" size={24} color={colors.primary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            });
+          })()}
         </View>
 
-        {/* Recent Activity could be reintroduced later with real data */}
+        {/* Pending Requests */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Pending Requests</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('TeacherBookings')}>
+              <Text style={styles.seeAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {pendingRequests.length === 0 ? (
+            <View style={styles.emptyRequestsCard}>
+              <Ionicons name="calendar-outline" size={40} color={colors.textSecondary} />
+              <Text style={styles.emptyRequestsText}>No pending requests</Text>
+            </View>
+          ) : (
+            pendingRequests.map((booking) => {
+              const parent = getParentById(booking.parentId);
+              const bookingDate = new Date(booking.date);
+              return (
+                <View key={booking.id} style={styles.requestCard}>
+                  <View style={styles.requestHeader}>
+                    <Text style={styles.requestStudent}>
+                      {parent?.name || parent?.fullName || parent?.displayName || 'Parent'}
+                    </Text>
+                    <View style={styles.requestBadge}>
+                      <Text style={styles.requestBadgeText}>New</Text>
+                    </View>
+                  </View>
+                  {booking.notes && (
+                    <Text style={styles.requestSubject} numberOfLines={1}>{booking.notes}</Text>
+                  )}
+                  <Text style={styles.requestTime}>
+                    Requested: {bookingDate.toLocaleDateString('en-US', { 
+                      weekday: 'short', 
+                      month: 'short', 
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </Text>
+                  <View style={styles.requestActions}>
+                    <TouchableOpacity 
+                      style={styles.acceptButton}
+                      onPress={() => handleAccept(booking)}
+                    >
+                      <Ionicons name="checkmark" size={18} color={colors.white} />
+                      <Text style={styles.acceptButtonText}>Accept</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={styles.declineButton}
+                      onPress={() => handleDecline(booking)}
+                    >
+                      <Ionicons name="close" size={18} color={colors.error} />
+                      <Text style={styles.declineButtonText}>Decline</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        {/* Quick Stats */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{weekLabel}</Text>
+          <View style={styles.statsContainer}>
+            <View style={styles.statCard}>
+              <Ionicons name="calendar" size={28} color={colors.primary} />
+              <Text style={styles.statNumber}>{displayWeekLessons}</Text>
+              <Text style={styles.statLabel}>Lessons</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Ionicons name="people" size={28} color={colors.secondary} />
+              <Text style={styles.statNumber}>{displayWeekStudents}</Text>
+              <Text style={styles.statLabel}>Students</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Ionicons name="time" size={28} color="#00BCD4" />
+              <Text style={styles.statNumber}>{displayWeekHours}h</Text>
+              <Text style={styles.statLabel}>Total Hours</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.quickActionsRow}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('Calendar')}
+            >
+              <Ionicons name="calendar-outline" size={24} color={colors.primary} />
+              <Text style={styles.actionButtonText}>Calendar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('TeacherBookings')}
+            >
+              <Ionicons name="list" size={24} color={colors.primary} />
+              <Text style={styles.actionButtonText}>All Bookings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('Conversations')}
+            >
+              <Ionicons name="chatbubbles-outline" size={24} color={colors.primary} />
+              <Text style={styles.actionButtonText}>Messages</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </ScrollView>
+
+      {/* Simple Drawer */}
+      <SimpleDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        navigation={navigation}
+        menuItems={drawerMenuItems}
+        userType="teacher"
+        onLogout={handleLogout}
+      />
     </SafeAreaView>
   );
 };
@@ -160,16 +503,19 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: colors.secondary,
-    paddingBottom: 20,
+    paddingBottom: 12,
   },
   headerContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
-  
+  menuButton: {
+    padding: 8,
+    marginRight: 12,
+  },
   headerTitle: {
     color: colors.white,
     fontSize: 16,
@@ -177,7 +523,7 @@ const styles = StyleSheet.create({
   },
   headerName: {
     color: colors.white,
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
   },
   logoutButton: {
@@ -189,186 +535,217 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    padding: 20,
+    padding: 16,
   },
-  quickLinkContainer: {
-    marginBottom: 20,
+  section: {
+    marginBottom: 16,
   },
-  quickLinkButton: {
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  seeAllText: {
+    fontSize: 13,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  lessonCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 14,
+    padding: 12,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
-    elevation: 4,
+    elevation: 3,
   },
-  quickLinkIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 10,
-    backgroundColor: colors.secondary,
-    justifyContent: 'center',
+  lessonTimeContainer: {
+    marginRight: 16,
     alignItems: 'center',
-    marginRight: 12,
+    minWidth: 54,
   },
-  quickLinkContent: {
+  lessonTime: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  lessonDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  lessonDetails: {
     flex: 1,
   },
-  quickLinkTitle: {
-    fontSize: 16,
+  lessonStudent: {
+    fontSize: 15,
     fontWeight: '600',
     color: colors.text,
   },
-  quickLinkSubtitle: {
+  lessonSubject: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  lessonAction: {
+    padding: 8,
+  },
+  requestCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  emptyRequestsCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  emptyRequestsText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginTop: 8,
+  },
+  requestHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  requestStudent: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  requestBadge: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  requestBadgeText: {
+    fontSize: 11,
+    color: colors.white,
+    fontWeight: '600',
+  },
+  requestSubject: {
+    fontSize: 13,
+    color: colors.text,
+    marginBottom: 4,
+  },
+  requestTime: {
     fontSize: 12,
-    color: colors.textLight,
-    marginTop: 2,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  requestActions: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  acceptButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  acceptButtonText: {
+    color: colors.white,
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  declineButton: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: colors.error,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  declineButtonText: {
+    color: colors.error,
+    fontWeight: '600',
+    fontSize: 13,
   },
   statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 30,
+    gap: 12,
   },
   statCard: {
     backgroundColor: colors.white,
-    borderRadius: 15,
-    padding: 20,
+    borderRadius: 12,
+    padding: 12,
     alignItems: 'center',
     flex: 1,
-    marginHorizontal: 5,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
-    elevation: 5,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginTop: 10,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textLight,
-    marginTop: 5,
-  },
-  quickActionsContainer: {
-    marginBottom: 30,
-  },
-  quickActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  quickAction: {
-    backgroundColor: colors.white,
-    borderRadius: 15,
-    padding: 20,
-    alignItems: 'center',
-    width: '30%',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
     elevation: 3,
   },
-  quickActionText: {
-    fontSize: 12,
-    color: colors.text,
-    marginTop: 8,
-    textAlign: 'center',
-    fontWeight: '500',
-  },
-  menuContainer: {
-    marginBottom: 30,
-  },
-  sectionTitle: {
+  statNumber: {
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 15,
+    marginTop: 8,
   },
-  menuItem: {
+  statLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 15,
-    flexDirection: 'row',
+    padding: 12,
     alignItems: 'center',
-    marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 3.84,
+    elevation: 3,
   },
-  menuIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  menuContent: {
-    flex: 1,
-  },
-  menuTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  actionButtonText: {
+    fontSize: 11,
     color: colors.text,
-  },
-  menuSubtitle: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 2,
-  },
-  activityContainer: {
-    marginBottom: 20,
-  },
-  activityItem: {
-    backgroundColor: colors.white,
-    borderRadius: 10,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  activityIcon: {
-    marginRight: 15,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontSize: 14,
-    color: colors.text,
+    marginTop: 8,
     fontWeight: '500',
-  },
-  activityTime: {
-    fontSize: 12,
-    color: colors.textLight,
-    marginTop: 2,
   },
 });
 

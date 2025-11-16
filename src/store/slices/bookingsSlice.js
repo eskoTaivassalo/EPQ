@@ -23,8 +23,16 @@ export const createBooking = createAsyncThunk(
   'bookings/createBooking',
   async ({ teacherId, date, notes, teacherName }, { rejectWithValue, dispatch }) => {
     try {
-      if (!auth?.currentUser) throw new Error('Not authenticated');
-      if (!db) throw new Error('Firebase database not initialized');
+      console.log('[createBooking] Starting booking creation...', { teacherId, date, notes });
+      
+      if (!auth?.currentUser) {
+        console.error('[createBooking] Not authenticated');
+        throw new Error('Not authenticated');
+      }
+      if (!db) {
+        console.error('[createBooking] Firebase database not initialized');
+        throw new Error('Firebase database not initialized');
+      }
 
       // Write payload for Firestore (can include serverTimestamp)
       const payloadToDB = {
@@ -36,7 +44,10 @@ export const createBooking = createAsyncThunk(
         notes: notes || '',
         createdAt: serverTimestamp(),
       };
+      
+      console.log('[createBooking] Payload to DB:', payloadToDB);
       const ref = await addDoc(collection(db, 'bookings'), payloadToDB);
+      console.log('[createBooking] Booking created with ID:', ref.id);
 
       // Read back (or compute) a serializable createdAt for Redux state
       let createdAtISO = new Date().toISOString();
@@ -46,9 +57,12 @@ export const createBooking = createAsyncThunk(
         if (data?.createdAt?.toDate) {
           createdAtISO = data.createdAt.toDate().toISOString();
         }
-      } catch {}
+      } catch (err) {
+        console.warn('[createBooking] Failed to read back document:', err);
+      }
 
       // Create notification for teacher
+      console.log('[createBooking] Creating notification for teacher:', teacherId);
       dispatch(createNotification({
         userId: teacherId,
         type: 'booking_request',
@@ -57,9 +71,12 @@ export const createBooking = createAsyncThunk(
         navigationTarget: 'TeacherBookings',
         navigationParams: { bookingId: ref.id }
       }));
+      
+      console.log('[createBooking] Booking creation successful');
 
       return { id: ref.id, ...payloadToDB, createdAt: createdAtISO };
     } catch (err) {
+      console.error('[createBooking] Error creating booking:', err);
       return rejectWithValue(err.message);
     }
   }
@@ -69,15 +86,32 @@ export const fetchParentBookings = createAsyncThunk(
   'bookings/fetchParentBookings',
   async (_, { rejectWithValue }) => {
     try {
-      if (!auth?.currentUser) throw new Error('Not authenticated');
+      console.log('[fetchParentBookings] Starting fetch...');
+      
+      // Wait a bit for auth to initialize if needed
+      if (!auth?.currentUser) {
+        console.log('[fetchParentBookings] Auth not ready, waiting...');
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (!auth?.currentUser) {
+          console.error('[fetchParentBookings] Still not authenticated after wait');
+          throw new Error('Not authenticated');
+        }
+      }
+      
+      console.log('[fetchParentBookings] Fetching for parentId:', auth.currentUser.uid);
       const q = query(collection(db, 'bookings'), where('parentId', '==', auth.currentUser.uid));
       const snap = await getDocs(q);
-      return snap.docs.map(d => {
+      
+      const bookings = snap.docs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
         return { id: d.id, ...data, createdAt };
       });
+      
+      console.log('[fetchParentBookings] Found bookings:', bookings.length);
+      return bookings;
     } catch (err) {
+      console.error('[fetchParentBookings] Error:', err);
       return rejectWithValue(err.message);
     }
   }
@@ -87,15 +121,33 @@ export const fetchTeacherBookings = createAsyncThunk(
   'bookings/fetchTeacherBookings',
   async (_, { rejectWithValue }) => {
     try {
-      if (!auth?.currentUser) throw new Error('Not authenticated');
+      console.log('[fetchTeacherBookings] Starting fetch...');
+      
+      // Wait a bit for auth to initialize if needed
+      if (!auth?.currentUser) {
+        console.log('[fetchTeacherBookings] Auth not ready, waiting...');
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      
+      if (!auth?.currentUser) {
+        console.error('[fetchTeacherBookings] Still not authenticated after wait');
+        return rejectWithValue('Not authenticated');
+      }
+      
+      console.log('[fetchTeacherBookings] Current user:', auth.currentUser.uid);
       const q = query(collection(db, 'bookings'), where('teacherId', '==', auth.currentUser.uid));
       const snap = await getDocs(q);
-      return snap.docs.map(d => {
+      const docs = Array.isArray(snap?.docs) ? snap.docs : [];
+      console.log('[fetchTeacherBookings] Found', docs.length, 'bookings');
+      const bookings = docs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
         return { id: d.id, ...data, createdAt };
       });
+      console.log('[fetchTeacherBookings] Returning', bookings.length, 'bookings');
+      return bookings;
     } catch (err) {
+      console.error('[fetchTeacherBookings] Error:', err);
       return rejectWithValue(err.message);
     }
   }
@@ -107,7 +159,15 @@ export const updateBookingStatus = createAsyncThunk(
     try {
       if (!auth?.currentUser) throw new Error('Not authenticated');
       const ref = doc(db, 'bookings', bookingId);
-      await updateDoc(ref, { status });
+      // When accepting, attach a meeting link (Jitsi) if not present
+      const update = { status };
+      if (status === 'accepted') {
+        // Simple deterministic room name based on bookingId; can be hardened later
+        const meetingUrl = `https://meet.jit.si/PTA-${bookingId}`;
+        update.meetingProvider = 'jitsi';
+        update.meetingUrl = meetingUrl;
+      }
+      await updateDoc(ref, update);
       
       // Create notification for parent when status changes
       if (parentId) {
@@ -118,9 +178,10 @@ export const updateBookingStatus = createAsyncThunk(
         };
 
         if (status === 'accepted') {
+          const meetingUrl = `https://meet.jit.si/PTA-${bookingId}`;
           notificationData.type = 'booking_accepted';
-          notificationData.title = 'Varaus hyväksytty';
-          notificationData.message = `${teacherName || 'Opettaja'} hyväksyi varauksesi ${date ? new Date(date).toLocaleString('fi-FI') : ''}`;
+          notificationData.title = 'Varaus hyväksytty! 🎉';
+          notificationData.message = `${teacherName || 'Opettaja'} hyväksyi varauksesi ${date ? new Date(date).toLocaleString('fi-FI') : ''}\n\n📹 Video-linkki:\n${meetingUrl}\n\nLiity Dashboard → Upcoming Lessons kautta`;
         } else if (status === 'declined') {
           notificationData.type = 'booking_declined';
           notificationData.title = 'Varaus hylätty';

@@ -1,22 +1,87 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView
+  ScrollView,
+  TextInput,
+  Linking
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { useDispatch, useSelector } from 'react-redux';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import NotificationBell from '../../components/NotificationBell';
+import SimpleDrawer from '../../components/SimpleDrawer';
 import { useAppData } from '../../hooks/useAppData';
+import { fetchParentBookings, selectBookings } from '../../store/slices/bookingsSlice';
+import * as NotificationService from '../../services/notificationService';
+import { initDeviceLocation, setManualCity } from '../../store/slices/locationSlice';
+import { selectLocation } from '../../store/slices/locationSlice';
 import { colors, commonStyles } from '../../styles/commonStyles';
 
 const ParentDashboard = ({ navigation }) => {
   const { user, logout } = useAuth();
-  const { getFavoriteTeachers, loadFavorites } = useAppData();
+  const dispatch = useDispatch();
+  const bookings = useSelector(selectBookings) || [];
+  const { getFavoriteTeachers, loadFavorites, getTeacherById } = useAppData();
+  const [drawerVisible, setDrawerVisible] = useState(false);
+  const location = useSelector(selectLocation);
+  const [manualCity, setManualCityInput] = useState('');
+
+  useEffect(() => {
+    if (user?.uid) {
+      dispatch(fetchParentBookings());
+    }
+  }, [dispatch, user?.uid]);
+
+  // Initialize device location (non-blocking)
+  useEffect(() => {
+    dispatch(initDeviceLocation());
+  }, [dispatch]);
+
+  // Schedule notifications for upcoming bookings (parent role)
+  useEffect(() => {
+    if (bookings.length > 0) {
+      console.log('📅 Scheduling notifications for parent bookings...');
+      NotificationService.scheduleAllUpcomingReminders(bookings, 'parent');
+    }
+  }, [bookings]);
+
+  // Get upcoming confirmed/accepted bookings
+  const upcomingBookings = bookings
+    .filter(b => {
+      const isConfirmed = b.status === 'accepted' || b.status === 'confirmed';
+      const bookingDate = new Date(b.date);
+      const now = new Date();
+      return isConfirmed && bookingDate >= now;
+    })
+    .sort((a, b) => new Date(a.date) - new Date(b.date))
+    .slice(0, 3); // Show max 3
+
+  console.log('👨‍👩‍👧 Parent Dashboard - Upcoming Lessons:', {
+    totalBookings: bookings.length,
+    upcomingCount: upcomingBookings.length,
+    withMeetingUrl: upcomingBookings.filter(b => b.meetingUrl).length,
+    sample: upcomingBookings[0] ? {
+      id: upcomingBookings[0].id,
+      status: upcomingBookings[0].status,
+      date: upcomingBookings[0].date,
+      hasMeetingUrl: !!upcomingBookings[0].meetingUrl,
+      meetingUrl: upcomingBookings[0].meetingUrl
+    } : 'none'
+  });
+
+  const drawerMenuItems = [
+    { label: 'Dashboard', screen: 'ParentDashboard', icon: 'home' },
+    { label: 'Find Teachers', screen: 'FindTeachers', icon: 'search' },
+    { label: 'My Profile', screen: 'ParentMyProfile', icon: 'person' },
+    { label: 'Favorites', screen: 'ParentFavorites', icon: 'heart' },
+    { label: 'Messages', screen: 'Conversations', icon: 'chatbubbles' },
+    { label: 'Notifications', screen: 'Notifications', icon: 'notifications' },
+    { label: 'Settings', screen: 'Settings', icon: 'settings' },
+  ];
 
   const favorites = getFavoriteTeachers();
 
@@ -116,118 +181,275 @@ const ParentDashboard = ({ navigation }) => {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Welcome,</Text>
             <Text style={styles.headerName}>{user?.name || 'Parent'}!</Text>
           </View>
           <View style={styles.headerActions}>
             <NotificationBell />
             <TouchableOpacity 
-              style={styles.logoutButton}
-              onPress={handleLogout}
+              style={styles.menuButton}
+              onPress={() => setDrawerVisible(true)}
             >
-              <Ionicons name="log-out-outline" size={24} color={colors.white} />
+              <Ionicons name="menu" size={28} color={colors.white} />
             </TouchableOpacity>
           </View>
         </View>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Quick Link: My Bookings */}
-        <View style={styles.quickSearchContainer}>
-          <Text style={styles.sectionTitle}>Quick Links</Text>
-          <TouchableOpacity 
-            style={styles.quickSearchButton}
-            onPress={() => handleMenuPress({screen: 'Bookings'})}
-          >
-            <View style={[styles.quickSearchIcon, {backgroundColor: '#4CAF50'}]}>
-              <Ionicons name="calendar" size={24} color={colors.white} />
-            </View>
-            <View style={styles.quickSearchContent}>
-              <Text style={styles.quickSearchTitle}>My Bookings</Text>
-              <Text style={styles.quickSearchSubtitle}>Upcoming lessons and requests</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-          </TouchableOpacity>
-        </View>
+        {/* Location Pref Banner */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Your Location</Text>
+            {location?.source === 'device' && (
+              <TouchableOpacity onPress={() => dispatch(initDeviceLocation())}>
+                <Text style={styles.seeAllText}>Refresh</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
-        {/* Stats removed to reduce clutter; can be re-added with real data */}
-
-        {/* Quick Search */}
-        <View style={styles.quickSearchContainer}>
-          <Text style={styles.sectionTitle}>Quick Search</Text>
-          <TouchableOpacity 
-            style={styles.quickSearchButton}
-            onPress={() => handleMenuPress({screen: 'FindTeachers'})}
-          >
-            <View style={styles.quickSearchIcon}>
-              <Ionicons name="search" size={24} color={colors.white} />
+          {location?.permission === 'granted' && location?.city ? (
+            <View style={styles.locationCard}>
+              <Ionicons name="location" size={20} color={colors.primary} />
+              <Text style={styles.locationText}>Using your location: {location.city}</Text>
             </View>
-            <View style={styles.quickSearchContent}>
-              <Text style={styles.quickSearchTitle}>Find Teachers</Text>
-              <Text style={styles.quickSearchSubtitle}>Subject, location, price...</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Menu Items */}
-        <View style={styles.menuContainer}>
-          <Text style={styles.sectionTitle}>Tools</Text>
-          {menuItems.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={styles.menuItem}
-              onPress={() => handleMenuPress(item)}
-            >
-              <View style={[styles.menuIcon, { backgroundColor: item.color }]}>
-                <Ionicons name={item.icon} size={24} color={colors.white} />
+          ) : (
+            <View style={styles.manualLocationContainer}>
+              <Text style={styles.manualLocationLabel}>Type your city (if you don't allow location):</Text>
+              <View style={styles.manualRow}>
+                <TextInput
+                  style={styles.manualInput}
+                  placeholder="e.g. Helsinki"
+                  value={manualCity}
+                  onChangeText={setManualCityInput}
+                />
+                <TouchableOpacity
+                  style={styles.manualButton}
+                  onPress={() => manualCity.trim() && dispatch(setManualCity(manualCity.trim()))}
+                >
+                  <Text style={styles.manualButtonText}>Set</Text>
+                </TouchableOpacity>
               </View>
-              <View style={styles.menuContent}>
-                <Text style={styles.menuTitle}>{item.title}</Text>
-                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+              {location?.city && location?.source === 'manual' && (
+                <Text style={styles.manualStatus}>Manual location set to: {location.city}</Text>
+              )}
+            </View>
+          )}
+        </View>
+        {/* Child's Upcoming Lessons */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Upcoming Lessons</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Calendar')}>
+              <Text style={styles.seeAllText}>See All</Text>
             </TouchableOpacity>
-          ))}
+          </View>
+          
+          {upcomingBookings.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Ionicons name="calendar-outline" size={40} color={colors.textSecondary} />
+              <Text style={styles.emptyText}>No upcoming lessons</Text>
+            </View>
+          ) : (
+            upcomingBookings.map(booking => {
+              const bookingDate = new Date(booking.date);
+              const teacher = getTeacherById(booking.teacherId);
+              const now = new Date();
+              const isToday = now.toDateString() === bookingDate.toDateString();
+              const isTomorrow = new Date(now.getTime() + 86400000).toDateString() === bookingDate.toDateString();
+              
+              let dayLabel;
+              if (isToday) dayLabel = 'Today';
+              else if (isTomorrow) dayLabel = 'Tomorrow';
+              else dayLabel = bookingDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+              
+              const timeLabel = bookingDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+              return (
+                <View key={booking.id} style={styles.lessonCard}>
+                  <View style={styles.lessonTimeContainer}>
+                    <Text style={styles.lessonTime}>{timeLabel}</Text>
+                    <Text style={styles.lessonDate}>{dayLabel}</Text>
+                  </View>
+                  <View style={styles.lessonDetails}>
+                    <Text style={styles.lessonTeacher}>
+                      {teacher?.name || teacher?.fullName || teacher?.displayName || 'Teacher'}
+                    </Text>
+                    {booking.notes && (
+                      <Text style={styles.lessonSubject} numberOfLines={1}>{booking.notes}</Text>
+                    )}
+                  </View>
+                  {booking.meetingUrl ? (
+                    <TouchableOpacity style={styles.lessonAction} onPress={() => Linking.openURL(booking.meetingUrl)}>
+                      <Ionicons name="videocam" size={24} color={colors.primary} />
+                    </TouchableOpacity>
+                  ) : (
+                    <TouchableOpacity style={styles.lessonAction} onPress={() => navigation.navigate('Calendar')}>
+                      <Ionicons name="calendar" size={24} color={colors.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        {/* Recent Grades & Feedback */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recent Feedback</Text>
+            <TouchableOpacity>
+              <Text style={styles.seeAllText}>View All</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.feedbackCard}>
+            <View style={styles.feedbackHeader}>
+              <View style={styles.feedbackInfo}>
+                <Text style={styles.feedbackSubject}>Mathematics</Text>
+                <Text style={styles.feedbackTeacher}>Ms. Anderson</Text>
+              </View>
+              <View style={styles.gradeContainer}>
+                <Text style={styles.gradeText}>A</Text>
+              </View>
+            </View>
+            <Text style={styles.feedbackComment}>
+              "Excellent progress in algebra! Emma shows great understanding of equations."
+            </Text>
+            <Text style={styles.feedbackDate}>2 days ago</Text>
+          </View>
+
+          <View style={styles.feedbackCard}>
+            <View style={styles.feedbackHeader}>
+              <View style={styles.feedbackInfo}>
+                <Text style={styles.feedbackSubject}>English</Text>
+                <Text style={styles.feedbackTeacher}>Mr. Thompson</Text>
+              </View>
+              <View style={styles.gradeContainer}>
+                <Text style={styles.gradeText}>B+</Text>
+              </View>
+            </View>
+            <Text style={styles.feedbackComment}>
+              "Good essay writing skills. Focus on grammar for improvement."
+            </Text>
+            <Text style={styles.feedbackDate}>5 days ago</Text>
+          </View>
+        </View>
+
+        {/* Learning Progress */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Learning Progress</Text>
+          
+          <View style={styles.progressCard}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressSubject}>Mathematics</Text>
+              <Text style={styles.progressPercentage}>75%</Text>
+            </View>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: '75%', backgroundColor: colors.primary }]} />
+            </View>
+            <Text style={styles.progressDetails}>12 of 16 lessons completed</Text>
+          </View>
+
+          <View style={styles.progressCard}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressSubject}>English Literature</Text>
+              <Text style={styles.progressPercentage}>50%</Text>
+            </View>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: '50%', backgroundColor: colors.secondary }]} />
+            </View>
+            <Text style={styles.progressDetails}>6 of 12 lessons completed</Text>
+          </View>
         </View>
 
         {/* Recommended Teachers */}
-        <View style={styles.recommendedContainer}>
-          <Text style={styles.sectionTitle}>Recommended Teachers</Text>
-          <View style={styles.teacherCard}>
-            <View style={styles.teacherAvatar}>
-              <Ionicons name="person" size={30} color={colors.white} />
-            </View>
-            <View style={styles.teacherInfo}>
-              <Text style={styles.teacherName}>Anna Smith</Text>
-              <Text style={styles.teacherSubject}>Mathematics • High School</Text>
-              <View style={styles.ratingContainer}>
-                <Ionicons name="star" size={14} color="#FFD700" />
-                <Text style={styles.rating}>4.9</Text>
-                <Text style={styles.reviewCount}>(127 reviews)</Text>
-              </View>
-            </View>
-            <Text style={styles.price}>25€/h</Text>
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recommended for You</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('FindTeachers')}>
+              <Text style={styles.seeAllText}>Explore</Text>
+            </TouchableOpacity>
           </View>
-
-          <View style={styles.teacherCard}>
-            <View style={[styles.teacherAvatar, {backgroundColor: colors.secondary}]}>
-              <Ionicons name="person" size={30} color={colors.white} />
-            </View>
-            <View style={styles.teacherInfo}>
-              <Text style={styles.teacherName}>Michael Johnson</Text>
-              <Text style={styles.teacherSubject}>English • All Levels</Text>
-              <View style={styles.ratingContainer}>
+          
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.teacherCard}>
+              <View style={styles.teacherAvatar}>
+                <Ionicons name="person" size={32} color={colors.white} />
+              </View>
+              <Text style={styles.teacherName}>Dr. Smith</Text>
+              <Text style={styles.teacherSubject}>Physics</Text>
+              <View style={styles.teacherRating}>
                 <Ionicons name="star" size={14} color="#FFD700" />
-                <Text style={styles.rating}>4.8</Text>
-                <Text style={styles.reviewCount}>(89 reviews)</Text>
+                <Text style={styles.ratingText}>4.9</Text>
               </View>
             </View>
-            <Text style={styles.price}>20€/h</Text>
+
+            <View style={styles.teacherCard}>
+              <View style={styles.teacherAvatar}>
+                <Ionicons name="person" size={32} color={colors.white} />
+              </View>
+              <Text style={styles.teacherName}>Ms. Garcia</Text>
+              <Text style={styles.teacherSubject}>Spanish</Text>
+              <View style={styles.teacherRating}>
+                <Ionicons name="star" size={14} color="#FFD700" />
+                <Text style={styles.ratingText}>4.8</Text>
+              </View>
+            </View>
+
+            <View style={styles.teacherCard}>
+              <View style={styles.teacherAvatar}>
+                <Ionicons name="person" size={32} color={colors.white} />
+              </View>
+              <Text style={styles.teacherName}>Mr. Lee</Text>
+              <Text style={styles.teacherSubject}>Chemistry</Text>
+              <View style={styles.teacherRating}>
+                <Ionicons name="star" size={14} color="#FFD700" />
+                <Text style={styles.ratingText}>5.0</Text>
+              </View>
+            </View>
+          </ScrollView>
+        </View>
+
+        {/* Quick Actions */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Quick Actions</Text>
+          <View style={styles.quickActionsRow}>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('FindTeachers')}
+            >
+              <Ionicons name="search-outline" size={24} color={colors.primary} />
+              <Text style={styles.actionButtonText}>Find Teachers</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('ParentBookings')}
+            >
+              <Ionicons name="calendar-outline" size={24} color={colors.primary} />
+              <Text style={styles.actionButtonText}>My Bookings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('Conversations')}
+            >
+              <Ionicons name="chatbubbles-outline" size={24} color={colors.primary} />
+              <Text style={styles.actionButtonText}>Messages</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </ScrollView>
+
+      {/* Simple Drawer */}
+      <SimpleDrawer
+        visible={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+        navigation={navigation}
+        menuItems={drawerMenuItems}
+        userType="parent"
+        onLogout={handleLogout}
+      />
     </SafeAreaView>
   );
 };
@@ -248,7 +470,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
   },
-  
+  menuButton: {
+    padding: 8,
+    marginRight: 12,
+  },
   headerTitle: {
     color: colors.white,
     fontSize: 16,
@@ -270,185 +495,302 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 20,
   },
-  statsContainer: {
+  locationCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  locationText: {
+    fontSize: 14,
+    color: colors.text,
+  },
+  manualLocationContainer: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  manualLocationLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 8,
+  },
+  manualRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  manualInput: {
+    flex: 1,
+    backgroundColor: colors.background,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  manualButton: {
+    backgroundColor: colors.secondary,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  manualButtonText: {
+    color: colors.white,
+    fontWeight: '600',
+  },
+  manualStatus: {
+    marginTop: 8,
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 30,
-  },
-  statCard: {
-    backgroundColor: colors.white,
-    borderRadius: 15,
-    padding: 20,
     alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  statNumber: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginTop: 10,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textLight,
-    marginTop: 5,
-  },
-  quickSearchContainer: {
-    marginBottom: 30,
-  },
-  quickSearchButton: {
-    backgroundColor: colors.white,
-    borderRadius: 15,
-    padding: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  quickSearchIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#E91E63',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  quickSearchContent: {
-    flex: 1,
-  },
-  quickSearchTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.text,
-  },
-  quickSearchSubtitle: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 2,
-  },
-  menuContainer: {
-    marginBottom: 30,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 15,
   },
-  menuItem: {
+  seeAllText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  lessonCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 15,
+    padding: 16,
+    marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowRadius: 3.84,
+    elevation: 3,
   },
-  menuIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
+  lessonTimeContainer: {
+    marginRight: 16,
     alignItems: 'center',
-    marginRight: 15,
+    minWidth: 60,
   },
-  menuContent: {
-    flex: 1,
-  },
-  menuTitle: {
-    fontSize: 16,
+  lessonTime: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.text,
   },
-  menuSubtitle: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 2,
+  lessonDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
   },
-  recommendedContainer: {
-    marginBottom: 20,
+  lessonDetails: {
+    flex: 1,
+  },
+  lessonTeacher: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  lessonSubject: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  lessonAction: {
+    padding: 8,
+  },
+  emptyCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  emptyText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  feedbackCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  feedbackHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  feedbackInfo: {
+    flex: 1,
+  },
+  feedbackSubject: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  feedbackTeacher: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  gradeContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  gradeText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.white,
+  },
+  feedbackComment: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  feedbackDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  progressCard: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  progressHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  progressSubject: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  progressPercentage: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: colors.primary,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressDetails: {
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   teacherCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 15,
-    flexDirection: 'row',
+    padding: 16,
+    marginRight: 12,
+    width: 140,
     alignItems: 'center',
-    marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
+    shadowRadius: 3.84,
     elevation: 3,
   },
   teacherAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#E91E63',
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
-  },
-  teacherInfo: {
-    flex: 1,
+    marginBottom: 8,
   },
   teacherName: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.text,
+    textAlign: 'center',
+    marginBottom: 4,
   },
   teacherSubject: {
-    fontSize: 14,
-    color: colors.textLight,
-    marginTop: 2,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  ratingContainer: {
+  teacherRating: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 5,
+    gap: 4,
   },
-  rating: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginLeft: 5,
-  },
-  reviewCount: {
+  ratingText: {
     fontSize: 12,
-    color: colors.textLight,
-    marginLeft: 5,
+    fontWeight: '600',
+    color: colors.text,
   },
-  price: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#E91E63',
+  quickActionsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  actionButtonText: {
+    fontSize: 12,
+    color: colors.text,
+    marginTop: 8,
+    fontWeight: '500',
   },
 });
 

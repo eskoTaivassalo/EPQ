@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,8 @@ import {
   ScrollView,
   Alert,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,16 +19,21 @@ import TagSelector from '../../components/TagSelector';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
 import { AuthService } from '../../services/authService';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { ensurePermissionAndCoords } from '../../services/locationService';
 import { db } from '../../config/firebaseConfig';
 import {
   SUBJECTS,
   EDUCATION_LEVELS,
-  LOCATIONS,
   LANGUAGES,
   TEACHING_METHODS,
   EXPERIENCE_LEVELS,
   AVAILABILITY,
   TEACHING_STYLES,
+  SPECIALIZATIONS,
+  ACADEMIC_INTERESTS,
+  CLIENT_FOCUS,
+  CERTIFICATION_COUNTRIES,
+  GRADE_RANGES,
   getTagLabels,
 } from '../../constants/tags';
 
@@ -50,7 +57,28 @@ const TeacherMyProfileScreen = ({ navigation }) => {
     education: '',
     description: '',
     photoURL: user?.photoURL || null,
+  // Geolocation
+  geoLocation: null, // { latitude, longitude, accuracy?, timestamp? }
+    // NEW FIELDS - Professional Qualifications
+    professionalType: 'teacher', // 'teacher', 'therapist', 'social_worker'
+    certifications: [], // Array of {country, state, type, year}
+    gradeRanges: [], // Array of grade range IDs
+    specializations: [], // Array of specialization IDs
+    degrees: [], // Array of {degree, field, year, institution}
+    experienceYears: '', // Numeric value
+    // NEW FIELDS - Academic & Teaching
+    academicInterests: [], // Array of academic interest IDs
+    teachingApproach: '', // Long text field
+    clientFocus: [], // Array of client focus IDs
+    // NEW FIELDS - Professional Portfolio
+    publications: [], // Array of {title, type, year, url}
+    researchAreas: [], // Array of research area strings
   });
+  // Raw text inputs for structured fields to avoid auto-formatting while typing
+  const [degreesInput, setDegreesInput] = useState('');
+  const [certificationsInput, setCertificationsInput] = useState('');
+  const [publicationsInput, setPublicationsInput] = useState('');
+  const [researchAreasInput, setResearchAreasInput] = useState('');
   const [profileImageUri, setProfileImageUri] = useState(null);
 
   useFocusEffect(
@@ -64,8 +92,9 @@ const TeacherMyProfileScreen = ({ navigation }) => {
           setLoading(true);
           const docRef = doc(db, 'teachers', user.uid);
           const docSnap = await getDoc(docRef);
+          let data = null;
           if (docSnap.exists()) {
-            const data = docSnap.data();
+            data = docSnap.data();
             console.log('🟢 TeacherMyProfileScreen: Firestore teacher doc loaded', Object.keys(data));
             if (data.profile) {
               console.log('🟢 TeacherMyProfileScreen: Nested profile keys', Object.keys(data.profile));
@@ -85,9 +114,37 @@ const TeacherMyProfileScreen = ({ navigation }) => {
               qualifications: data?.qualifications || data?.profile?.qualifications || prev.qualifications,
               experience: data?.experience || data?.profile?.experience || prev.experience,
               photoURL: data?.photoURL || prev.photoURL,
+              geoLocation: data?.geoLocation || data?.profile?.geoLocation || prev.geoLocation || null,
             }));
             setProfileImageUri(data?.photoURL || null);
           }
+            // Initialize raw inputs from loaded structured data
+            const loadedDegrees = data?.degrees || data?.profile?.degrees || [];
+            setDegreesInput(
+              Array.isArray(loadedDegrees)
+                ? loadedDegrees
+                    .map(d => `${d.degree || ''} | ${d.field || ''} | ${d.year || ''} | ${d.institution || ''}`.trim())
+                    .join('\n')
+                : ''
+            );
+            const loadedCerts = data?.certifications || data?.profile?.certifications || [];
+            setCertificationsInput(
+              Array.isArray(loadedCerts)
+                ? loadedCerts
+                    .map(c => `${c.type || ''} | ${c.country || ''} | ${c.state || ''} | ${c.year || ''}`.trim())
+                    .join('\n')
+                : ''
+            );
+            const loadedPubs = data?.publications || data?.profile?.publications || [];
+            setPublicationsInput(
+              Array.isArray(loadedPubs)
+                ? loadedPubs
+                    .map(p => `${p.title || ''} | ${p.type || ''} | ${p.year || ''} | ${p.url || ''}`.trim())
+                    .join('\n')
+                : ''
+            );
+            const loadedRes = data?.researchAreas || data?.profile?.researchAreas || [];
+            setResearchAreasInput(Array.isArray(loadedRes) ? loadedRes.join('\n') : '');
         } catch (e) {
           console.error('Error loading profile:', e);
           Alert.alert('Error', 'Failed to load profile');
@@ -108,6 +165,60 @@ const TeacherMyProfileScreen = ({ navigation }) => {
       Alert.alert('Error', 'Please select at least one subject and set your hourly rate');
       return;
     }
+    // Basic validation for numeric years of experience (optional)
+    if (profileData?.experienceYears && !/^\d+$/.test(String(profileData.experienceYears))) {
+      Alert.alert('Error', 'Years of experience must be a number');
+      return;
+    }
+
+    // Parse raw text inputs into structured arrays right before saving
+    const parsedDegrees = (degreesInput || '')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean)
+      .map(line => {
+        const parts = line.split('|').map(p => p.trim());
+        return {
+          degree: parts[0] || '',
+          field: parts[1] || '',
+          year: parts[2] || '',
+          institution: parts[3] || ''
+        };
+      });
+
+    const parsedCertifications = (certificationsInput || '')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean)
+      .map(line => {
+        const parts = line.split('|').map(p => p.trim());
+        return {
+          type: parts[0] || '',
+          country: parts[1] || '',
+          state: parts[2] || '',
+          year: parts[3] || ''
+        };
+      });
+
+    const parsedPublications = (publicationsInput || '')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean)
+      .map(line => {
+        const parts = line.split('|').map(p => p.trim());
+        return {
+          title: parts[0] || '',
+          type: parts[1] || '',
+          year: parts[2] || '',
+          url: parts[3] || ''
+        };
+      });
+
+    const parsedResearchAreas = (researchAreasInput || '')
+      .split('\n')
+      .map(l => l.trim())
+      .filter(Boolean);
+
     setLoading(true);
     try {
       const userDocRef = doc(db, 'teachers', user.uid);
@@ -129,8 +240,21 @@ const TeacherMyProfileScreen = ({ navigation }) => {
         experience: profileData.experience,
         education: profileData.education,
         description: profileData.description,
-        isActive: true,
+        // New professional profile fields (root)
+        professionalType: profileData.professionalType,
+        certifications: parsedCertifications,
+        gradeRanges: profileData.gradeRanges,
+        specializations: profileData.specializations,
+        degrees: parsedDegrees,
+        experienceYears: profileData.experienceYears,
+        academicInterests: profileData.academicInterests,
+        teachingApproach: profileData.teachingApproach,
+        clientFocus: profileData.clientFocus,
+        publications: parsedPublications,
+        researchAreas: parsedResearchAreas,
+  isActive: true,
         updatedAt: new Date().toISOString(),
+  geoLocation: profileData.geoLocation || null,
         // Keep nested profile structure for backward compatibility
         profile: {
           name: profileData.name,
@@ -147,6 +271,19 @@ const TeacherMyProfileScreen = ({ navigation }) => {
           experience: profileData.experience,
           education: profileData.education,
           description: profileData.description,
+          geoLocation: profileData.geoLocation || null,
+          // New professional profile fields (nested)
+          professionalType: profileData.professionalType,
+          certifications: parsedCertifications,
+          gradeRanges: profileData.gradeRanges,
+          specializations: profileData.specializations,
+          degrees: parsedDegrees,
+          experienceYears: profileData.experienceYears,
+          academicInterests: profileData.academicInterests,
+          teachingApproach: profileData.teachingApproach,
+          clientFocus: profileData.clientFocus,
+          publications: parsedPublications,
+          researchAreas: parsedResearchAreas,
         }
       };
 
@@ -190,6 +327,24 @@ const TeacherMyProfileScreen = ({ navigation }) => {
       setLoading(false);
     }
   };
+
+  // When entering edit mode, try to fetch current coords once
+  useEffect(() => {
+    let cancelled = false;
+    const fetchCoords = async () => {
+      if (!isEditing) return;
+      try {
+        const { perm, coords } = await ensurePermissionAndCoords();
+        if (!cancelled && coords) {
+          setProfileData(prev => ({ ...prev, geoLocation: coords }));
+        }
+      } catch (e) {
+        console.warn('📍 Could not auto-fetch location in profile edit:', e);
+      }
+    };
+    fetchCoords();
+    return () => { cancelled = true; };
+  }, [isEditing]);
 
   const ProfileSection = ({ title, children }) => (
     <View style={styles.section}>
@@ -237,7 +392,18 @@ const TeacherMyProfileScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+        style={{ flex: 1 }}
+      >
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+      >
         {isEditing && (
           <ProfileImagePicker
             imageUri={profileImageUri || profileData.photoURL}
@@ -272,14 +438,7 @@ const TeacherMyProfileScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Location & Teaching Methods</Text>
-              <TagSelector
-                title="Where do you teach?"
-                tags={LOCATIONS}
-                selectedTags={profileData?.location || []}
-                onTagPress={(tags) => setProfileData({ ...profileData, location: tags })}
-                showIcons={true}
-              />
+              <Text style={styles.sectionTitle}>Teaching Methods</Text>
               <TagSelector
                 title="How do you teach?"
                 tags={TEACHING_METHODS}
@@ -365,6 +524,128 @@ const TeacherMyProfileScreen = ({ navigation }) => {
               </View>
             </View>
 
+            {/* NEW SECTION: Professional Qualifications */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Professional Qualifications</Text>
+              
+              <TagSelector
+                title="Grade Ranges You Teach"
+                tags={GRADE_RANGES}
+                selectedTags={profileData?.gradeRanges || []}
+                onTagPress={(tags) => setProfileData({ ...profileData, gradeRanges: tags })}
+                showIcons={true}
+              />
+
+              <TagSelector
+                title="Specializations"
+                tags={SPECIALIZATIONS}
+                selectedTags={profileData?.specializations || []}
+                onTagPress={(tags) => setProfileData({ ...profileData, specializations: tags })}
+                showIcons={true}
+              />
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Years of Experience (numeric)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. 8"
+                  value={profileData?.experienceYears ?? ''}
+                  onChangeText={(text) => setProfileData({ ...profileData, experienceYears: text })}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Degrees (one per line: Degree | Field | Year)</Text>
+                <Text style={styles.helperText}>Example: Master of Education | Mathematics | 2015</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Master of Education | Mathematics Education | 2015"
+                  value={degreesInput}
+                  onChangeText={setDegreesInput}
+                  multiline
+                  numberOfLines={4}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Certifications (one per line: Type | Country | State | Year)</Text>
+                <Text style={styles.helperText}>Example: Secondary Certification | USA | Texas | 2018</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Secondary Certification | USA | Texas | 2018"
+                  value={certificationsInput}
+                  onChangeText={setCertificationsInput}
+                  multiline
+                  numberOfLines={4}
+                />
+              </View>
+            </View>
+
+            {/* NEW SECTION: Teaching Approach & Focus */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Teaching Approach & Focus</Text>
+
+              <TagSelector
+                title="Client Focus - Who do you work with?"
+                tags={CLIENT_FOCUS}
+                selectedTags={profileData?.clientFocus || []}
+                onTagPress={(tags) => setProfileData({ ...profileData, clientFocus: tags })}
+                showIcons={true}
+              />
+
+              <TagSelector
+                title="Academic Interests"
+                tags={ACADEMIC_INTERESTS}
+                selectedTags={profileData?.academicInterests || []}
+                onTagPress={(tags) => setProfileData({ ...profileData, academicInterests: tags })}
+                showIcons={true}
+              />
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Teaching Philosophy / Approach</Text>
+                <Text style={styles.helperText}>Describe your teaching philosophy and instructional style</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="I believe in student-centered learning where..."
+                  value={profileData?.teachingApproach ?? ''}
+                  onChangeText={(text) => setProfileData({ ...profileData, teachingApproach: text })}
+                  multiline
+                  numberOfLines={6}
+                />
+              </View>
+            </View>
+
+            {/* NEW SECTION: Publications & Research (Optional) */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Publications & Research (Optional)</Text>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Publications (one per line: Title | Type | Year | URL)</Text>
+                <Text style={styles.helperText}>Example: Effective Reading Strategies | journal_article | 2022 | https://...</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="Effective Reading Strategies | journal_article | 2022 | https://..."
+                  value={publicationsInput}
+                  onChangeText={setPublicationsInput}
+                  multiline
+                  numberOfLines={4}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Research Areas (one per line)</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  placeholder="e.g. reading intervention\ndyslexia\nliteracy"
+                  value={researchAreasInput}
+                  onChangeText={setResearchAreasInput}
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+            </View>
+
             <View style={{ height: 20 }} />
           </>
         ) : (
@@ -405,30 +686,92 @@ const TeacherMyProfileScreen = ({ navigation }) => {
                 value={getTagLabels(EXPERIENCE_LEVELS, [profileData?.experience]).join('')} 
                 icon="time" 
               />
-              <InfoRow 
-                label="Location" 
-                value={getTagLabels(LOCATIONS, profileData?.location || []).join(', ')} 
-                icon="location" 
-              />
+              {/* Location field removed; we now use device geoLocation automatically */}
             </ProfileSection>
 
-            <ProfileSection title="Qualifications">
+            <ProfileSection title="Professional Qualifications">
+              <InfoRow 
+                label="Grade Ranges" 
+                value={getTagLabels(GRADE_RANGES, profileData?.gradeRanges || []).join(', ')} 
+                icon="school" 
+              />
+              <InfoRow 
+                label="Specializations" 
+                value={getTagLabels(SPECIALIZATIONS, profileData?.specializations || []).join(', ')} 
+                icon="medal" 
+              />
+              <InfoRow 
+                label="Years of Experience" 
+                value={profileData?.experienceYears ? `${profileData.experienceYears} years` : null} 
+                icon="time" 
+              />
               <InfoRow 
                 label="Education" 
                 value={profileData?.education} 
                 icon="library" 
               />
+              {profileData?.degrees && profileData.degrees.length > 0 && (
+                <View style={styles.subsectionContainer}>
+                  <Text style={styles.subsectionLabel}>Degrees:</Text>
+                  {profileData.degrees.map((degree, index) => (
+                    <Text key={index} style={styles.degreeText}>
+                      • {degree.degree} in {degree.field} ({degree.year})
+                    </Text>
+                  ))}
+                </View>
+              )}
+              {profileData?.certifications && profileData.certifications.length > 0 && (
+                <View style={styles.subsectionContainer}>
+                  <Text style={styles.subsectionLabel}>Certifications:</Text>
+                  {profileData.certifications.map((cert, index) => (
+                    <Text key={index} style={styles.degreeText}>
+                      • {cert.type} - {cert.country}{cert.state ? `, ${cert.state}` : ''} ({cert.year})
+                    </Text>
+                  ))}
+                </View>
+              )}
               <InfoRow 
                 label="Languages" 
                 value={getTagLabels(LANGUAGES, profileData?.languages || []).join(', ')} 
                 icon="language" 
+              />
+            </ProfileSection>
+
+            <ProfileSection title="Teaching Approach & Focus">
+              <InfoRow 
+                label="Client Focus" 
+                value={getTagLabels(CLIENT_FOCUS, profileData?.clientFocus || []).join(', ')} 
+                icon="people" 
+              />
+              <InfoRow 
+                label="Academic Interests" 
+                value={getTagLabels(ACADEMIC_INTERESTS, profileData?.academicInterests || []).join(', ')} 
+                icon="book" 
               />
               <InfoRow 
                 label="Teaching Styles" 
                 value={getTagLabels(TEACHING_STYLES, profileData?.teachingStyles || []).join(', ')} 
                 icon="bulb" 
               />
+              {profileData?.teachingApproach && (
+                <View style={styles.subsectionContainer}>
+                  <Text style={styles.subsectionLabel}>Teaching Philosophy:</Text>
+                  <Text style={styles.approachText}>{profileData.teachingApproach}</Text>
+                </View>
+              )}
             </ProfileSection>
+
+            {profileData?.publications && profileData.publications.length > 0 && (
+              <ProfileSection title="Publications & Research">
+                {profileData.publications.map((pub, index) => (
+                  <View key={index} style={styles.publicationItem}>
+                    <Text style={styles.publicationTitle}>{pub.title}</Text>
+                    <Text style={styles.publicationMeta}>{pub.type} • {pub.year}</Text>
+                    {pub.url && <Text style={styles.publicationUrl}>{pub.url}</Text>}
+                  </View>
+                ))}
+              </ProfileSection>
+            )}
 
             <ProfileSection title="Teaching Methods">
               <View style={styles.teachingMethods}>
@@ -466,6 +809,7 @@ const TeacherMyProfileScreen = ({ navigation }) => {
           </>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
@@ -650,6 +994,57 @@ const styles = StyleSheet.create({
   textArea: {
     height: 100,
     textAlignVertical: 'top',
+  },
+  helperText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    marginBottom: 5,
+  },
+  subsectionContainer: {
+    marginTop: 12,
+    marginBottom: 8,
+    paddingLeft: 10,
+  },
+  subsectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 6,
+  },
+  degreeText: {
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: 4,
+    paddingLeft: 8,
+  },
+  approachText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+    paddingLeft: 8,
+  },
+  publicationItem: {
+    marginBottom: 15,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  publicationTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  publicationMeta: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  publicationUrl: {
+    fontSize: 12,
+    color: colors.primary,
+    fontStyle: 'italic',
   },
 });
 

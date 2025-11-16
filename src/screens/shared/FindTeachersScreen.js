@@ -27,10 +27,16 @@ import {
   EXPERIENCE_LEVELS,
   PRICE_RANGES,
   TEACHING_STYLES,
+  SPECIALIZATIONS,
+  ACADEMIC_INTERESTS,
+  CLIENT_FOCUS,
+  GRADE_RANGES,
   getTagLabels,
   getTagById
 } from '../../constants/tags';
 import { calculatePriceRange } from '../../utils/tagUtils';
+import { useSelector } from 'react-redux';
+import { selectUserCoords } from '../../store/slices/locationSlice';
 
 const FindTeachersScreen = ({ navigation }) => {
   const { 
@@ -46,6 +52,7 @@ const FindTeachersScreen = ({ navigation }) => {
   
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredTeachers, setFilteredTeachers] = useState([]);
+  const userCoords = useSelector(selectUserCoords);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState({
     subjects: [],
@@ -64,7 +71,7 @@ const FindTeachersScreen = ({ navigation }) => {
 
   useEffect(() => {
     applyFilters();
-  }, [teachers, filters, searchQuery]);
+  }, [teachers, filters, searchQuery, userCoords]);
 
   const loadTeachers = async () => {
     try {
@@ -119,6 +126,19 @@ const FindTeachersScreen = ({ navigation }) => {
       ],
       { cancelable: true }
     );
+  };
+
+  const distanceKm = (a, b) => {
+    if (!a || !b) return Number.POSITIVE_INFINITY;
+    const R = 6371; // km
+    const dLat = ((b.latitude - a.latitude) * Math.PI) / 180;
+    const dLon = ((b.longitude - a.longitude) * Math.PI) / 180;
+    const lat1 = (a.latitude * Math.PI) / 180;
+    const lat2 = (b.latitude * Math.PI) / 180;
+    const sinDLat = Math.sin(dLat / 2);
+    const sinDLon = Math.sin(dLon / 2);
+    const c = 2 * Math.asin(Math.sqrt(sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon));
+    return R * c;
   };
 
   const applyFilters = () => {
@@ -189,6 +209,18 @@ const FindTeachersScreen = ({ navigation }) => {
       filtered = filtered.filter(teacher =>
         teacher.teachingStyles?.some(style => filters.teachingStyles.includes(style))
       );
+    }
+
+    // If user has location, prefer teachers with geoLocation and sort by distance
+    if (userCoords && filtered.length > 0) {
+      filtered.sort((t1, t2) => {
+        const d1 = distanceKm(userCoords, t1.geoLocation);
+        const d2 = distanceKm(userCoords, t2.geoLocation);
+        // Teachers missing geoLocation go last
+        if (!isFinite(d1) && isFinite(d2)) return 1;
+        if (isFinite(d1) && !isFinite(d2)) return -1;
+        return d1 - d2;
+      });
     }
 
     setFilteredTeachers(filtered);
@@ -329,10 +361,67 @@ const FindTeachersScreen = ({ navigation }) => {
         </View>
       </View>
 
+      {/* NEW: Grade Ranges */}
+      {item.gradeRanges && item.gradeRanges.length > 0 && (
+        <View style={styles.tagsSection}>
+          <Text style={styles.tagsSectionTitle}>Grade Levels:</Text>
+          <View style={styles.tagsContainer}>
+            {getTagLabels(GRADE_RANGES, item.gradeRanges).slice(0, 2).map((grade, index) => (
+              <View key={index} style={[styles.tag, styles.gradeTag]}>
+                <Text style={styles.tagText}>{grade}</Text>
+              </View>
+            ))}
+            {item.gradeRanges.length > 2 && (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>+{item.gradeRanges.length - 2}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* NEW: Specializations */}
+      {item.specializations && item.specializations.length > 0 && (
+        <View style={styles.tagsSection}>
+          <Text style={styles.tagsSectionTitle}>Specializations:</Text>
+          <View style={styles.tagsContainer}>
+            {getTagLabels(SPECIALIZATIONS, item.specializations).slice(0, 2).map((spec, index) => (
+              <View key={index} style={[styles.tag, styles.specializationTag]}>
+                <Ionicons name="medal" size={12} color={colors.primary} />
+                <Text style={styles.tagText}>{spec}</Text>
+              </View>
+            ))}
+            {item.specializations.length > 2 && (
+              <View style={styles.tag}>
+                <Text style={styles.tagText}>+{item.specializations.length - 2}</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {/* NEW: Years of Experience */}
+      {item.experienceYears && (
+        <View style={styles.experienceRow}>
+          <Ionicons name="time" size={14} color={colors.primary} />
+          <Text style={styles.experienceText}>{item.experienceYears} years of experience</Text>
+        </View>
+      )}
+
       {item.description && (
         <Text style={styles.description} numberOfLines={2}>
           {item.description}
         </Text>
+      )}
+
+      {/* NEW: Teaching Approach snippet */}
+      {item.teachingApproach && (
+        <View style={styles.approachSection}>
+          <Text style={styles.approachLabel}>Teaching Philosophy:</Text>
+          <Text style={styles.approachText} numberOfLines={2}>
+            {item.teachingApproach}
+          </Text>
+        </View>
       )}
 
       {(item.phone || item.phoneNumber || item.profile?.phoneNumber) && (
@@ -808,6 +897,52 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.text,
     marginBottom: 8,
+  },
+  gradeTag: {
+    backgroundColor: colors.primary + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 6,
+    marginBottom: 4,
+  },
+  specializationTag: {
+    backgroundColor: colors.secondary + '20',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 6,
+    marginBottom: 4,
+  },
+  experienceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  experienceText: {
+    fontSize: 12,
+    color: colors.text,
+    marginLeft: 4,
+  },
+  approachSection: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: colors.cardBackground,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: colors.primary,
+  },
+  approachLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  approachText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontStyle: 'italic',
+    lineHeight: 16,
   },
 });
 

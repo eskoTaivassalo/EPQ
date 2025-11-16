@@ -26,7 +26,12 @@ import {
   TEACHING_METHODS,
   TEACHING_STYLES,
   AVAILABILITY,
-  EXPERIENCE_LEVELS
+  EXPERIENCE_LEVELS,
+  // NEW professional profile tags
+  SPECIALIZATIONS,
+  ACADEMIC_INTERESTS,
+  CLIENT_FOCUS,
+  GRADE_RANGES
 } from '../../constants/tags';
 
 const TeacherSignupScreen = ({ navigation, route }) => {
@@ -65,7 +70,21 @@ const TeacherSignupScreen = ({ navigation, route }) => {
     education: '',
     description: '',
     acceptTerms: false,
-    acceptMarketing: false
+    acceptMarketing: false,
+    // NEW: Professional Profile fields
+    professionalType: 'teacher',
+    gradeRanges: [],
+    specializations: [],
+    experienceYears: '',
+    degreesInput: '', // multiline text to be parsed
+    certificationsInput: '', // multiline text to be parsed
+    // NEW: Teaching & Academic
+    clientFocus: [],
+    academicInterests: [],
+    teachingApproach: '',
+    // NEW: Portfolio
+    publicationsInput: '', // multiline to be parsed
+    researchAreasInput: '' // multiline to be parsed
   });
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -222,6 +241,20 @@ const TeacherSignupScreen = ({ navigation, route }) => {
         return false;
       }
 
+      // Professional Qualifications minimal requirements
+      if (!formData.gradeRanges.length) {
+        Alert.alert('Virhe', 'Valitse vähintään yksi Grade Level / Age Group');
+        return false;
+      }
+      if (!formData.specializations.length) {
+        Alert.alert('Virhe', 'Valitse vähintään yksi Specialization');
+        return false;
+      }
+      if (formData.experienceYears && isNaN(Number(formData.experienceYears))) {
+        Alert.alert('Virhe', 'Years of Experience tulee olla numero');
+        return false;
+      }
+
       // Validoi puhelinnumero jos annettu
       if (formData.phoneNumber.trim()) {
         console.log('🔧 Validating phone...');
@@ -324,6 +357,32 @@ const TeacherSignupScreen = ({ navigation, route }) => {
         specialization: formData.specialization,
         qualifications: formData.qualifications,
         experience: formData.experience,
+        // NEW: Professional Profile
+        professionalType: formData.professionalType,
+        gradeRanges: formData.gradeRanges,
+        specializations: formData.specializations,
+        experienceYears: formData.experienceYears,
+        degrees: (formData.degreesInput || '')
+          .split(/\n|,/)
+          .map(s => s.trim())
+          .filter(Boolean),
+        certifications: (formData.certificationsInput || '')
+          .split(/\n|,/)
+          .map(s => s.trim())
+          .filter(Boolean),
+        // NEW: Teaching & Academic
+        clientFocus: formData.clientFocus,
+        academicInterests: formData.academicInterests,
+        teachingApproach: formData.teachingApproach,
+        // NEW: Portfolio
+        publications: (formData.publicationsInput || '')
+          .split(/\n/)
+          .map(s => s.trim())
+          .filter(Boolean),
+        researchAreas: (formData.researchAreasInput || '')
+          .split(/\n|,/)
+          .map(s => s.trim())
+          .filter(Boolean),
         acceptMarketing: formData.acceptMarketing,
         isGoogleAuth: !!googleUser,
         profile: { // nested copy for backwards compatibility
@@ -341,6 +400,30 @@ const TeacherSignupScreen = ({ navigation, route }) => {
           hourlyRate: formData.hourlyRate,
           education: formData.education,
           description: formData.description,
+          // Mirror professional profile to nested profile
+          professionalType: formData.professionalType,
+          gradeRanges: formData.gradeRanges,
+          specializations: formData.specializations,
+          experienceYears: formData.experienceYears,
+          degrees: (formData.degreesInput || '')
+            .split(/\n|,/)
+            .map(s => s.trim())
+            .filter(Boolean),
+          certifications: (formData.certificationsInput || '')
+            .split(/\n|,/)
+            .map(s => s.trim())
+            .filter(Boolean),
+          clientFocus: formData.clientFocus,
+          academicInterests: formData.academicInterests,
+          teachingApproach: formData.teachingApproach,
+          publications: (formData.publicationsInput || '')
+            .split(/\n/)
+            .map(s => s.trim())
+            .filter(Boolean),
+          researchAreas: (formData.researchAreasInput || '')
+            .split(/\n|,/)
+            .map(s => s.trim())
+            .filter(Boolean),
         }
       };
 
@@ -373,13 +456,22 @@ const TeacherSignupScreen = ({ navigation, route }) => {
           }
         }
         
-        Alert.alert(
-          '🎉 Tilin luonti onnistui!', 
-          '📧 TÄRKEÄÄ: Vahvista sähköpostiosoitteesi 3 päivän kuluessa!\n\n' +
-          '✉️ Tarkista sähköpostisi ja klikkaa vahvistuslinkkiä\n' +
-          '⏰ Tili poistetaan automaattisesti jos et vahvista ajoissa\n\n' +
-          '🚀 Voit aloittaa sovelluksen käytön heti, mutta muista vahvistus!'
-        );
+        // Google-käyttäjät eivät tarvitse sähköpostivahvistusta (Google on jo vahvistanut)
+        if (googleUser) {
+          Alert.alert(
+            '🎉 Tilin luonti onnistui!',
+            '✅ Google-tilisi on vahvistettu automaattisesti.\n\n' +
+            '🚀 Voit nyt aloittaa sovelluksen käytön!'
+          );
+        } else {
+          Alert.alert(
+            '🎉 Tilin luonti onnistui!', 
+            '📧 TÄRKEÄÄ: Vahvista sähköpostiosoitteesi 3 päivän kuluessa!\n\n' +
+            '✉️ Tarkista sähköpostisi ja klikkaa vahvistuslinkkiä\n' +
+            '⏰ Tili poistetaan automaattisesti jos et vahvista ajoissa\n\n' +
+            '🚀 Voit aloittaa sovelluksen käytön heti, mutta muista vahvistus!'
+          );
+        }
         // Navigation will happen automatically via AuthContext state change
       } else {
         console.log('🔧 Signup failed:', result.error);
@@ -632,6 +724,110 @@ const TeacherSignupScreen = ({ navigation, route }) => {
             />
           </View>
 
+          {/* NEW SECTION: Professional Qualifications */}
+          <Text style={styles.sectionTitle}>Professional Qualifications</Text>
+          <TagSelector
+            title="Grade Levels / Age Groups"
+            tags={GRADE_RANGES}
+            selectedTags={formData.gradeRanges}
+            onTagPress={(tags) => handleInputChange('gradeRanges', tags)}
+            showIcons
+          />
+          <TagSelector
+            title="Specializations"
+            tags={SPECIALIZATIONS}
+            selectedTags={formData.specializations}
+            onTagPress={(tags) => handleInputChange('specializations', tags)}
+            showIcons
+          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Years of Experience</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g., 5"
+              value={formData.experienceYears}
+              onChangeText={(text) => handleInputChange('experienceYears', text)}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Degrees (one per line)</Text>
+            <Text style={styles.helperText}>Example: M.Ed. | Special Education | 2019 | University of Helsinki</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Degree | Field | Year | Institution\n..."
+              value={formData.degreesInput}
+              onChangeText={(text) => handleInputChange('degreesInput', text)}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Certifications (one per line)</Text>
+            <Text style={styles.helperText}>Example: Finland | State License | 2020 | Early Childhood Education</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Country | Type | Year | Scope\n..."
+              value={formData.certificationsInput}
+              onChangeText={(text) => handleInputChange('certificationsInput', text)}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+
+          {/* NEW SECTION: Teaching Approach & Focus */}
+          <Text style={styles.sectionTitle}>Teaching Approach & Focus</Text>
+          <TagSelector
+            title="Client Focus"
+            tags={CLIENT_FOCUS}
+            selectedTags={formData.clientFocus}
+            onTagPress={(tags) => handleInputChange('clientFocus', tags)}
+            showIcons
+          />
+          <TagSelector
+            title="Academic Interests"
+            tags={ACADEMIC_INTERESTS}
+            selectedTags={formData.academicInterests}
+            onTagPress={(tags) => handleInputChange('academicInterests', tags)}
+            showIcons
+          />
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Teaching Philosophy / Approach</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Describe your methods, pedagogy, and values..."
+              value={formData.teachingApproach}
+              onChangeText={(text) => handleInputChange('teachingApproach', text)}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+
+          {/* NEW SECTION: Publications & Research (Optional) */}
+          <Text style={styles.sectionTitle}>Publications & Research (Optional)</Text>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Publications (one per line: Title | Type | Year | URL)</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Article Title | Journal | 2023 | https://...\n..."
+              value={formData.publicationsInput}
+              onChangeText={(text) => handleInputChange('publicationsInput', text)}
+              multiline
+              numberOfLines={4}
+            />
+          </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Research Areas (one per line)</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="e.g., Child development\nBehavior analysis\n..."
+              value={formData.researchAreasInput}
+              onChangeText={(text) => handleInputChange('researchAreasInput', text)}
+              multiline
+              numberOfLines={3}
+            />
+          </View>
+
           {/* Näytä salasanakentät vain jos EI Google-kirjautumista */}
           {!googleUser && (
             <>
@@ -765,7 +961,7 @@ const TeacherSignupScreen = ({ navigation, route }) => {
             disabled={loading}
           >
             <Text style={styles.signupButtonText}>
-              {loading ? 'Creating Account...' : 'Join Parents2Teachers'}
+              {loading ? 'Creating Account...' : 'Join EPQ'}
             </Text>
           </TouchableOpacity>
 
@@ -854,6 +1050,11 @@ const styles = StyleSheet.create({
   textArea: {
     height: 80,
     textAlignVertical: 'top',
+  },
+  helperText: {
+    fontSize: 12,
+    color: colors.textLight,
+    marginBottom: 6,
   },
   pickerContainer: {
     borderWidth: 1,

@@ -77,7 +77,21 @@ service cloud.firestore {
       
       allow update: if isOwner(teacherId) &&
                       // Estä userType:n muuttaminen
-                      request.resource.data.userType == resource.data.userType;
+                      request.resource.data.userType == resource.data.userType &&
+                      // Salli uudet profiilikentät (Professional Profile)
+                      (!hasField('professionalType') || request.resource.data.professionalType is string) &&
+                      (!hasField('certifications') || request.resource.data.certifications is list) &&
+                      (!hasField('gradeRanges') || request.resource.data.gradeRanges is list) &&
+                      (!hasField('specializations') || request.resource.data.specializations is list) &&
+                      (!hasField('degrees') || request.resource.data.degrees is list) &&
+                      (!hasField('experienceYears') || request.resource.data.experienceYears is string) &&
+                      (!hasField('academicInterests') || request.resource.data.academicInterests is list) &&
+                      (!hasField('teachingApproach') || request.resource.data.teachingApproach is string) &&
+                      (!hasField('clientFocus') || request.resource.data.clientFocus is list) &&
+                      (!hasField('publications') || request.resource.data.publications is list) &&
+                      (!hasField('researchAreas') || request.resource.data.researchAreas is list) &&
+                      // Salli valinnainen geoLocation-kenttä (karttana)
+                      (!hasField('geoLocation') || request.resource.data.geoLocation is map);
       
       // Poisto: Vain omistaja voi poistaa
       allow delete: if isOwner(teacherId);
@@ -277,16 +291,22 @@ service cloud.firestore {
       // Kirjoitus: Vain vanhempi voi luoda varauksen (tila 'booked' tai 'pending')
       allow create: if isAuthenticated() && 
                       request.auth.uid == request.resource.data.parentId &&
-                      hasField('teacherId') && hasField('slotId') &&
-                      hasField('date') && hasField('start') && hasField('end') &&
+                      hasField('teacherId') &&
+                      hasField('date') &&
                       (request.resource.data.status == 'booked' || request.resource.data.status == 'pending');
       
-      // Päivitys: Sekä opettaja että vanhempi voivat päivittää (esim. peruuttaa)
+      // Päivitys: Sekä opettaja että vanhempi voivat päivittää
+      // Opettaja voi muuttaa statuksen pending -> accepted tai declined
+      // Vanhempi tai opettaja voi peruuttaa
       allow update: if isAuthenticated() && 
                       (request.auth.uid == resource.data.teacherId || 
-                       request.auth.uid == resource.data.parentId);
+                       request.auth.uid == resource.data.parentId) &&
+                      // Sallitut statukset
+                      (request.resource.data.status in ['pending', 'accepted', 'declined', 'booked', 
+                                                        'cancelled_by_teacher', 'cancelled_by_parent', 
+                                                        'completed']);
       
-      // Poisto: Kumpikin osapuoli voi peruuttaa varauksen
+      // Poisto: Kumpikin osapuoli voi poistaa varauksen
       allow delete: if isAuthenticated() && 
                       (request.auth.uid == resource.data.teacherId || 
                        request.auth.uid == resource.data.parentId);

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, TextInput, Linking } from 'react-native';
 import BookingCalendar from '../../components/BookingCalendar';
 import BookingParticipantCard from '../../components/BookingParticipantCard';
 import { useSelector, useDispatch } from 'react-redux';
@@ -110,14 +110,23 @@ export default function CalendarScreen() {
                       roleLabel={role === 'teacher' ? 'Vanhempi' : 'Opettaja'}
                       booking={item}
                     />
+                    {(item.status === 'accepted' || item.status === 'confirmed') && item.meetingUrl && (
+                      <TouchableOpacity style={styles.joinBtn} onPress={() => Linking.openURL(item.meetingUrl)}>
+                        <Text style={styles.joinBtnText}>Liity</Text>
+                      </TouchableOpacity>
+                    )}
                     {canCancel(item, authUser?.uid) && !isFinal(item.status) && (
                       <View style={styles.actionRow}>
                         <TouchableOpacity style={styles.cancelBtn} onPress={() => handleCancel(item)}>
                           <Text style={styles.cancelBtnText}>Peruuta</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.editBtn} onPress={() => handleEdit(item)}>
-                          <Text style={styles.editBtnText}>Muokkaa</Text>
-                        </TouchableOpacity>
+                        {/* Only allow editing for requests that are not yet confirmed. */}
+                        {/* TODO: In future, enable reschedule flow with mutual acknowledgment for confirmed bookings. */}
+                        {(item.status === 'pending' || item.status === 'booked') && (
+                          <TouchableOpacity style={styles.editBtn} onPress={() => handleEdit(item)}>
+                            <Text style={styles.editBtnText}>Muokkaa</Text>
+                          </TouchableOpacity>
+                        )}
                       </View>
                     )}
                   </View>
@@ -160,7 +169,9 @@ export default function CalendarScreen() {
 function statusText(status) {
   switch(status) {
     case 'pending': return 'Odottaa';
-    case 'confirmed': return 'Vahvistettu';
+    case 'confirmed':
+    case 'accepted':
+      return 'Vahvistettu';
     case 'declined': return 'Hylätty';
     case 'cancelled_by_teacher': return 'Peruutettu (opettaja)';
     case 'cancelled_by_parent': return 'Peruutettu (vanhempi)';
@@ -217,8 +228,10 @@ const styles = StyleSheet.create({
   emptyText:{color:colors.textSecondary,fontStyle:'italic'},
   bookingRow:{marginBottom:10,paddingBottom:6,borderBottomWidth:1,borderBottomColor:'#eee'},
   closeBtn:{marginTop:12,alignSelf:'flex-end',backgroundColor:colors.primary,paddingHorizontal:16,paddingVertical:8,borderRadius:8},
-  closeBtnText:{color:colors.white,fontWeight:'600'}
-  ,actionRow:{flexDirection:'row',gap:12,marginTop:4},
+  closeBtnText:{color:colors.white,fontWeight:'600'},
+  actionRow:{flexDirection:'row',gap:8,marginTop:8},
+  joinBtn:{backgroundColor:colors.primary,paddingVertical:8,paddingHorizontal:12,borderRadius:8,alignSelf:'flex-start',marginTop:8},
+  joinBtnText:{color:'#fff',fontWeight:'700'},
   cancelBtn:{backgroundColor:'#F44336',paddingHorizontal:12,paddingVertical:8,borderRadius:8},
   cancelBtnText:{color:colors.white,fontSize:12,fontWeight:'600'},
   editBtn:{backgroundColor:colors.secondary,paddingHorizontal:12,paddingVertical:8,borderRadius:8},

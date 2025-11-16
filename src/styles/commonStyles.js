@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 export const colors = {
   primary: '#4CAF50', // Vihreä (kuten sivustolla)
   secondary: '#FF9800', // Oranssi (kuten sivustolla)
-  background: '#F5F5F5',
+  background: '#EFEFEF', // Hieman tummennettu tausta logon kanssa yhteensopivaksi
   white: '#FFFFFF',
   text: '#333333',
   textLight: '#666666',

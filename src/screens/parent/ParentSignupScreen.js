@@ -257,13 +257,22 @@ const ParentSignupScreen = ({ navigation, route }) => {
           }
         }
         
-        Alert.alert(
-          '🎉 Tilin luonti onnistui!', 
-          '📧 TÄRKEÄÄ: Vahvista sähköpostiosoitteesi 3 päivän kuluessa!\n\n' +
-          '✉️ Tarkista sähköpostisi ja klikkaa vahvistuslinkkiä\n' +
-          '⏰ Tili poistetaan automaattisesti jos et vahvista ajoissa\n\n' +
-          '🚀 Voit aloittaa sovelluksen käytön heti, mutta muista vahvistus!'
-        );
+        // Google-käyttäjät eivät tarvitse sähköpostivahvistusta (Google on jo vahvistanut)
+        if (googleUser) {
+          Alert.alert(
+            '🎉 Tilin luonti onnistui!',
+            '✅ Google-tilisi on vahvistettu automaattisesti.\n\n' +
+            '🚀 Voit nyt aloittaa sovelluksen käytön!'
+          );
+        } else {
+          Alert.alert(
+            '🎉 Tilin luonti onnistui!', 
+            '📧 TÄRKEÄÄ: Vahvista sähköpostiosoitteesi 3 päivän kuluessa!\n\n' +
+            '✉️ Tarkista sähköpostisi ja klikkaa vahvistuslinkkiä\n' +
+            '⏰ Tili poistetaan automaattisesti jos et vahvista ajoissa\n\n' +
+            '🚀 Voit aloittaa sovelluksen käytön heti, mutta muista vahvistus!'
+          );
+        }
         // Navigation will happen automatically via AuthContext state change
       } else {
         console.log('🔧 Parent signup failed:', result.error);
@@ -617,7 +626,7 @@ const ParentSignupScreen = ({ navigation, route }) => {
             disabled={loading}
           >
             <Text style={styles.signupButtonText}>
-              {loading ? 'Creating Account...' : 'Join Parents2Teachers'}
+              {loading ? 'Creating Account...' : 'Join EPQ'}
             </Text>
           </TouchableOpacity>
 

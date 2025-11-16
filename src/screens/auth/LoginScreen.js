@@ -20,6 +20,7 @@ import { db } from '../../config/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { AuthService } from '../../services/authService';
+import AppLogo from '../../components/AppLogo';
 
 const LoginScreen = ({ route, navigation }) => {
   const { userType } = route.params;
@@ -345,6 +346,10 @@ const LoginScreen = ({ route, navigation }) => {
           enableOnAndroid={true}
         >
           <View style={styles.content}>
+          {/* App Logo at top */}
+          <View style={styles.logoWrapper}>
+            <AppLogo size={80} />
+          </View>
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity 
@@ -460,6 +465,11 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
+  },
+  logoWrapper: {
+    alignItems: 'center',
+    marginTop: 12,
+    marginBottom: 8,
   },
   header: {
     alignItems: 'center',

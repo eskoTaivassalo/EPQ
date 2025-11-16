@@ -121,6 +121,78 @@ export const TEACHING_STYLES = [
   { id: 'exam_prep', label: 'Exam Preparation', icon: 'document-text' },
 ];
 
+// Erikoisalueet (Specializations) - NEW
+export const SPECIALIZATIONS = [
+  { id: 'esl', label: 'ESL (English as Second Language)', icon: 'language' },
+  { id: 'dyslexia_intervention', label: 'Dyslexia Intervention', icon: 'book' },
+  { id: 'ib_examiner', label: 'IB Examiner', icon: 'medal' },
+  { id: 'gifted_education', label: 'Gifted Education', icon: 'star' },
+  { id: 'special_needs', label: 'Special Needs Education', icon: 'heart' },
+  { id: 'stem_education', label: 'STEM Education', icon: 'flask' },
+  { id: 'montessori', label: 'Montessori Method', icon: 'cube' },
+  { id: 'waldorf', label: 'Waldorf Education', icon: 'flower' },
+  { id: 'reading_specialist', label: 'Reading Specialist', icon: 'book-outline' },
+  { id: 'math_olympiad', label: 'Math Olympiad Coaching', icon: 'trophy' },
+  { id: 'test_prep', label: 'Standardized Test Prep', icon: 'document-text' },
+  { id: 'curriculum_design', label: 'Curriculum Design', icon: 'create' },
+];
+
+// Akateemiset kiinnostukset (Academic Interests) - NEW
+export const ACADEMIC_INTERESTS = [
+  { id: 'british_literature', label: 'British Literature', icon: 'book' },
+  { id: 'american_literature', label: 'American Literature', icon: 'book' },
+  { id: 'reading_intervention', label: 'Reading Intervention', icon: 'book-outline' },
+  { id: 'stem_projects', label: 'STEM Project-Based Learning', icon: 'flask' },
+  { id: 'creative_writing', label: 'Creative Writing', icon: 'create' },
+  { id: 'debate_speech', label: 'Debate & Public Speaking', icon: 'mic' },
+  { id: 'science_fair', label: 'Science Fair Coaching', icon: 'planet' },
+  { id: 'robotics', label: 'Robotics & Engineering', icon: 'hardware-chip' },
+  { id: 'philosophy_ethics', label: 'Philosophy & Ethics', icon: 'bulb' },
+  { id: 'world_history', label: 'World History', icon: 'earth' },
+  { id: 'environmental_science', label: 'Environmental Science', icon: 'leaf' },
+  { id: 'music_theory', label: 'Music Theory & Composition', icon: 'musical-notes' },
+];
+
+// Asiakasryhmät (Client Focus) - NEW
+export const CLIENT_FOCUS = [
+  { id: 'children_6_12', label: 'Children (6-12)', icon: 'happy' },
+  { id: 'teens_13_18', label: 'Teenagers (13-18)', icon: 'school' },
+  { id: 'adults_18plus', label: 'Adults (18+)', icon: 'person' },
+  { id: 'second_language', label: 'Second Language Learners', icon: 'language' },
+  { id: 'special_needs', label: 'Special Needs Students', icon: 'heart' },
+  { id: 'gifted_students', label: 'Gifted Students', icon: 'star' },
+  { id: 'struggling_learners', label: 'Struggling Learners', icon: 'hand-right' },
+  { id: 'homeschool', label: 'Homeschool Students', icon: 'home' },
+];
+
+// Sertifikaatti maat (Certification Countries) - NEW
+export const CERTIFICATION_COUNTRIES = [
+  { id: 'finland', label: 'Finland', icon: 'flag' },
+  { id: 'usa', label: 'United States', icon: 'flag' },
+  { id: 'uk', label: 'United Kingdom', icon: 'flag' },
+  { id: 'canada', label: 'Canada', icon: 'flag' },
+  { id: 'australia', label: 'Australia', icon: 'flag' },
+  { id: 'germany', label: 'Germany', icon: 'flag' },
+  { id: 'france', label: 'France', icon: 'flag' },
+  { id: 'sweden', label: 'Sweden', icon: 'flag' },
+  { id: 'norway', label: 'Norway', icon: 'flag' },
+  { id: 'denmark', label: 'Denmark', icon: 'flag' },
+  { id: 'netherlands', label: 'Netherlands', icon: 'flag' },
+  { id: 'international', label: 'International (IB, Cambridge, etc.)', icon: 'earth' },
+];
+
+// Luokka-asteet (Grade Ranges) - NEW
+export const GRADE_RANGES = [
+  { id: 'preschool', label: 'Preschool (0-5)', icon: 'happy-outline' },
+  { id: 'elementary_1_3', label: 'Elementary (Grades 1-3)', icon: 'school' },
+  { id: 'elementary_4_6', label: 'Elementary (Grades 4-6)', icon: 'school' },
+  { id: 'middle_6_8', label: 'Middle School (Grades 6-8)', icon: 'library' },
+  { id: 'high_9_12', label: 'High School (Grades 9-12)', icon: 'school' },
+  { id: 'university', label: 'University / Higher Ed', icon: 'ribbon' },
+  { id: 'adult_education', label: 'Adult Education', icon: 'person' },
+  { id: 'all_ages', label: 'All Ages', icon: 'people' },
+];
+
 // Saatavuus
 export const AVAILABILITY = [
   { id: 'weekdays_morning', label: 'Weekdays Morning', icon: 'sunny' },

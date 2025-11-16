@@ -10,6 +10,9 @@ import { PersistGate } from 'redux-persist/integration/react';
 import { store, persistor } from './src/store';
 import { fetchNotifications } from './src/store/slices/notificationsSlice';
 
+// Theme
+import { ThemeProvider } from './src/contexts/ThemeContext';
+
 // Hooks (Redux-based)
 import { useAuth } from './src/hooks/useAuth';
 
@@ -42,6 +45,7 @@ import NotificationsScreen from './src/screens/shared/NotificationsScreen';
 import CalendarScreen from './src/screens/shared/CalendarScreen';
 import ConversationsScreen from './src/screens/shared/ConversationsScreen';
 import ConversationThreadScreen from './src/screens/shared/ConversationThreadScreen';
+import SettingsScreen from './src/screens/shared/SettingsScreen';
 
 // Screens - Dev
 import SecurityTestScreen from './src/screens/dev/SecurityTestScreen';
@@ -56,6 +60,8 @@ import NotificationBell from './src/components/NotificationBell';
 // Services
 import GDPRService from './src/services/gdprService';
 import { AuthService } from './src/services/authService';
+import * as NotificationService from './src/services/notificationService';
+import { requestForegroundPermissions as requestLocationPermissions } from './src/services/locationService';
 
 // Styles
 import { colors } from './src/styles/commonStyles';
@@ -74,6 +80,7 @@ const Loading = () => (
 
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Linking } from 'react-native';
 
 const AppNavigator = () => {
   const dispatch = useDispatch();
@@ -86,7 +93,7 @@ const AppNavigator = () => {
     initGlobalErrorLogger();
   }, []);
 
-  // Load stored auth on app start & Configure Google Sign-In
+  // Load stored auth on app start & Configure Google Sign-In & Request notification permissions
   useEffect(() => {
     loadStoredAuth();
     
@@ -97,6 +104,19 @@ const AppNavigator = () => {
     } catch (error) {
       console.error('❌ Failed to configure Google Sign-In:', error);
     }
+
+    // Request notification permissions
+    NotificationService.requestNotificationPermissions();
+
+    // Request location permissions on app start (foreground)
+    (async () => {
+      try {
+        const { granted, status } = await requestLocationPermissions();
+        console.log('📍 Location permission status:', status, 'granted:', granted);
+      } catch (e) {
+        console.warn('📍 Failed to request location permission on startup:', e);
+      }
+    })();
   }, []);
 
   // Load notifications when user is authenticated
@@ -156,6 +176,20 @@ const AppNavigator = () => {
     }
   };
 
+  // Setup notification tap handler - open meeting link when notification is tapped
+  useEffect(() => {
+    const subscription = NotificationService.addNotificationResponseListener((data) => {
+      const { meetingUrl, bookingId, type } = data;
+      
+      if (type === 'booking_reminder' && meetingUrl) {
+        console.log('🎥 Opening meeting from notification:', meetingUrl);
+        Linking.openURL(meetingUrl);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
+
   if (loading || emailVerifiedDelay) {
     return <Loading />;
   }
@@ -203,6 +237,11 @@ const AppNavigator = () => {
                 <Stack.Screen name="Notifications" component={NotificationsScreen} />
                 <Stack.Screen name="Conversations" component={ConversationsScreen} />
                 <Stack.Screen name="ConversationThread" component={ConversationThreadScreen} />
+                <Stack.Screen 
+                  name="Settings" 
+                  component={SettingsScreen}
+                  options={{ title: 'Settings' }}
+                />
                 <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
               </>
             ) : (
@@ -223,6 +262,11 @@ const AppNavigator = () => {
                 <Stack.Screen name="Notifications" component={NotificationsScreen} />
                 <Stack.Screen name="Conversations" component={ConversationsScreen} />
                 <Stack.Screen name="ConversationThread" component={ConversationThreadScreen} />
+                <Stack.Screen 
+                  name="Settings" 
+                  component={SettingsScreen}
+                  options={{ title: 'Settings' }}
+                />
                 <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
               </>
             )}
@@ -245,8 +289,10 @@ export default function App() {
   return (
     <Provider store={store}>
       <PersistGate loading={<Loading />} persistor={persistor}>
-        <StatusBar style="light" backgroundColor={colors.primary} />
-        <AppContent />
+        <ThemeProvider>
+          <StatusBar style="light" backgroundColor={colors.primary} />
+          <AppContent />
+        </ThemeProvider>
       </PersistGate>
     </Provider>
   );

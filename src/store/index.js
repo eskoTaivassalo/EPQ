@@ -18,6 +18,7 @@ import securitySlice from './slices/securitySlice';
 import appDataSlice from './slices/appDataSlice';
 import bookingsSlice from './slices/bookingsSlice';
 import notificationsSlice from './slices/notificationsSlice';
+import locationSlice from './slices/locationSlice';
 
 // Middleware
 import authMiddleware from './middleware/authMiddleware';
@@ -36,7 +37,7 @@ import errorLoggingMiddleware from './middleware/errorLoggingMiddleware';
 const persistConfig = {
   key: 'root',
   storage: AsyncStorage,
-  whitelist: ['auth'], // Säilytetään vain auth-tila
+  whitelist: ['auth', 'location'], // Persist auth and location
   blacklist: ['security', 'appData'] // Ei säilytetä security ja appData
 };
 
@@ -47,6 +48,7 @@ const rootReducer = combineReducers({
   appData: appDataSlice,
   bookings: bookingsSlice,
   notifications: notificationsSlice,
+  location: locationSlice,
 });
 
 // Persisted reducer

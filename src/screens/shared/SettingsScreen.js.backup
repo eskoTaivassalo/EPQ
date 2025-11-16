@@ -11,11 +11,13 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, commonStyles } from '../../styles/commonStyles';
+import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function SettingsScreen({ navigation }) {
   const { user, logout } = useAuth();
+  const { theme, isDarkMode, toggleTheme } = useTheme();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -58,16 +60,16 @@ export default function SettingsScreen({ navigation }) {
     );
   };
 
-  const SettingItem = ({ icon, title, subtitle, onPress, showArrow = true, iconColor = colors.primary }) => (
+  const SettingItem = ({ icon, title, subtitle, onPress, showArrow = true }) => (
     <TouchableOpacity style={styles.settingItem} onPress={onPress}>
-      <View style={[styles.settingIconContainer, { backgroundColor: iconColor === colors.error ? '#FFF5F5' : '#F0F7FF' }]}>
-        <Ionicons name={icon} size={24} color={iconColor} />
+      <View style={styles.settingIconContainer}>
+        <Ionicons name={icon} size={24} color={colors.primary} />
       </View>
       <View style={styles.settingContent}>
-        <Text style={[styles.settingTitle, iconColor === colors.error && { color: colors.error }]}>{title}</Text>
+        <Text style={styles.settingTitle}>{title}</Text>
         {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
       </View>
-      {showArrow && <Ionicons name="chevron-forward" size={20} color={iconColor === colors.error ? colors.error : colors.textSecondary} />}
+      {showArrow && <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />}
     </TouchableOpacity>
   );
 
@@ -91,28 +93,16 @@ export default function SettingsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Settings</Text>
-        <View style={styles.backButton} />
-      </View>
-
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Account Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ACCOUNT</Text>
+          <Text style={styles.sectionTitle}>Account</Text>
           <View style={styles.card}>
             <SettingItem
               icon="person-circle-outline"
               title="Profile"
               subtitle="Edit your personal information"
-              onPress={() => navigation.navigate(user?.userType === 'teacher' || user?.type === 'teacher' ? 'TeacherMyProfile' : 'ParentMyProfile')}
+              onPress={() => navigation.navigate(user?.role === 'teacher' ? 'TeacherMyProfile' : 'ParentMyProfile')}
             />
             <View style={styles.divider} />
             <SettingItem
@@ -133,7 +123,7 @@ export default function SettingsScreen({ navigation }) {
 
         {/* Notifications Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>NOTIFICATIONS</Text>
+          <Text style={styles.sectionTitle}>Notifications</Text>
           <View style={styles.card}>
             <SettingToggle
               icon="notifications-outline"
@@ -161,9 +151,30 @@ export default function SettingsScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Appearance Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Appearance</Text>
+          <View style={styles.card}>
+            <SettingToggle
+              icon="moon-outline"
+              title="Dark Mode"
+              subtitle={isDarkMode ? "Dark theme enabled" : "Light theme enabled"}
+              value={isDarkMode}
+              onValueChange={toggleTheme}
+            />
+            <View style={styles.divider} />
+            <SettingItem
+              icon="color-palette-outline"
+              title="Theme"
+              subtitle="Customize app colors"
+              onPress={() => Alert.alert('Info', 'Theme customization coming soon.')}
+            />
+          </View>
+        </View>
+
         {/* Privacy & Security Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PRIVACY & SECURITY</Text>
+          <Text style={styles.sectionTitle}>Privacy & Security</Text>
           <View style={styles.card}>
             <SettingItem
               icon="shield-checkmark-outline"
@@ -190,7 +201,7 @@ export default function SettingsScreen({ navigation }) {
 
         {/* Support Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>SUPPORT</Text>
+          <Text style={styles.sectionTitle}>Support</Text>
           <View style={styles.card}>
             <SettingItem
               icon="help-circle-outline"
@@ -210,36 +221,48 @@ export default function SettingsScreen({ navigation }) {
               icon="information-circle-outline"
               title="About"
               subtitle="Version 1.0.0"
-              onPress={() => Alert.alert('EPQ', 'Version 1.0.0\n\nEducation • Professional • Quorum\n\nConnecting parents with qualified teachers worldwide.')}
+              onPress={() => Alert.alert('ParentsTeachersApp', 'Version 1.0.0\n\nConnecting parents with qualified teachers worldwide.')}
             />
           </View>
         </View>
 
         {/* Danger Zone */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>DANGER ZONE</Text>
+          <Text style={styles.sectionTitle}>Danger Zone</Text>
           <View style={styles.card}>
-            <SettingItem
-              icon="log-out-outline"
-              title="Log Out"
-              subtitle="Sign out of your account"
+            <TouchableOpacity 
+              style={styles.settingItem} 
               onPress={handleLogout}
-              iconColor={colors.error}
-            />
+            >
+              <View style={[styles.settingIconContainer, { backgroundColor: '#FFF5F5' }]}>
+                <Ionicons name="log-out-outline" size={24} color={colors.error} />
+              </View>
+              <View style={styles.settingContent}>
+                <Text style={[styles.settingTitle, { color: colors.error }]}>Log Out</Text>
+                <Text style={styles.settingSubtitle}>Sign out of your account</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.error} />
+            </TouchableOpacity>
             <View style={styles.divider} />
-            <SettingItem
-              icon="trash-outline"
-              title="Delete Account"
-              subtitle="Permanently delete your account"
+            <TouchableOpacity 
+              style={styles.settingItem} 
               onPress={handleDeleteAccount}
-              iconColor={colors.error}
-            />
+            >
+              <View style={[styles.settingIconContainer, { backgroundColor: '#FFF5F5' }]}>
+                <Ionicons name="trash-outline" size={24} color={colors.error} />
+              </View>
+              <View style={styles.settingContent}>
+                <Text style={[styles.settingTitle, { color: colors.error }]}>Delete Account</Text>
+                <Text style={styles.settingSubtitle}>Permanently delete your account</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color={colors.error} />
+            </TouchableOpacity>
           </View>
         </View>
 
         {/* App Version Footer */}
         <View style={styles.footer}>
-          <Text style={styles.footerText}>EPQ v1.0.0</Text>
+          <Text style={styles.footerText}>ParentsTeachersApp v1.0.0</Text>
           <Text style={styles.footerSubtext}>Made with ❤️ for education</Text>
         </View>
       </ScrollView>
@@ -247,62 +270,64 @@ export default function SettingsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  section: {
-    paddingHorizontal: 16,
-    paddingTop: 24,
-  },
-  sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textSecondary,
-    marginBottom: 12,
-    letterSpacing: 0.5,
-  },
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
+  // Dynamic styles based on theme
+  const dynamicStyles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    card: {
+      backgroundColor: theme.colors.surface,
+    },
+    sectionTitle: {
+      color: theme.colors.textSecondary,
+    },
+    settingTitle: {
+      color: theme.colors.text,
+    },
+    settingSubtitle: {
+      color: theme.colors.textSecondary,
+    },
+    divider: {
+      backgroundColor: theme.colors.border,
+    },
+    footerText: {
+      color: theme.colors.textSecondary,
+    },
+  });
+
+  return (
+    <SafeAreaView style={[styles.container, dynamicStyles.container]} edges={['bottom']}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Account Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, dynamicStyles.sectionTitle]}>Account</Text>
+          <View style={[styles.card, dynamicStyles.card]}>
+            <SettingItem
+              icon="person-circle-outline"
+              title="Profile"
+              subtitle="Edit your personal information"
+              onPress={() => navigation.navigate(user?.role === 'teacher' ? 'TeacherMyProfile' : 'ParentMyProfile')}
+              theme={theme}
+            />
+            <View style={[styles.divider, dynamicStyles.divider]} />
+            <SettingItem
+              icon="mail-outline"
+              title="Email"
+              subtitle={user?.email || 'Not set'}
+              onPress={() => Alert.alert('Info', 'Email change will be implemented soon.')}
+              theme={theme}
+            />
+            <View style={[styles.divider, dynamicStyles.divider]} />
+            <SettingItem
+              icon="lock-closed-outline"
+              title="Change Password"
+              subtitle="Update your password"
+              onPress={() => Alert.alert('Info', 'Password change will be implemented soon.')}
+              theme={theme}
+            />
+          </View>
+        </View>
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -338,7 +363,6 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center',
     paddingVertical: 32,
-    paddingBottom: 48,
   },
   footerText: {
     fontSize: 14,

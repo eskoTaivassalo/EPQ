@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import AppLogo from '../../components/AppLogo';
 import { colors, commonStyles } from '../../styles/commonStyles';
 
 const WelcomeScreen = ({ navigation }) => {
@@ -33,15 +34,9 @@ const WelcomeScreen = ({ navigation }) => {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo ja otsikko */}
+        {/* Logo */}
         <View style={styles.logoContainer}>
-          <View style={styles.logoCircle}>
-            <Ionicons name="school" size={35} color={colors.white} />
-          </View>
-          <Text style={styles.appTitle}>Parents & Teachers</Text>
-          <Text style={styles.appSubtitle}>
-            Parenting Consultants with a click of your finger
-          </Text>
+          <AppLogo size={150} />
         </View>
 
         {/* Role selection */}
@@ -128,15 +123,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 15,
   },
-  logoCircle: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15,
-  },
+  // replaced circle icon with real logo image
   appTitle: {
     fontSize: 24,
     fontWeight: 'bold',
