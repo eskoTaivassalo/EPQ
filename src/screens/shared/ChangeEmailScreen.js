@@ -191,16 +191,20 @@ export default function ChangeEmailScreen({ navigation }) {
     setLoading(true);
 
     try {
-      // Step 1: Re-authenticate user
-      // Google users don't need password re-authentication (already authenticated via Google)
+      // Step 1: Re-authenticate user (only for email/password users)
       if (!isGoogleUser) {
-        const credential = EmailAuthProvider.credential(
-          user.email,
-          currentPassword
-        );
-        
-        await reauthenticateWithCredential(auth.currentUser, credential);
-        console.log('✅ Re-authentication successful');
+        try {
+          const credential = EmailAuthProvider.credential(
+            user.email,
+            currentPassword
+          );
+          
+          await reauthenticateWithCredential(auth.currentUser, credential);
+          console.log('✅ Re-authentication successful');
+        } catch (reAuthError) {
+          console.error('❌ Re-authentication error:', reAuthError);
+          throw reAuthError; // Re-throw to be caught by outer catch
+        }
       } else {
         console.log('✅ Google user - skipping password re-authentication');
       }
@@ -224,6 +228,7 @@ export default function ChangeEmailScreen({ navigation }) {
       console.error('❌ Change email error:', error);
       
       let errorMessage = 'Failed to send verification email. Please try again.';
+      let isRecentLoginError = false;
       
       if (error.code === 'auth/wrong-password') {
         errorMessage = 'Current password is incorrect.';
@@ -232,14 +237,37 @@ export default function ChangeEmailScreen({ navigation }) {
       } else if (error.code === 'auth/invalid-email') {
         errorMessage = 'Invalid email address format.';
       } else if (error.code === 'auth/requires-recent-login') {
-        errorMessage = 'For security reasons, please log out and log in again before changing your email.';
+        isRecentLoginError = true;
+        errorMessage = 'For security reasons, you need to log out and log back in before changing your email address.';
       } else if (error.code === 'auth/too-many-requests') {
         errorMessage = 'Too many attempts. Please try again later.';
       } else if (error.code === 'auth/operation-not-allowed') {
         errorMessage = 'Email change is currently disabled. Please contact support.';
       }
       
-      Alert.alert('Error', errorMessage);
+      // Special handling for requires-recent-login error
+      if (isRecentLoginError) {
+        Alert.alert(
+          'Re-authentication Required',
+          errorMessage,
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Log Out Now',
+              onPress: async () => {
+                try {
+                  await logout();
+                } catch (logoutError) {
+                  console.error('Logout error:', logoutError);
+                }
+              },
+              style: 'destructive'
+            }
+          ]
+        );
+      } else {
+        Alert.alert('Error', errorMessage);
+      }
     } finally {
       setLoading(false);
     }
@@ -357,6 +385,19 @@ export default function ChangeEmailScreen({ navigation }) {
               />
             </View>
           </View>
+
+          {/* Google User Security Notice */}
+          {!verificationSent && isGoogleUser && (
+            <View style={styles.googleSecurityCard}>
+              <Ionicons name="shield-checkmark" size={24} color="#4285F4" />
+              <View style={styles.warningTextContainer}>
+                <Text style={styles.googleSecurityTitle}>Security Notice</Text>
+                <Text style={styles.googleSecurityText}>
+                  If you see an error, please log out and log back in with Google first, then try changing your email again.
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Warning Card */}
           {!verificationSent && (
@@ -559,6 +600,27 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     padding: 4,
+  },
+  googleSecurityCard: {
+    flexDirection: 'row',
+    backgroundColor: '#E8F0FE',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#4285F4',
+  },
+  googleSecurityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1967D2',
+    marginBottom: 4,
+  },
+  googleSecurityText: {
+    fontSize: 14,
+    color: '#1967D2',
+    lineHeight: 20,
   },
   warningCard: {
     flexDirection: 'row',

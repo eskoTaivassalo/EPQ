@@ -19,7 +19,19 @@ export default function TeacherAvailableSlotsScreen({ route, navigation }) {
         const to = new Date();
         to.setDate(to.getDate() + 30);
         const data = await listAvailableSlots(teacherId, from, to);
-        setSlots(data);
+        
+        // Filter out past slots and slots less than 2 hours from now
+        const now = new Date();
+        const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours in milliseconds
+        
+        const validSlots = data.filter(slot => {
+          const slotStart = new Date(slot.start);
+          // Slot must be in the future AND at least 2 hours from now
+          return slotStart > twoHoursFromNow;
+        });
+        
+        console.log(`📅 Filtered ${data.length} slots to ${validSlots.length} valid slots (>2h from now)`);
+        setSlots(validSlots);
       } catch (e) {
         console.error('Load slots error', e);
         Alert.alert('Error', e.message || 'Failed to load slots');
@@ -32,6 +44,23 @@ export default function TeacherAvailableSlotsScreen({ route, navigation }) {
 
   const handleBook = async (slot) => {
     if (!user?.uid) return Alert.alert('Error', 'Not authenticated');
+    
+    // Double-check that slot is still valid (at least 2 hours from now)
+    const now = new Date();
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const slotStart = new Date(slot.start);
+    
+    if (slotStart <= twoHoursFromNow) {
+      Alert.alert(
+        'Cannot Book',
+        'This time slot is too soon. Please book a time at least 2 hours in advance.',
+        [{ text: 'OK' }]
+      );
+      // Remove this slot from the list
+      setSlots(prev => prev.filter(s => s.id !== slot.id));
+      return;
+    }
+    
     try {
       const ok = await new Promise(resolve => {
         Alert.alert(
@@ -85,7 +114,10 @@ export default function TeacherAvailableSlotsScreen({ route, navigation }) {
             <View style={styles.empty}> 
               <Ionicons name="information-circle-outline" size={40} color={colors.textSecondary} />
               <Text style={styles.emptyTitle}>No available times</Text>
-              <Text style={styles.emptyText}>This teacher hasn’t published availability yet. Please check back later.</Text>
+              <Text style={styles.emptyText}>
+                This teacher hasn't published availability yet, or all available times are within the next 2 hours.{'\n\n'}
+                Bookings must be made at least 2 hours in advance.
+              </Text>
             </View>
           }
         />

@@ -41,7 +41,17 @@ export default function TeacherWeeklyAvailabilityScreen({ route, navigation }) {
     try {
       setLoading(true);
       const data = await listAvailableSlots(teacherId, weekStart, weekEnd);
-      const mapped = data.map(s => ({
+      
+      // Filter out past slots and slots less than 2 hours from now
+      const now = new Date();
+      const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      
+      const validSlots = data.filter(s => {
+        const slotStart = new Date(s.start);
+        return slotStart > twoHoursFromNow;
+      });
+      
+      const mapped = validSlots.map(s => ({
         id: s.id,
         title: 'Available',
         start: new Date(s.start),
@@ -53,6 +63,8 @@ export default function TeacherWeeklyAvailabilityScreen({ route, navigation }) {
       if (mapped.length > 0) {
         setNextAvailable(null);
       }
+      
+      console.log(`📅 Weekly view: Filtered ${data.length} slots to ${validSlots.length} valid slots (>2h from now)`);
     } catch (e) {
       console.error('Load weekly slots error', e);
       Alert.alert('Error', e.message || 'Failed to load weekly availability');
@@ -75,9 +87,18 @@ export default function TeacherWeeklyAvailabilityScreen({ route, navigation }) {
         const horizon = new Date(from);
         horizon.setDate(horizon.getDate() + 7 * 8); // look 8 weeks ahead
         const data = await listAvailableSlots(teacherId, from, horizon);
-        if (data && data.length > 0) {
+        
+        // Filter out past slots and slots less than 2 hours from now
+        const now = new Date();
+        const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+        const validSlots = data.filter(s => {
+          const slotStart = new Date(s.start);
+          return slotStart > twoHoursFromNow;
+        });
+        
+        if (validSlots && validSlots.length > 0) {
           // Pick earliest slot
-          const earliest = data.reduce((min, s) => (new Date(s.start) < new Date(min.start) ? s : min), data[0]);
+          const earliest = validSlots.reduce((min, s) => (new Date(s.start) < new Date(min.start) ? s : min), validSlots[0]);
           setNextAvailable(new Date(earliest.start));
           // Optionally auto-jump only on first screen mount
           if (!autoJumpedRef.current) {
@@ -100,6 +121,22 @@ export default function TeacherWeeklyAvailabilityScreen({ route, navigation }) {
   const onPressEvent = async (evt) => {
     const s = evt.slot;
     if (!user?.uid) return Alert.alert('Error', 'Not authenticated');
+
+    // Double-check that slot is still valid (at least 2 hours from now)
+    const now = new Date();
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    const slotStart = new Date(s.start);
+    
+    if (slotStart <= twoHoursFromNow) {
+      Alert.alert(
+        'Cannot Book',
+        'This time slot is too soon. Please book a time at least 2 hours in advance.',
+        [{ text: 'OK' }]
+      );
+      // Remove this slot from the calendar
+      setEvents(prev => prev.filter(e => e.id !== s.id));
+      return;
+    }
 
     const ok = await new Promise(resolve => {
       Alert.alert(

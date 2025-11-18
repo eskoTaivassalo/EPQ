@@ -106,6 +106,15 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
     if (!slotSnap.exists()) throw new Error('Slot not found');
     const slot = slotSnap.data();
     if (slot.status !== 'available') throw new Error('Slot not available');
+    
+    // Check if slot is at least 2 hours in the future
+    const slotStart = new Date(slot.start);
+    const now = new Date();
+    const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+    
+    if (slotStart <= twoHoursFromNow) {
+      throw new Error('Cannot book a time slot less than 2 hours in advance');
+    }
 
     // capture for notification after transaction
     teacherIdForNotify = slot.teacherId;

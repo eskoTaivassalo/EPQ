@@ -189,7 +189,7 @@ EmailVerified: ${user?.emailVerified ? 'Yes' : 'No'}
               icon="lock-closed-outline"
               title="Change Password"
               subtitle="Update your password"
-              onPress={() => Alert.alert('Info', 'Password change will be implemented soon.')}
+              onPress={() => navigation.navigate('ChangePassword')}
             />
           </View>
         </View>

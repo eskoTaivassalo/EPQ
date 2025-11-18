@@ -48,6 +48,7 @@ import ConversationThreadScreen from './src/screens/shared/ConversationThreadScr
 import SettingsScreen from './src/screens/shared/SettingsScreen';
 import LegalDocumentScreen from './src/screens/shared/LegalDocumentScreen';
 import ChangeEmailScreen from './src/screens/shared/ChangeEmailScreen';
+import ChangePasswordScreen from './src/screens/shared/ChangePasswordScreen';
 
 // Screens - Dev
 import SecurityTestScreen from './src/screens/dev/SecurityTestScreen';
@@ -204,6 +205,7 @@ const AppNavigator = () => {
                 />
                 <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
                 <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
+                <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
                 <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
               </>
             ) : (
@@ -231,6 +233,7 @@ const AppNavigator = () => {
                 />
                 <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
                 <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
+                <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
                 <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
               </>
             )}
