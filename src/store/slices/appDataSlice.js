@@ -142,10 +142,30 @@ export const fetchTeachers = createAsyncThunk(
       
       const teachersCollection = collection(db, 'teachers');
       const teachersSnapshot = await getDocs(teachersCollection);
-      const rawTeachers = teachersSnapshot.docs.map(doc => ({
+      let rawTeachers = teachersSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
+
+      // Filter out current user's teacher profile (by email and uid)
+      const currentUserEmail = auth.currentUser?.email?.toLowerCase();
+      const currentUserId = auth.currentUser?.uid;
+      
+      rawTeachers = rawTeachers.filter(teacher => {
+        const teacherEmail = (teacher.email || '').toLowerCase();
+        const teacherId = teacher.id;
+        
+        // Don't include if same email or same uid
+        const isSameEmail = currentUserEmail && teacherEmail && teacherEmail === currentUserEmail;
+        const isSameId = currentUserId && teacherId && teacherId === currentUserId;
+        
+        if (isSameEmail || isSameId) {
+          console.log(`🚫 Redux: Filtered out current user's teacher profile: ${teacherId}`);
+          return false;
+        }
+        
+        return true;
+      });
 
       // Normalize nested profile fields so UI can access them uniformly
       const teachersData = rawTeachers.map(t => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
+import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import NotificationBell from '../../components/NotificationBell';
@@ -19,6 +20,9 @@ import { fetchParentBookings, selectBookings } from '../../store/slices/bookings
 import * as NotificationService from '../../services/notificationService';
 import { initDeviceLocation } from '../../store/slices/locationSlice';
 import { colors, commonStyles } from '../../styles/commonStyles';
+import { db } from '../../config/firebaseConfig';
+import { collection, query, limit, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import ProfileImagePicker from '../../components/ProfileImagePicker';
 
 const ParentDashboard = ({ navigation }) => {
   const { user, logout, refreshUser } = useAuth();
@@ -27,6 +31,7 @@ const ParentDashboard = ({ navigation }) => {
   const { getFavoriteTeachers, loadFavorites, getTeacherById } = useAppData();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [recommendedTeachers, setRecommendedTeachers] = useState([]);
 
   useEffect(() => {
     if (user?.uid) {
@@ -40,12 +45,21 @@ const ParentDashboard = ({ navigation }) => {
   }, [dispatch]);
 
   // Schedule notifications for upcoming bookings (parent role)
+  // Only reschedule when booking COUNT changes to avoid excessive rescheduling
+  const bookingCount = bookings.length;
+  const confirmedCount = bookings.filter(b => 
+    b.status === 'accepted' || b.status === 'confirmed'
+  ).length;
+  
   useEffect(() => {
-    if (bookings.length > 0) {
-      console.log('📅 Scheduling notifications for parent bookings...');
+    if (bookingCount > 0) {
+      console.log('📅 Scheduling notifications for parent bookings...', {
+        total: bookingCount,
+        confirmed: confirmedCount
+      });
       NotificationService.scheduleAllUpcomingReminders(bookings, 'parent');
     }
-  }, [bookings]);
+  }, [bookingCount, confirmedCount]); // Only when counts change, not on every booking update
 
   // Get upcoming confirmed/accepted bookings
   const upcomingBookings = bookings
@@ -87,6 +101,185 @@ const ParentDashboard = ({ navigation }) => {
     loadFavorites().catch(() => {});
   }, []);
 
+  // Load recommended teachers from Firestore with smart matching
+  const loadRecommendedTeachers = async () => {
+    if (!db) {
+      console.warn('Firestore not initialized');
+      return;
+    }
+    
+    try {
+      // First, load parent's preferences
+      let parentPreferences = {};
+      try {
+        const parentDocRef = doc(db, 'parents', user.uid);
+        const parentSnap = await getDoc(parentDocRef);
+        if (parentSnap.exists()) {
+          const parentData = parentSnap.data();
+          const nested = parentData.profile || {};
+          parentPreferences = { ...parentData, ...nested };
+          console.log('👪 Parent preferences loaded:', {
+            subjects: parentPreferences.subjectsNeeded,
+            location: parentPreferences.location,
+            languages: parentPreferences.preferredLanguages,
+            methods: parentPreferences.preferredTeachingMethods,
+            specialNeeds: parentPreferences.specialNeeds
+          });
+        }
+      } catch (err) {
+        console.warn('Could not load parent preferences:', err);
+      }
+
+      const teachersRef = collection(db, 'teachers');
+      // Fetch more teachers for better matching
+      const q = query(teachersRef, limit(50));
+      const snapshot = await getDocs(q);
+      
+      console.log(`📚 Fetched ${snapshot.docs.length} teachers from Firestore`);
+      
+      let teachers = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      // Filter out current user and invalid profiles
+      const currentUserEmail = user?.email?.toLowerCase();
+      const currentUserId = user?.uid;
+      
+      teachers = teachers.filter(teacher => {
+        const teacherEmail = (teacher.email || '').toLowerCase();
+        const teacherId = teacher.id;
+        
+        // Don't show if same email or same ID
+        const isSameEmail = currentUserEmail && teacherEmail && teacherEmail === currentUserEmail;
+        const isSameId = currentUserId && teacherId && teacherId === currentUserId;
+        
+        if (isSameEmail || isSameId) return false;
+        
+        // Basic validation - must have name
+        if (!teacher.firstName && !teacher.fullName && !teacher.displayName) {
+          console.log(`⚠️ Teacher ${teacherId} missing name`);
+          return false;
+        }
+        
+        return true;
+      });
+      
+      // Calculate match score for each teacher
+      teachers = teachers.map(teacher => {
+        let score = 0;
+        const reasons = [];
+        
+        // Helper to normalize arrays
+        const toArray = (val) => {
+          if (!val) return [];
+          if (Array.isArray(val)) return val;
+          if (typeof val === 'string') return val.split(',').map(s => s.trim());
+          return [];
+        };
+        
+        const parentSubjects = toArray(parentPreferences.subjectsNeeded);
+        const parentLocation = toArray(parentPreferences.location);
+        const parentLanguages = toArray(parentPreferences.preferredLanguages);
+        const parentMethods = toArray(parentPreferences.preferredTeachingMethods);
+        const parentSpecialNeeds = toArray(parentPreferences.specialNeeds);
+        
+        const teacherSubjects = toArray(teacher.subjects);
+        const teacherLocation = toArray(teacher.location);
+        const teacherLanguages = toArray(teacher.languages);
+        const teacherMethods = toArray(teacher.teachingMethods);
+        const teacherStyles = toArray(teacher.teachingStyles);
+        
+        // Subject match (highest priority: +10 per match)
+        const subjectMatches = parentSubjects.filter(s => teacherSubjects.includes(s));
+        if (subjectMatches.length > 0) {
+          score += subjectMatches.length * 10;
+          reasons.push(`Subjects: ${subjectMatches.join(', ')}`);
+        }
+        
+        // Location match (+8)
+        const locationMatches = parentLocation.filter(l => teacherLocation.includes(l));
+        if (locationMatches.length > 0) {
+          score += 8;
+          reasons.push(`Location: ${locationMatches.join(', ')}`);
+        }
+        
+        // Teaching method match (+5)
+        const methodMatches = parentMethods.filter(m => teacherMethods.includes(m));
+        if (methodMatches.length > 0) {
+          score += 5;
+          reasons.push(`Method: ${methodMatches.join(', ')}`);
+        }
+        
+        // Language match (+3 per match)
+        const languageMatches = parentLanguages.filter(l => teacherLanguages.includes(l));
+        if (languageMatches.length > 0) {
+          score += languageMatches.length * 3;
+          reasons.push(`Languages: ${languageMatches.join(', ')}`);
+        }
+        
+        // Special needs support (+7)
+        if (parentSpecialNeeds.length > 0 && teacherStyles.some(s => 
+          s === 'patient' || s === 'structured' || s === 'visual' || s === 'kinesthetic'
+        )) {
+          score += 7;
+          reasons.push('Special needs support');
+        }
+        
+        // High rating bonus (+2 if 4.5+)
+        if (teacher.rating >= 4.5) {
+          score += 2;
+          reasons.push(`High rating: ${teacher.rating}`);
+        }
+        
+        // Verified bonus (+1)
+        if (teacher.verified) {
+          score += 1;
+        }
+        
+        // If no parent preferences, use recency and rating
+        if (Object.keys(parentPreferences).length === 0) {
+          const daysOld = teacher.createdAt 
+            ? Math.floor((Date.now() - new Date(teacher.createdAt).getTime()) / (1000 * 60 * 60 * 24))
+            : 999;
+          if (daysOld < 30) score += 3; // Recent teachers
+          if (teacher.rating >= 4.0) score += Math.floor(teacher.rating);
+        }
+        
+        return { ...teacher, matchScore: score, matchReasons: reasons };
+      });
+      
+      // Sort by match score (highest first)
+      teachers.sort((a, b) => b.matchScore - a.matchScore);
+      
+      console.log(`✅ Scored ${teachers.length} teachers`);
+      console.log('🏆 Top matches:', teachers.slice(0, 6).map(t => 
+        `${t.firstName || t.displayName} (score: ${t.matchScore}, reasons: ${t.matchReasons.join(', ') || 'none'})`
+      ));
+      
+      // Limit to 6 best matches
+      teachers = teachers.slice(0, 6);
+      
+      console.log(`📚 Showing ${teachers.length} recommended teachers`);
+      setRecommendedTeachers(teachers);
+    } catch (error) {
+      console.error('❌ Error loading recommended teachers:', error);
+      console.error('Error details:', error.message, error.code);
+    }
+  };
+
+  useEffect(() => {
+    loadRecommendedTeachers();
+  }, []);
+
+  // Reload recommendations when screen comes into focus (e.g., after editing profile)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📱 ParentDashboard focused - reloading recommendations');
+      loadRecommendedTeachers();
+    }, [user?.uid])
+  );
+
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
@@ -94,6 +287,7 @@ const ParentDashboard = ({ navigation }) => {
       if (user?.uid) {
         await dispatch(fetchParentBookings());
       }
+      await loadRecommendedTeachers();
     } catch (error) {
       console.error('Refresh error:', error);
     } finally {
@@ -357,43 +551,46 @@ const ParentDashboard = ({ navigation }) => {
             </TouchableOpacity>
           </View>
           
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.teacherCard}>
-              <View style={styles.teacherAvatar}>
-                <Ionicons name="person" size={32} color={colors.white} />
-              </View>
-              <Text style={styles.teacherName}>Dr. Smith</Text>
-              <Text style={styles.teacherSubject}>Physics</Text>
-              <View style={styles.teacherRating}>
-                <Ionicons name="star" size={14} color="#FFD700" />
-                <Text style={styles.ratingText}>4.9</Text>
-              </View>
+          {recommendedTeachers.length > 0 ? (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {recommendedTeachers.map((teacher) => (
+                <TouchableOpacity
+                  key={teacher.id}
+                  style={styles.teacherCard}
+                  onPress={() => navigation.navigate('TeacherProfileView', { teacherId: teacher.id })}
+                >
+                  <ProfileImagePicker
+                    imageUri={teacher.photoURL || teacher.profile?.photoURL}
+                    size={60}
+                    editable={false}
+                  />
+                  <Text style={styles.teacherName} numberOfLines={1}>
+                    {teacher.name || teacher.fullName || 'Teacher'}
+                  </Text>
+                  <Text style={styles.teacherSubject} numberOfLines={1}>
+                    {teacher.subjects?.[0] || teacher.profile?.subjects?.[0] || 'Various Subjects'}
+                  </Text>
+                  {teacher.rating && (
+                    <View style={styles.teacherRating}>
+                      <Ionicons name="star" size={14} color="#FFD700" />
+                      <Text style={styles.ratingText}>{teacher.rating.toFixed(1)}</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          ) : (
+            <View style={styles.emptyRecommended}>
+              <Ionicons name="people-outline" size={40} color={colors.textSecondary} />
+              <Text style={styles.emptyText}>No teachers available yet</Text>
+              <TouchableOpacity 
+                style={styles.exploreButton}
+                onPress={() => navigation.navigate('FindTeachers')}
+              >
+                <Text style={styles.exploreButtonText}>Explore Teachers</Text>
+              </TouchableOpacity>
             </View>
-
-            <View style={styles.teacherCard}>
-              <View style={styles.teacherAvatar}>
-                <Ionicons name="person" size={32} color={colors.white} />
-              </View>
-              <Text style={styles.teacherName}>Ms. Garcia</Text>
-              <Text style={styles.teacherSubject}>Spanish</Text>
-              <View style={styles.teacherRating}>
-                <Ionicons name="star" size={14} color="#FFD700" />
-                <Text style={styles.ratingText}>4.8</Text>
-              </View>
-            </View>
-
-            <View style={styles.teacherCard}>
-              <View style={styles.teacherAvatar}>
-                <Ionicons name="person" size={32} color={colors.white} />
-              </View>
-              <Text style={styles.teacherName}>Mr. Lee</Text>
-              <Text style={styles.teacherSubject}>Chemistry</Text>
-              <View style={styles.teacherRating}>
-                <Ionicons name="star" size={14} color="#FFD700" />
-                <Text style={styles.ratingText}>5.0</Text>
-              </View>
-            </View>
-          </ScrollView>
+          )}
         </View>
 
         {/* Quick Actions */}
@@ -721,20 +918,12 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 3,
   },
-  teacherAvatar: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
   teacherName: {
     fontSize: 14,
     fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
+    marginTop: 8,
     marginBottom: 4,
   },
   teacherSubject: {
@@ -752,6 +941,29 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.text,
+  },
+  emptyRecommended: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  exploreButton: {
+    marginTop: 16,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  exploreButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
   },
   quickActionsRow: {
     flexDirection: 'row',

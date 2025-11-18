@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../styles/commonStyles';
 import { useAppData } from '../../hooks/useAppData';
+import { useAuth } from '../../hooks/useAuth';
 import TagSelector from '../../components/TagSelector';
 import {
   SUBJECTS,
@@ -39,6 +40,7 @@ import { useSelector } from 'react-redux';
 import { selectUserCoords } from '../../store/slices/locationSlice';
 
 const FindTeachersScreen = ({ navigation }) => {
+  const { user } = useAuth();
   const { 
     teachers,          // Redux selector - suoraan array
     teachersLoading,   // Redux loading state
@@ -150,6 +152,15 @@ const FindTeachersScreen = ({ navigation }) => {
     }
 
     let filtered = [...teachers];
+
+    // Filter out current user's teacher profile (by email)
+    const currentUserEmail = user?.email?.toLowerCase();
+    if (currentUserEmail) {
+      filtered = filtered.filter(teacher => {
+        const teacherEmail = (teacher.email || '').toLowerCase();
+        return teacherEmail !== currentUserEmail;
+      });
+    }
 
     // Text search
     if (searchQuery.trim()) {

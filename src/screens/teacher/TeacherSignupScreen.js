@@ -837,7 +837,14 @@ const TeacherSignupScreen = ({ navigation, route }) => {
                 <Text style={styles.label}>Password *</Text>
                 <View style={styles.passwordContainer}>
                   <TextInput
-                    style={styles.passwordInput}
+                    style={{
+                      flex: 1,
+                      paddingHorizontal: 15,
+                      paddingVertical: 12,
+                      fontSize: 18,
+                      color: colors.text,
+                      fontFamily: Platform.OS === 'android' ? 'monospace' : undefined,
+                    }}
                     placeholder="Minimum 6 characters"
                     value={formData.password}
                     onChangeText={(text) => handleInputChange('password', text)}
@@ -890,7 +897,14 @@ const TeacherSignupScreen = ({ navigation, route }) => {
                 <Text style={styles.label}>Confirm Password *</Text>
                 <View style={styles.passwordContainer}>
                   <TextInput
-                    style={styles.passwordInput}
+                    style={{
+                      flex: 1,
+                      paddingHorizontal: 15,
+                      paddingVertical: 12,
+                      fontSize: 18,
+                      color: colors.text,
+                      fontFamily: Platform.OS === 'android' ? 'monospace' : undefined,
+                    }}
                     placeholder="Re-enter your password"
                     value={formData.confirmPassword}
                     onChangeText={(text) => handleInputChange('confirmPassword', text)}
@@ -1104,6 +1118,7 @@ const styles = StyleSheet.create({
   paddingHorizontal: 15,
   paddingVertical: 12,
   fontSize: 18,
+  fontFamily: Platform.OS === 'android' ? 'monospace' : undefined,
   },
   passwordLengthIndicator: {
   fontSize: 24,

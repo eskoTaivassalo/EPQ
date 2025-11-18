@@ -160,15 +160,43 @@ export const registerUser = createAsyncThunk(
         
         console.log('✅ Redux: Using existing Google user:', firebaseUser.email);
       } else {
-        // 📧 NORMAALI EMAIL/PASSWORD REKISTERÖINTI
-        console.log('📝 Redux: Creating new email/password user');
-        const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
-        firebaseUser = userCredential.user;
-        
-        // Päivitä Firebase Auth profile
-        await updateProfile(firebaseUser, {
-          displayName: userData.name || userData.fullName
-        });
+        // 📧 EMAIL/PASSWORD REKISTERÖINTI
+        // Tarkista onko käyttäjä jo kirjautunut samalla sähköpostilla
+        if (auth.currentUser && auth.currentUser.email.toLowerCase() === userData.email.toLowerCase()) {
+          console.log('📝 Redux: User already authenticated, adding new role profile');
+          firebaseUser = auth.currentUser;
+        } else {
+          // Luo uusi Firebase Auth käyttäjä
+          try {
+            console.log('📝 Redux: Creating new email/password user');
+            const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+            firebaseUser = userCredential.user;
+            
+            // Päivitä Firebase Auth profile
+            await updateProfile(firebaseUser, {
+              displayName: userData.name || userData.fullName
+            });
+          } catch (authError) {
+            // Jos sähköposti on jo käytössä, yritä kirjautua sisään
+            if (authError.code === 'auth/email-already-in-use') {
+              console.log('📝 Redux: Email exists, attempting sign in to add new role');
+              
+              if (!userData.password) {
+                throw new Error('Sähköposti on jo käytössä. Kirjaudu ensin sisään lisätäksesi uuden roolin.');
+              }
+              
+              try {
+                const signInResult = await signInWithEmailAndPassword(auth, userData.email, userData.password);
+                firebaseUser = signInResult.user;
+                console.log('✅ Redux: Signed in existing user to add new role');
+              } catch (signInError) {
+                throw new Error('Sähköposti on jo käytössä eri salasanalla. Kirjaudu ensin sisään olemassa olevalla tilillä.');
+              }
+            } else {
+              throw authError;
+            }
+          }
+        }
       }
 
       // Tallenna lisätiedot Firestore:een oikeaan kokoelmaan (teachers tai parents)

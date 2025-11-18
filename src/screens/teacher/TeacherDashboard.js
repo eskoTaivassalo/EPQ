@@ -39,12 +39,21 @@ const TeacherDashboard = ({ navigation }) => {
   }, [dispatch, user?.uid]);
 
   // Schedule notifications for upcoming bookings (teacher role)
+  // Only reschedule when booking COUNT changes to avoid excessive rescheduling
+  const bookingCount = bookings.length;
+  const confirmedCount = bookings.filter(b => 
+    b.status === 'accepted' || b.status === 'confirmed'
+  ).length;
+  
   useEffect(() => {
-    if (bookings.length > 0) {
-      console.log('📅 Scheduling notifications for teacher bookings...');
+    if (bookingCount > 0) {
+      console.log('📅 Scheduling notifications for teacher bookings...', {
+        total: bookingCount,
+        confirmed: confirmedCount
+      });
       NotificationService.scheduleAllUpcomingReminders(bookings, 'teacher');
     }
-  }, [bookings]);
+  }, [bookingCount, confirmedCount]); // Only when counts change, not on every booking update
 
   // Treat legacy 'booked' as pending as well
   const isPendingLike = (status) => status === 'pending' || status === 'booked';

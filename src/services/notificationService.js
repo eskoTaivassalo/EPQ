@@ -62,9 +62,16 @@ export async function scheduleBookingReminder(booking, userRole = 'parent') {
     // Schedule notification 5 minutes before booking
     const reminderTime = new Date(bookingDate.getTime() - 5 * 60 * 1000);
     
-    // Don't schedule if booking is in the past or less than 1 minute away
+    // Don't schedule if:
+    // 1. Reminder time is in the past
+    // 2. Booking is less than 30 minutes away (too soon to be useful, prevents spam)
+    const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
     if (reminderTime <= now) {
-      console.log('⏰ Booking too soon or in past, skipping reminder');
+      console.log('⏰ Reminder time in past, skipping');
+      return null;
+    }
+    if (bookingDate < thirtyMinutesFromNow) {
+      console.log('⏰ Booking less than 30 min away, skipping reminder to prevent spam');
       return null;
     }
 
@@ -121,6 +128,14 @@ export async function scheduleAllUpcomingReminders(bookings, userRole) {
     });
 
     console.log(`📅 Scheduling reminders for ${upcomingBookings.length} upcoming bookings`);
+    if (upcomingBookings.length > 0) {
+      console.log('📋 Booking details:', upcomingBookings.map(b => ({
+        id: b.id,
+        date: b.date,
+        status: b.status,
+        daysFromNow: Math.round((new Date(b.date) - now) / (1000 * 60 * 60 * 24))
+      })));
+    }
 
     const scheduled = await Promise.all(
       upcomingBookings.map(booking => scheduleBookingReminder(booking, userRole))

@@ -38,6 +38,7 @@ import FavoritesScreen from './src/screens/parent/FavoritesScreen';
 import ParentBookingsScreen from './src/screens/parent/ParentBookingsScreen';
 import TeacherAvailableSlotsScreen from './src/screens/parent/TeacherAvailableSlotsScreen';
 import TeacherWeeklyAvailabilityScreen from './src/screens/parent/TeacherWeeklyAvailabilityScreen';
+import TeacherProfileViewScreen from './src/screens/parent/TeacherProfileViewScreen';
 
 // Screens - Shared
 import FindTeachersScreen from './src/screens/shared/FindTeachersScreen';
@@ -219,6 +220,7 @@ const AppNavigator = () => {
                 <Stack.Screen name="ParentProfile" component={ParentProfileScreen} />
                 <Stack.Screen name="ParentFavorites" component={FavoritesScreen} />
                 <Stack.Screen name="FindTeachers" component={FindTeachersScreen} />
+                <Stack.Screen name="TeacherProfileView" component={TeacherProfileViewScreen} />
                 <Stack.Screen name="ParentBookings" component={ParentBookingsScreen} />
                 <Stack.Screen name="TeacherAvailableSlots" component={TeacherAvailableSlotsScreen} />
                 <Stack.Screen name="TeacherWeeklyAvailability" component={TeacherWeeklyAvailabilityScreen} />
