@@ -20,7 +20,7 @@ import ProfileImagePicker from '../../components/ProfileImagePicker';
 import { AuthService } from '../../services/authService';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ensurePermissionAndCoords } from '../../services/locationService';
-import { db } from '../../config/firebaseConfig';
+import { db, auth } from '../../config/firebaseConfig';
 import {
   SUBJECTS,
   EDUCATION_LEVELS,
@@ -658,7 +658,7 @@ const TeacherMyProfileScreen = ({ navigation }) => {
                 editable={false}
               />
               <Text style={styles.profileName}>{profileData?.name || user?.name || 'Teacher'}</Text>
-              <Text style={styles.profileEmail}>{profileData?.email || user?.email}</Text>
+              <Text style={styles.profileEmail}>{auth?.currentUser?.email || profileData?.email || user?.email}</Text>
               {profileData?.phone && (
                 <Text style={styles.profilePhone}>{profileData.phone}</Text>
               )}

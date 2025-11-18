@@ -84,22 +84,31 @@ export const createBooking = createAsyncThunk(
 
 export const fetchParentBookings = createAsyncThunk(
   'bookings/fetchParentBookings',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
       console.log('[fetchParentBookings] Starting fetch...');
       
-      // Wait a bit for auth to initialize if needed
-      if (!auth?.currentUser) {
+      // Prefer Firebase auth, but fall back to Redux user if needed
+      let uid = auth?.currentUser?.uid;
+      if (!uid) {
+        const state = getState?.();
+        uid = state?.auth?.user?.uid;
+      }
+
+      // Small retry window to allow auth hydration
+      if (!uid) {
         console.log('[fetchParentBookings] Auth not ready, waiting...');
-        await new Promise(resolve => setTimeout(resolve, 100));
-        if (!auth?.currentUser) {
-          console.error('[fetchParentBookings] Still not authenticated after wait');
-          throw new Error('Not authenticated');
-        }
+        await new Promise(resolve => setTimeout(resolve, 150));
+        uid = auth?.currentUser?.uid || getState?.()?.auth?.user?.uid;
+      }
+
+      if (!uid) {
+        console.error('[fetchParentBookings] Still not authenticated after wait');
+        return rejectWithValue('Not authenticated');
       }
       
-      console.log('[fetchParentBookings] Fetching for parentId:', auth.currentUser.uid);
-      const q = query(collection(db, 'bookings'), where('parentId', '==', auth.currentUser.uid));
+      console.log('[fetchParentBookings] Fetching for parentId:', uid);
+      const q = query(collection(db, 'bookings'), where('parentId', '==', uid));
       const snap = await getDocs(q);
       
       const bookings = snap.docs.map(d => {
@@ -119,23 +128,30 @@ export const fetchParentBookings = createAsyncThunk(
 
 export const fetchTeacherBookings = createAsyncThunk(
   'bookings/fetchTeacherBookings',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
       console.log('[fetchTeacherBookings] Starting fetch...');
       
-      // Wait a bit for auth to initialize if needed
-      if (!auth?.currentUser) {
-        console.log('[fetchTeacherBookings] Auth not ready, waiting...');
-        await new Promise(resolve => setTimeout(resolve, 100));
+      // Prefer Firebase auth, but fall back to Redux user if needed
+      let uid = auth?.currentUser?.uid;
+      if (!uid) {
+        const state = getState?.();
+        uid = state?.auth?.user?.uid;
       }
-      
-      if (!auth?.currentUser) {
+
+      if (!uid) {
+        console.log('[fetchTeacherBookings] Auth not ready, waiting...');
+        await new Promise(resolve => setTimeout(resolve, 150));
+        uid = auth?.currentUser?.uid || getState?.()?.auth?.user?.uid;
+      }
+
+      if (!uid) {
         console.error('[fetchTeacherBookings] Still not authenticated after wait');
         return rejectWithValue('Not authenticated');
       }
       
-      console.log('[fetchTeacherBookings] Current user:', auth.currentUser.uid);
-      const q = query(collection(db, 'bookings'), where('teacherId', '==', auth.currentUser.uid));
+      console.log('[fetchTeacherBookings] Current user:', uid);
+      const q = query(collection(db, 'bookings'), where('teacherId', '==', uid));
       const snap = await getDocs(q);
       const docs = Array.isArray(snap?.docs) ? snap.docs : [];
       console.log('[fetchTeacherBookings] Found', docs.length, 'bookings');

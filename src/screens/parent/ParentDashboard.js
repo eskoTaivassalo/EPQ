@@ -5,8 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  TextInput,
-  Linking
+  Linking,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -17,18 +17,16 @@ import SimpleDrawer from '../../components/SimpleDrawer';
 import { useAppData } from '../../hooks/useAppData';
 import { fetchParentBookings, selectBookings } from '../../store/slices/bookingsSlice';
 import * as NotificationService from '../../services/notificationService';
-import { initDeviceLocation, setManualCity } from '../../store/slices/locationSlice';
-import { selectLocation } from '../../store/slices/locationSlice';
+import { initDeviceLocation } from '../../store/slices/locationSlice';
 import { colors, commonStyles } from '../../styles/commonStyles';
 
 const ParentDashboard = ({ navigation }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const dispatch = useDispatch();
   const bookings = useSelector(selectBookings) || [];
   const { getFavoriteTeachers, loadFavorites, getTeacherById } = useAppData();
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const location = useSelector(selectLocation);
-  const [manualCity, setManualCityInput] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (user?.uid) {
@@ -88,6 +86,20 @@ const ParentDashboard = ({ navigation }) => {
   React.useEffect(() => {
     loadFavorites().catch(() => {});
   }, []);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await refreshUser();
+      if (user?.uid) {
+        await dispatch(fetchParentBookings());
+      }
+    } catch (error) {
+      console.error('Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const menuItems = [
     {
@@ -197,47 +209,19 @@ const ParentDashboard = ({ navigation }) => {
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Location Pref Banner */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Your Location</Text>
-            {location?.source === 'device' && (
-              <TouchableOpacity onPress={() => dispatch(initDeviceLocation())}>
-                <Text style={styles.seeAllText}>Refresh</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          {location?.permission === 'granted' && location?.city ? (
-            <View style={styles.locationCard}>
-              <Ionicons name="location" size={20} color={colors.primary} />
-              <Text style={styles.locationText}>Using your location: {location.city}</Text>
-            </View>
-          ) : (
-            <View style={styles.manualLocationContainer}>
-              <Text style={styles.manualLocationLabel}>Type your city (if you don't allow location):</Text>
-              <View style={styles.manualRow}>
-                <TextInput
-                  style={styles.manualInput}
-                  placeholder="e.g. Helsinki"
-                  value={manualCity}
-                  onChangeText={setManualCityInput}
-                />
-                <TouchableOpacity
-                  style={styles.manualButton}
-                  onPress={() => manualCity.trim() && dispatch(setManualCity(manualCity.trim()))}
-                >
-                  <Text style={styles.manualButtonText}>Set</Text>
-                </TouchableOpacity>
-              </View>
-              {location?.city && location?.source === 'manual' && (
-                <Text style={styles.manualStatus}>Manual location set to: {location.city}</Text>
-              )}
-            </View>
-          )}
-        </View>
-        {/* Child's Upcoming Lessons */}
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
+        {/* Upcoming Lessons */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Upcoming Lessons</Text>

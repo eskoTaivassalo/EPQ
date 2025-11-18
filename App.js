@@ -46,19 +46,19 @@ import CalendarScreen from './src/screens/shared/CalendarScreen';
 import ConversationsScreen from './src/screens/shared/ConversationsScreen';
 import ConversationThreadScreen from './src/screens/shared/ConversationThreadScreen';
 import SettingsScreen from './src/screens/shared/SettingsScreen';
+import LegalDocumentScreen from './src/screens/shared/LegalDocumentScreen';
+import ChangeEmailScreen from './src/screens/shared/ChangeEmailScreen';
 
 // Screens - Dev
 import SecurityTestScreen from './src/screens/dev/SecurityTestScreen';
 // Drawer removed due to Reanimated issues
 
 // Components
-import CookieConsentBanner from './src/components/CookieConsentBanner';
 import NotificationBell from './src/components/NotificationBell';
 // ChatButton removed from header to reduce duplication; messages accessible via Tools/menus
 // import ChatButton from './src/components/ChatButton';
 
 // Services
-import GDPRService from './src/services/gdprService';
 import { AuthService } from './src/services/authService';
 import * as NotificationService from './src/services/notificationService';
 import { requestForegroundPermissions as requestLocationPermissions } from './src/services/locationService';
@@ -79,14 +79,12 @@ const Loading = () => (
 // Navigation component that uses Redux auth
 
 import { useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Linking } from 'react-native';
 
 const AppNavigator = () => {
   const dispatch = useDispatch();
   const { user, loading, isAuthenticated, loadStoredAuth } = useAuth();
   const [emailVerifiedDelay, setEmailVerifiedDelay] = useState(false);
-  const [showConsentBanner, setShowConsentBanner] = useState(false);
 
   // Initialize global error logger once
   useEffect(() => {
@@ -126,18 +124,6 @@ const AppNavigator = () => {
     }
   }, [isAuthenticated, user?.uid, dispatch]);
 
-  // 🧪 TESTAUS: Näytä banner aina kun kirjaudutaan sisään
-  useEffect(() => {
-    console.log('🔍 DEBUG - isAuthenticated:', isAuthenticated);
-    console.log('🔍 DEBUG - user:', user);
-    
-    if (isAuthenticated && user) {
-      console.log('🧪 TESTING MODE: Showing GDPR banner on every login');
-      setShowConsentBanner(true);
-      console.log('🧪 Banner state set to TRUE');
-    }
-  }, [isAuthenticated, user]); // ✅ KORJATTU: Poistettu showConsentBanner dependencies-listasta
-
   // Viivästetään email verification -näkymän näyttöä päivityksen jälkeen
   useEffect(() => {
     if (isAuthenticated && user && !user.emailVerified) {
@@ -148,33 +134,6 @@ const AppNavigator = () => {
       setEmailVerifiedDelay(false);
     }
   }, [isAuthenticated, user?.emailVerified]);
-
-  const handleConsentGiven = async (consents) => {
-    console.log('📥 handleConsentGiven RECEIVED in App.js');
-    console.log('✅ User consents saved:', consents);
-    
-    console.log('🔄 Setting showConsentBanner to FALSE');
-    setShowConsentBanner(false);
-    console.log('✅ showConsentBanner state updated');
-
-    // Jos analytics-suostumus annettu, voi initata analytics
-    if (consents.analytics) {
-      console.log('📊 Analytics consent given - can initialize analytics');
-      // TODO: await initializeAnalytics();
-    }
-
-    // Jos marketing-suostumus annettu
-    if (consents.marketing) {
-      console.log('📢 Marketing consent given');
-      // TODO: await initializeMarketing();
-    }
-
-    // Jos personalization-suostumus annettu
-    if (consents.personalization) {
-      console.log('🎨 Personalization consent given');
-      // TODO: Enable personalized content
-    }
-  };
 
   // Setup notification tap handler - open meeting link when notification is tapped
   useEffect(() => {
@@ -210,6 +169,7 @@ const AppNavigator = () => {
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="TeacherSignup" component={TeacherSignupScreen} />
             <Stack.Screen name="ParentSignup" component={ParentSignupScreen} />
+            <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
           </>
         ) : !user?.emailVerified ? (
           // 📧 Email verification required screen
@@ -242,6 +202,8 @@ const AppNavigator = () => {
                   component={SettingsScreen}
                   options={{ title: 'Settings' }}
                 />
+                <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
+                <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
                 <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
               </>
             ) : (
@@ -267,20 +229,14 @@ const AppNavigator = () => {
                   component={SettingsScreen}
                   options={{ title: 'Settings' }}
                 />
+                <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
+                <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
                 <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
               </>
             )}
           </>
         )}
       </Stack.Navigator>
-      {console.log('🎨 RENDER - showConsentBanner:', showConsentBanner)}
-      {showConsentBanner && (
-        <CookieConsentBanner 
-          onConsentGiven={handleConsentGiven}
-          forceShow={true}  // 🧪 TESTAUS: Pakota banner näkyviin
-        />
-      )}
-      {showConsentBanner && console.log('🎨 CookieConsentBanner should be visible!')}
     </NavigationContainer>
   );
 };

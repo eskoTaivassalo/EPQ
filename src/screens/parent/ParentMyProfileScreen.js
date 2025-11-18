@@ -14,7 +14,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../styles/commonStyles';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../config/firebaseConfig';
+import { db, auth } from '../../config/firebaseConfig';
 import {
   SUBJECTS,
   EDUCATION_LEVELS,
@@ -130,7 +130,7 @@ const ParentMyProfileScreen = ({ navigation }) => {
             editable={false}
           />
           <Text style={styles.profileName}>{profileData?.name || user?.name || 'Parent'}</Text>
-          <Text style={styles.profileEmail}>{profileData?.email || user?.email}</Text>
+          <Text style={styles.profileEmail}>{auth?.currentUser?.email || profileData?.email || user?.email}</Text>
           <Text style={styles.profileType}>Parent</Text>
         </View>
 

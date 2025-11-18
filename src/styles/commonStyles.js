@@ -7,9 +7,11 @@ export const colors = {
   white: '#FFFFFF',
   text: '#333333',
   textLight: '#666666',
+  textSecondary: '#999999',
   border: '#E0E0E0',
   error: '#F44336',
-  success: '#4CAF50'
+  success: '#4CAF50',
+  warning: '#FF9800'
 };
 
 export const commonStyles = StyleSheet.create({

@@ -7,7 +7,9 @@ import {
   TouchableOpacity, 
   Switch, 
   Alert,
-  Platform 
+  Platform,
+  ActivityIndicator,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,10 +17,11 @@ import { colors, commonStyles } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 
 export default function SettingsScreen({ navigation }) {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -56,6 +59,43 @@ export default function SettingsScreen({ navigation }) {
         },
       ]
     );
+  };
+
+  const handleRefreshProfile = async () => {
+    setRefreshing(true);
+    try {
+      await refreshUser();
+      // Ei näytetä alertia pull-to-refresh:ssä, vain kun painetaan nappia
+    } catch (error) {
+      console.error('Refresh error:', error);
+      Alert.alert('Error', 'Failed to refresh profile. Please try again.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleManualRefresh = async () => {
+    await handleRefreshProfile();
+    if (!refreshing) {
+      Alert.alert('Success', 'Profile information refreshed!');
+    }
+  };
+
+  const showDebugInfo = () => {
+    const userInfo = `
+Email: ${user?.email || 'N/A'}
+UID: ${user?.uid || 'N/A'}
+Role: ${user?.role || 'N/A'}
+Type: ${user?.type || 'N/A'}
+UserType: ${user?.userType || 'N/A'}
+Name: ${user?.name || user?.fullName || 'N/A'}
+EmailVerified: ${user?.emailVerified ? 'Yes' : 'No'}
+    `.trim();
+    
+    Alert.alert('User Debug Info', userInfo, [
+      { text: 'Copy to Console', onPress: () => console.log('User Object:', user) },
+      { text: 'OK' }
+    ]);
   };
 
   const SettingItem = ({ icon, title, subtitle, onPress, showArrow = true, iconColor = colors.primary }) => (
@@ -100,10 +140,33 @@ export default function SettingsScreen({ navigation }) {
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Settings</Text>
-        <View style={styles.backButton} />
+        <TouchableOpacity 
+          onPress={handleManualRefresh}
+          style={styles.backButton}
+          disabled={refreshing}
+        >
+          <Ionicons 
+            name={refreshing ? "hourglass-outline" : "refresh"} 
+            size={24} 
+            color={refreshing ? colors.textSecondary : colors.text} 
+          />
+        </TouchableOpacity>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.scrollView} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefreshProfile}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+            title="Pull to refresh"
+            titleColor={colors.textSecondary}
+          />
+        }
+      >
         {/* Account Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>ACCOUNT</Text>
@@ -117,9 +180,9 @@ export default function SettingsScreen({ navigation }) {
             <View style={styles.divider} />
             <SettingItem
               icon="mail-outline"
-              title="Email"
+              title="Change Email"
               subtitle={user?.email || 'Not set'}
-              onPress={() => Alert.alert('Info', 'Email change will be implemented soon.')}
+              onPress={() => navigation.navigate('ChangeEmail')}
             />
             <View style={styles.divider} />
             <SettingItem
@@ -168,22 +231,26 @@ export default function SettingsScreen({ navigation }) {
             <SettingItem
               icon="shield-checkmark-outline"
               title="Privacy Policy"
-              subtitle="Read our privacy policy"
-              onPress={() => Alert.alert('Info', 'Privacy policy will open here.')}
+              subtitle="How we handle your data"
+              onPress={() => navigation.navigate('LegalDocument', { type: 'privacy' })}
             />
             <View style={styles.divider} />
             <SettingItem
               icon="document-text-outline"
-              title="Terms of Service"
-              subtitle="Read our terms"
-              onPress={() => Alert.alert('Info', 'Terms of service will open here.')}
+              title="Terms & Conditions"
+              subtitle="Read our terms of service"
+              onPress={() => navigation.navigate('LegalDocument', { type: 'terms' })}
             />
             <View style={styles.divider} />
             <SettingItem
-              icon="finger-print-outline"
-              title="GDPR Settings"
-              subtitle="Manage your data preferences"
-              onPress={() => Alert.alert('Info', 'GDPR settings will be implemented soon.')}
+              icon="information-circle-outline"
+              title="Data Storage"
+              subtitle="Device storage + Firebase cloud"
+              onPress={() => Alert.alert(
+                'Data Storage',
+                'Your data is stored securely:\n\n• Locally on your device (AsyncStorage)\n• In Firebase cloud services (Google)\n\nWe do NOT use cookies. This is a mobile app.\n\nYou can export or delete your data anytime from Settings.',
+                [{ text: 'OK' }]
+              )}
             />
           </View>
         </View>
@@ -211,6 +278,13 @@ export default function SettingsScreen({ navigation }) {
               title="About"
               subtitle="Version 1.0.0"
               onPress={() => Alert.alert('EPQ', 'Version 1.0.0\n\nEducation • Professional • Quorum\n\nConnecting parents with qualified teachers worldwide.')}
+            />
+            <View style={styles.divider} />
+            <SettingItem
+              icon="bug-outline"
+              title="Debug User Info"
+              subtitle="Show current user data"
+              onPress={showDebugInfo}
             />
           </View>
         </View>

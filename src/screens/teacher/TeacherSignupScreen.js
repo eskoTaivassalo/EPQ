@@ -925,20 +925,34 @@ const TeacherSignupScreen = ({ navigation, route }) => {
           )}
 
           <View style={styles.checkboxSection}>
-            <TouchableOpacity
-              style={styles.checkboxRow}
-              onPress={() => handleInputChange('acceptTerms', !formData.acceptTerms)}
-            >
-              <Ionicons 
-                name={formData.acceptTerms ? "checkbox" : "square-outline"} 
-                size={24} 
-                color={colors.primary} 
-              />
+            <View style={styles.checkboxRow}>
+              <TouchableOpacity
+                onPress={() => handleInputChange('acceptTerms', !formData.acceptTerms)}
+              >
+                <Ionicons 
+                  name={formData.acceptTerms ? "checkbox" : "square-outline"} 
+                  size={24} 
+                  color={colors.primary} 
+                />
+              </TouchableOpacity>
               <Text style={styles.checkboxText}>
-                I agree to the <Text style={styles.linkText}>Terms and Conditions</Text> and{' '}
-                <Text style={styles.linkText}>Privacy Policy</Text> *
+                I agree to the{' '}
+                <Text 
+                  style={styles.linkText}
+                  onPress={() => navigation.navigate('LegalDocument', { type: 'terms' })}
+                >
+                  Terms and Conditions
+                </Text>{' '}
+                and{' '}
+                <Text 
+                  style={styles.linkText}
+                  onPress={() => navigation.navigate('LegalDocument', { type: 'privacy' })}
+                >
+                  Privacy Policy
+                </Text>
+                . I understand my data will be stored securely on the device and Firebase cloud services. *
               </Text>
-            </TouchableOpacity>
+            </View>
 
             <TouchableOpacity
               style={styles.checkboxRow}

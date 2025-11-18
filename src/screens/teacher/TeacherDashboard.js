@@ -4,7 +4,8 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  ScrollView
+  ScrollView,
+  RefreshControl
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Linking } from 'react-native';
@@ -20,11 +21,12 @@ import AppLogo from '../../components/AppLogo';
 import { colors, commonStyles } from '../../styles/commonStyles';
 
 const TeacherDashboard = ({ navigation }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const dispatch = useDispatch();
   const bookings = useSelector(selectBookings) || [];
   const { getParentById } = useAppData();
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     // Only fetch if user is authenticated
@@ -265,6 +267,22 @@ const TeacherDashboard = ({ navigation }) => {
 
   const handleMenuPress = (item) => navigation.navigate(item.screen);
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      // Refresh user data
+      await refreshUser();
+      // Refresh bookings
+      if (user?.uid) {
+        await dispatch(fetchTeacherBookings());
+      }
+    } catch (error) {
+      console.error('Refresh error:', error);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   const handleLogout = async () => {
     console.log('🚪 TeacherDashboard: Logout button pressed');
     try {
@@ -303,7 +321,18 @@ const TeacherDashboard = ({ navigation }) => {
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
+      >
         {/* Upcoming Lessons (from accepted/confirmed bookings) */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>

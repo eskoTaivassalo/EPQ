@@ -5,7 +5,7 @@ import {
   signOut,
   updateProfile
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '../../config/firebaseConfig';
 import AuthService from '../../services/authService';
@@ -84,8 +84,33 @@ export const loginUser = createAsyncThunk(
       };
 
       if (userDoc && userDoc.exists()) {
-        userData = { ...userData, ...userDoc.data() };
+        const firestoreData = userDoc.data();
+        userData = { ...userData, ...firestoreData };
         console.log(`✅ Redux: User data found in ${userCollection} collection`);
+        
+        // 🔄 SYNC EMAIL: Check if Firebase Auth email differs from Firestore email
+        if (firebaseUser.email !== firestoreData.email) {
+          console.log(`🔄 Redux: Email mismatch detected!`);
+          console.log(`   Firebase Auth email: ${firebaseUser.email}`);
+          console.log(`   Firestore email: ${firestoreData.email}`);
+          console.log(`   Updating Firestore with new email...`);
+          
+          try {
+            const userDocRef = doc(db, userCollection, firebaseUser.uid);
+            await updateDoc(userDocRef, {
+              email: firebaseUser.email,
+              updatedAt: new Date().toISOString()
+            });
+            
+            // Update userData to reflect the new email
+            userData.email = firebaseUser.email;
+            
+            console.log(`✅ Redux: Firestore email updated to ${firebaseUser.email}`);
+          } catch (updateError) {
+            console.error('❌ Redux: Failed to update Firestore email:', updateError);
+            // Continue with login even if update fails
+          }
+        }
       } else {
         console.warn('⚠️ Redux: User authenticated but no profile data found in teachers or parents collections');
       }
@@ -275,14 +300,41 @@ export const refreshUser = createAsyncThunk(
 
 export const loadStoredAuth = createAsyncThunk(
   'auth/loadStoredAuth',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch }) => {
     try {
       console.log('💾 Redux: Loading stored auth from AsyncStorage');
       const storedUser = await AsyncStorage.getItem('user');
       
       if (storedUser) {
         console.log('💾 Redux: Found stored user data');
-        return JSON.parse(storedUser);
+        const userData = JSON.parse(storedUser);
+        
+        // Wait a moment for Firebase to initialize
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Check if Firebase Auth session exists
+        if (!auth?.currentUser) {
+          console.error('⚠️ CRITICAL: Firebase Auth session expired!');
+          console.error('⚠️ User is in Redux but not in Firebase Auth');
+          console.error('⚠️ Clearing stored data and requiring re-login');
+          
+          // Clear everything and force re-login
+          await AsyncStorage.removeItem('user');
+          
+          if (auth) {
+            try {
+              await signOut(auth);
+            } catch (e) {
+              console.log('Signout error (expected):', e.message);
+            }
+          }
+          
+          // Alert will be shown by app when user becomes null
+          return null; // This will log the user out
+        }
+        
+        console.log('✅ Firebase Auth session verified for:', auth.currentUser.email);
+        return userData;
       }
       
       console.log('💾 Redux: No stored user data found');
