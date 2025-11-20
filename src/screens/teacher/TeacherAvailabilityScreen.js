@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
-import TagSelector from '../../components/TagSelector';
-import { AVAILABILITY } from '../../constants/tags';
 import { generateAvailabilitySlots } from '../../services/availabilityService';
 
 const DAYS = [
@@ -21,38 +19,59 @@ const DAYS = [
 export default function TeacherAvailabilityScreen({ navigation }) {
   const { user } = useAuth();
   const [daysOfWeek, setDaysOfWeek] = useState([1,2,3,4,5]);
-  const [startTime, setStartTime] = useState('09:00');
-  const [endTime, setEndTime] = useState('16:00');
-  const [durationMin, setDurationMin] = useState('60');
-  const [rangeDays, setRangeDays] = useState('30');
+  
+  // Use hours as numbers for sliders (0-24)
+  const [startHour, setStartHour] = useState(9);
+  const [startMinute, setStartMinute] = useState(0);
+  const [endHour, setEndHour] = useState(16);
+  const [endMinute, setEndMinute] = useState(0);
+  
+  const [durationMin, setDurationMin] = useState(60);
+  const [rangeDays, setRangeDays] = useState(30);
   const [loading, setLoading] = useState(false);
 
   const toggleDay = (dayId) => {
     setDaysOfWeek(prev => prev.includes(dayId) ? prev.filter(d => d !== dayId) : [...prev, dayId]);
   };
+  
+  // Format time helpers
+  const formatTime = (hour, minute) => {
+    return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+  };
 
   const handleGenerate = async () => {
     if (!user?.uid) return Alert.alert('Error', 'Not authenticated');
-    const dur = parseInt(durationMin, 10);
-    const rdays = parseInt(rangeDays, 10);
-    if (!dur || dur < 15) return Alert.alert('Error', 'Duration must be at least 15 minutes');
-    if (!rdays || rdays < 1) return Alert.alert('Error', 'Range days must be >= 1');
+    
+    // Validation
+    if (daysOfWeek.length === 0) {
+      return Alert.alert('Error', 'Please select at least one day');
+    }
+    
+    const startTimeStr = formatTime(startHour, startMinute);
+    const endTimeStr = formatTime(endHour, endMinute);
+    
+    // Check that end time is after start time
+    const startMins = startHour * 60 + startMinute;
+    const endMins = endHour * 60 + endMinute;
+    if (endMins <= startMins) {
+      return Alert.alert('Error', 'End time must be after start time');
+    }
 
     setLoading(true);
     try {
       const start = new Date();
       const end = new Date();
-      end.setDate(end.getDate() + rdays);
+      end.setDate(end.getDate() + rangeDays);
 
       const result = await generateAvailabilitySlots(
         user.uid,
-        { daysOfWeek, startTime, endTime, durationMin: dur },
+        { daysOfWeek, startTime: startTimeStr, endTime: endTimeStr, durationMin },
         start,
         end,
         { locationType: 'online' }
       );
 
-      Alert.alert('Slots generated', `${result.createdCount} slots created/updated`);
+      Alert.alert('Success! 🎉', `${result.createdCount} time slots created`);
       navigation.goBack();
     } catch (e) {
       console.error('Generate slots error', e);
@@ -73,39 +92,166 @@ export default function TeacherAvailabilityScreen({ navigation }) {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.sectionTitle}>Weekly template</Text>
+        <Text style={styles.sectionTitle}>Select Days</Text>
         <View style={styles.daysRow}>
           {DAYS.map(d => (
-            <TouchableOpacity key={d.id} style={[styles.dayChip, daysOfWeek.includes(d.id) && styles.dayChipSelected]} onPress={() => toggleDay(d.id)}>
-              <Text style={[styles.dayChipText, daysOfWeek.includes(d.id) && styles.dayChipTextSelected]}>{d.label}</Text>
+            <TouchableOpacity 
+              key={d.id} 
+              style={[styles.dayChip, daysOfWeek.includes(d.id) && styles.dayChipSelected]} 
+              onPress={() => toggleDay(d.id)}
+            >
+              <Text style={[styles.dayChipText, daysOfWeek.includes(d.id) && styles.dayChipTextSelected]}>
+                {d.label}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        <View style={styles.row}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Start time</Text>
-            <TextInput style={styles.input} value={startTime} onChangeText={setStartTime} placeholder="09:00" />
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>End time</Text>
-            <TextInput style={styles.input} value={endTime} onChangeText={setEndTime} placeholder="16:00" />
+        {/* Start Time */}
+        <View style={styles.timeSection}>
+          <Text style={styles.label}>Start Time</Text>
+          <Text style={styles.timeDisplay}>{formatTime(startHour, startMinute)}</Text>
+          
+          <View style={styles.timeRow}>
+            <View style={styles.timeControl}>
+              <Text style={styles.timeLabel}>Hour</Text>
+              <View style={styles.controlRow}>
+                <TouchableOpacity 
+                  style={styles.controlButton} 
+                  onPress={() => setStartHour(Math.max(0, startHour - 1))}
+                >
+                  <Ionicons name="remove" size={24} color={colors.primary} />
+                </TouchableOpacity>
+                <Text style={styles.controlValue}>{startHour}</Text>
+                <TouchableOpacity 
+                  style={styles.controlButton} 
+                  onPress={() => setStartHour(Math.min(23, startHour + 1))}
+                >
+                  <Ionicons name="add" size={24} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            <View style={styles.timeControl}>
+              <Text style={styles.timeLabel}>Minute</Text>
+              <View style={styles.controlRow}>
+                <TouchableOpacity 
+                  style={styles.controlButton} 
+                  onPress={() => setStartMinute(Math.max(0, startMinute - 15))}
+                >
+                  <Ionicons name="remove" size={24} color={colors.primary} />
+                </TouchableOpacity>
+                <Text style={styles.controlValue}>{startMinute}</Text>
+                <TouchableOpacity 
+                  style={styles.controlButton} 
+                  onPress={() => setStartMinute(Math.min(45, startMinute + 15))}
+                >
+                  <Ionicons name="add" size={24} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
 
-        <View style={styles.row}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Slot duration (min)</Text>
-            <TextInput style={styles.input} value={durationMin} onChangeText={setDurationMin} keyboardType="number-pad" placeholder="60" />
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Generate next (days)</Text>
-            <TextInput style={styles.input} value={rangeDays} onChangeText={setRangeDays} keyboardType="number-pad" placeholder="30" />
+        {/* End Time */}
+        <View style={styles.timeSection}>
+          <Text style={styles.label}>End Time</Text>
+          <Text style={styles.timeDisplay}>{formatTime(endHour, endMinute)}</Text>
+          
+          <View style={styles.timeRow}>
+            <View style={styles.timeControl}>
+              <Text style={styles.timeLabel}>Hour</Text>
+              <View style={styles.controlRow}>
+                <TouchableOpacity 
+                  style={styles.controlButton} 
+                  onPress={() => setEndHour(Math.max(0, endHour - 1))}
+                >
+                  <Ionicons name="remove" size={24} color={colors.primary} />
+                </TouchableOpacity>
+                <Text style={styles.controlValue}>{endHour}</Text>
+                <TouchableOpacity 
+                  style={styles.controlButton} 
+                  onPress={() => setEndHour(Math.min(23, endHour + 1))}
+                >
+                  <Ionicons name="add" size={24} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+            
+            <View style={styles.timeControl}>
+              <Text style={styles.timeLabel}>Minute</Text>
+              <View style={styles.controlRow}>
+                <TouchableOpacity 
+                  style={styles.controlButton} 
+                  onPress={() => setEndMinute(Math.max(0, endMinute - 15))}
+                >
+                  <Ionicons name="remove" size={24} color={colors.primary} />
+                </TouchableOpacity>
+                <Text style={styles.controlValue}>{endMinute}</Text>
+                <TouchableOpacity 
+                  style={styles.controlButton} 
+                  onPress={() => setEndMinute(Math.min(45, endMinute + 15))}
+                >
+                  <Ionicons name="add" size={24} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
 
-        <TouchableOpacity style={[styles.generateButton, loading && { opacity: 0.6 }]} onPress={handleGenerate} disabled={loading}>
-          <Text style={styles.generateButtonText}>{loading ? 'Generating…' : 'Generate slots'}</Text>
+        {/* Lesson Duration */}
+        <View style={styles.timeSection}>
+          <Text style={styles.label}>Lesson Duration</Text>
+          <Text style={styles.timeDisplay}>{durationMin} min</Text>
+          
+          <View style={styles.controlRow}>
+            <TouchableOpacity 
+              style={styles.controlButton} 
+              onPress={() => setDurationMin(Math.max(15, durationMin - 15))}
+            >
+              <Ionicons name="remove" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.controlValue}>{durationMin} min</Text>
+            <TouchableOpacity 
+              style={styles.controlButton} 
+              onPress={() => setDurationMin(Math.min(180, durationMin + 15))}
+            >
+              <Ionicons name="add" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Range Days */}
+        <View style={styles.timeSection}>
+          <Text style={styles.label}>Generate for Next</Text>
+          <Text style={styles.timeDisplay}>{rangeDays} days</Text>
+          
+          <View style={styles.controlRow}>
+            <TouchableOpacity 
+              style={styles.controlButton} 
+              onPress={() => setRangeDays(Math.max(1, rangeDays - 7))}
+            >
+              <Ionicons name="remove" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.controlValue}>{rangeDays} days</Text>
+            <TouchableOpacity 
+              style={styles.controlButton} 
+              onPress={() => setRangeDays(Math.min(90, rangeDays + 7))}
+            >
+              <Ionicons name="add" size={24} color={colors.primary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <TouchableOpacity 
+          style={[styles.generateButton, loading && { opacity: 0.6 }]} 
+          onPress={handleGenerate} 
+          disabled={loading}
+        >
+          <Ionicons name="calendar" size={20} color={colors.white} style={{ marginRight: 8 }} />
+          <Text style={styles.generateButtonText}>
+            {loading ? 'Generating...' : 'Generate Time Slots'}
+          </Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -119,15 +265,82 @@ const styles = StyleSheet.create({
   headerTitle: { color: colors.white, fontSize: 18, fontWeight: 'bold' },
   content: { padding: 20 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 12 },
-  daysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  daysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
   dayChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
   dayChipSelected: { backgroundColor: colors.primary, borderColor: colors.primary },
   dayChipText: { color: colors.text },
   dayChipTextSelected: { color: colors.white },
-  row: { flexDirection: 'row', gap: 12 },
-  inputGroup: { flex: 1, marginBottom: 16 },
-  label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 6 },
-  input: { backgroundColor: colors.white, borderRadius: 8, padding: 12, borderWidth: 1, borderColor: colors.border },
-  generateButton: { backgroundColor: colors.secondary, padding: 16, borderRadius: 10, alignItems: 'center', marginTop: 10 },
+  label: { 
+    fontSize: 14, 
+    fontWeight: '600', 
+    color: colors.text, 
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  timeSection: { 
+    marginBottom: 24, 
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: colors.white, 
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+  },
+  timeDisplay: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginVertical: 12,
+  },
+  timeRow: {
+    flexDirection: 'row',
+    gap: 20,
+    width: '100%',
+    justifyContent: 'space-around',
+  },
+  timeControl: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  timeLabel: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    fontWeight: '500',
+  },
+  controlRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+  },
+  controlButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  controlValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: colors.text,
+    minWidth: 60,
+    textAlign: 'center',
+  },
+  generateButton: { 
+    backgroundColor: colors.secondary, 
+    padding: 16, 
+    borderRadius: 10, 
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginTop: 10,
+    marginBottom: 20,
+  },
   generateButtonText: { color: colors.white, fontSize: 16, fontWeight: 'bold' },
 });

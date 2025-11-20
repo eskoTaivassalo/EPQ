@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, AppState } from 'react-native';
 
 // Redux
 import { Provider, useDispatch } from 'react-redux';
@@ -63,6 +63,7 @@ import NotificationBell from './src/components/NotificationBell';
 // Services
 import { AuthService } from './src/services/authService';
 import * as NotificationService from './src/services/notificationService';
+import { registerAndSaveExpoPushToken } from './src/services/pushService';
 import { requestForegroundPermissions as requestLocationPermissions } from './src/services/locationService';
 
 // Styles
@@ -126,6 +127,27 @@ const AppNavigator = () => {
     }
   }, [isAuthenticated, user?.uid, dispatch]);
 
+  // Register Expo push token after authentication (and email verified)
+  useEffect(() => {
+    (async () => {
+      try {
+        if (isAuthenticated && user?.uid && (user?.emailVerified ?? true)) {
+          console.log('[push] 📱 Registering Expo push token for user:', user.uid);
+          const token = await registerAndSaveExpoPushToken(user.uid);
+          if (token) {
+            console.log('[push] ✅ Expo token registered & saved:', token);
+          } else {
+            console.log('[push] ⚠️ Expo token not registered (permission denied or not a physical device)');
+          }
+        } else {
+          console.log('[push] ⏸️ Waiting for authentication and email verification...');
+        }
+      } catch (e) {
+        console.error('[push] ❌ Token registration threw:', e?.message || e);
+      }
+    })();
+  }, [isAuthenticated, user?.uid, user?.emailVerified]);
+
   // Viivästetään email verification -näkymän näyttöä päivityksen jälkeen
   useEffect(() => {
     if (isAuthenticated && user && !user.emailVerified) {
@@ -137,18 +159,75 @@ const AppNavigator = () => {
     }
   }, [isAuthenticated, user?.emailVerified]);
 
-  // Setup notification tap handler - open meeting link when notification is tapped
+  // Clear badge count and dismiss notifications when app becomes active
   useEffect(() => {
-    const subscription = NotificationService.addNotificationResponseListener((data) => {
-      const { meetingUrl, bookingId, type } = data;
-      
-      if (type === 'booking_reminder' && meetingUrl) {
-        console.log('🎥 Opening meeting from notification:', meetingUrl);
-        Linking.openURL(meetingUrl);
+    const clearBadgeAndNotifications = async () => {
+      try {
+        const Notifications = await import('expo-notifications');
+        
+        // Clear badge count
+        await Notifications.setBadgeCountAsync(0);
+        console.log('[push] 🔔 Badge count cleared to 0');
+        
+        // Dismiss all delivered notifications from notification center
+        await Notifications.dismissAllNotificationsAsync();
+        console.log('[push] 🗑️ All notifications dismissed');
+      } catch (e) {
+        console.warn('[push] Failed to clear badge/notifications:', e?.message);
+      }
+    };
+
+    // Clear immediately on mount
+    clearBadgeAndNotifications();
+
+    // Listen to app state changes and clear when app becomes active
+    const subscription = AppState.addEventListener('change', (nextAppState) => {
+      console.log('[push] 📱 App state changed to:', nextAppState);
+      if (nextAppState === 'active') {
+        console.log('[push] 🔄 App became active, clearing badge...');
+        clearBadgeAndNotifications();
       }
     });
 
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
+  // Setup notification tap handler - open meeting link when notification is tapped
+  useEffect(() => {
+    console.log('[push] 🎧 Setting up notification tap listener...');
+    const subscription = NotificationService.addNotificationResponseListener((data) => {
+      const { meetingUrl, bookingId, type } = data;
+      
+      console.log('[push] 👆 Notification tapped:', { type, bookingId, meetingUrl });
+      
+      if (type === 'booking_reminder' && meetingUrl) {
+        console.log('[push] 🎥 Opening meeting from notification:', meetingUrl);
+        Linking.openURL(meetingUrl);
+      } else if (type === 'new_booking') {
+        console.log('[push] 📅 New booking notification tapped, bookingId:', bookingId);
+        // Could navigate to bookings screen here if needed
+      }
+      
+      // Decrement badge count by 1 after handling notification
+      (async () => {
+        try {
+          const Notifications = await import('expo-notifications');
+          const currentBadge = await Notifications.getBadgeCountAsync();
+          const newBadge = Math.max(0, currentBadge - 1);
+          await Notifications.setBadgeCountAsync(newBadge);
+          console.log('[push] 🔔 Badge count decremented:', currentBadge, '→', newBadge);
+        } catch (e) {
+          console.warn('[push] Failed to decrement badge:', e?.message);
+        }
+      })();
+    });
+
+    return () => {
+      console.log('[push] 🔇 Removing notification tap listener');
+      subscription.remove();
+    };
   }, []);
 
   if (loading || emailVerifiedDelay) {

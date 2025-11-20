@@ -18,6 +18,7 @@ import securitySlice from './slices/securitySlice';
 import appDataSlice from './slices/appDataSlice';
 import bookingsSlice from './slices/bookingsSlice';
 import notificationsSlice from './slices/notificationsSlice';
+import pushNotificationsSlice from './slices/pushNotificationsSlice';
 import locationSlice from './slices/locationSlice';
 
 // Middleware
@@ -48,6 +49,7 @@ const rootReducer = combineReducers({
   appData: appDataSlice,
   bookings: bookingsSlice,
   notifications: notificationsSlice,
+  pushNotifications: pushNotificationsSlice,
   location: locationSlice,
 });
 

@@ -47,12 +47,21 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       
       // Kirjoitus: Vain omistaja voi luoda/päivittää
-      allow create: if isOwner(userId) && 
-                      isValidString('email') && 
-                      isValidEmail(request.resource.data.email) &&
-                      hasField('userType') &&
-                      hasField('createdAt');
+      // Create: Salli push token -dokumentin luonti ilman muita kenttiä
+      //         TAI täysi profiili pakollisilla kentillä
+      allow create: if isOwner(userId) && (
+                      // Push token -dokumentti (vain push-kenttä)
+                      (request.resource.data.keys().hasAll(['push']) && 
+                       request.resource.data.keys().size() == 1) ||
+                      // Täysi profiili
+                      (isValidString('email') && 
+                       isValidEmail(request.resource.data.email) &&
+                       hasField('userType') &&
+                       hasField('createdAt'))
+                    );
       
+      // Update sallii kaikki kentät (mukaan lukien push token)
+      // Omistaja voi päivittää mitä tahansa omaan dokumenttiinsa
       allow update: if isOwner(userId);
       
       // Poisto: Vain omistaja voi poistaa

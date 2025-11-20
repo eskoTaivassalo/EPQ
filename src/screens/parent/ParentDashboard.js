@@ -17,7 +17,6 @@ import NotificationBell from '../../components/NotificationBell';
 import SimpleDrawer from '../../components/SimpleDrawer';
 import { useAppData } from '../../hooks/useAppData';
 import { fetchParentBookings, selectBookings } from '../../store/slices/bookingsSlice';
-import * as NotificationService from '../../services/notificationService';
 import { initDeviceLocation } from '../../store/slices/locationSlice';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { db } from '../../config/firebaseConfig';
@@ -44,28 +43,12 @@ const ParentDashboard = ({ navigation }) => {
     dispatch(initDeviceLocation());
   }, [dispatch]);
 
-  // Schedule notifications for upcoming bookings (parent role)
-  // Only reschedule when booking COUNT changes to avoid excessive rescheduling
-  const bookingCount = bookings.length;
-  const confirmedCount = bookings.filter(b => 
-    b.status === 'accepted' || b.status === 'confirmed'
-  ).length;
-  
-  useEffect(() => {
-    if (bookingCount > 0) {
-      console.log('📅 Scheduling notifications for parent bookings...', {
-        total: bookingCount,
-        confirmed: confirmedCount
-      });
-      NotificationService.scheduleAllUpcomingReminders(bookings, 'parent');
-    }
-  }, [bookingCount, confirmedCount]); // Only when counts change, not on every booking update
-
   // Get upcoming confirmed/accepted bookings
   const upcomingBookings = bookings
     .filter(b => {
       const isConfirmed = b.status === 'accepted' || b.status === 'confirmed';
-      const bookingDate = new Date(b.date);
+      // Use b.start for accurate time, fallback to date if not available
+      const bookingDate = new Date(b.start || b.date);
       const now = new Date();
       return isConfirmed && bookingDate >= now;
     })
@@ -84,6 +67,8 @@ const ParentDashboard = ({ navigation }) => {
       meetingUrl: upcomingBookings[0].meetingUrl
     } : 'none'
   });
+
+  // NOTIFICATIONS REMOVED
 
   const drawerMenuItems = [
     { label: 'Dashboard', screen: 'ParentDashboard', icon: 'home' },
@@ -431,7 +416,8 @@ const ParentDashboard = ({ navigation }) => {
             </View>
           ) : (
             upcomingBookings.map(booking => {
-              const bookingDate = new Date(booking.date);
+              // Use booking.start for the full timestamp, fallback to date if start is not available
+              const bookingDate = new Date(booking.start || booking.date);
               const teacher = getTeacherById(booking.teacherId);
               const now = new Date();
               const isToday = now.toDateString() === bookingDate.toDateString();

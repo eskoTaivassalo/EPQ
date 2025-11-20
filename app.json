@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "EPQ",
-  "slug": "ParentsTeachersApp",
+    "slug": "ParentsTeachersApp",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
@@ -86,7 +86,8 @@
         {
           "calendarPermission": "The app needs access to your calendar to manage lesson bookings."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "eas": {

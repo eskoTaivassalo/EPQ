@@ -198,6 +198,31 @@ export const updateBookingStatus = createAsyncThunk(
           notificationData.type = 'booking_accepted';
           notificationData.title = 'Varaus hyväksytty! 🎉';
           notificationData.message = `${teacherName || 'Opettaja'} hyväksyi varauksesi ${date ? new Date(date).toLocaleString('fi-FI') : ''}\n\n📹 Video-linkki:\n${meetingUrl}\n\nLiity Dashboard → Upcoming Lessons kautta`;
+          
+          // Send push notification to parent
+          (async () => {
+            try {
+              const { sendExpoPushNotification } = await import('../../services/pushService');
+              console.log('[push] Fetching parent push token for:', parentId);
+              const userDoc = await getDoc(doc(db, 'users', parentId));
+              const token = userDoc.exists() ? userDoc.data()?.push?.expo?.token : null;
+              
+              if (token) {
+                console.log('[push] Found token, sending push notification to parent...');
+                const result = await sendExpoPushNotification(
+                  token,
+                  '✅ Booking confirmed!',
+                  `${teacherName || 'Teacher'} accepted your booking${date ? ' for ' + new Date(date).toLocaleDateString() : ''}`,
+                  { bookingId, type: 'booking_accepted', meetingUrl }
+                );
+                console.log('[push] ✅ Push notification sent to parent:', result);
+              } else {
+                console.warn('[push] ⚠️ No push token found for parent:', parentId);
+              }
+            } catch (pushErr) {
+              console.error('[push] ❌ Failed to send push to parent:', pushErr?.message || pushErr);
+            }
+          })();
         } else if (status === 'declined') {
           notificationData.type = 'booking_declined';
           notificationData.title = 'Varaus hylätty';

@@ -23,6 +23,58 @@ export async function sendMessage({ teacherId, parentId, senderType, text }) {
   };
   const ref = collection(db, 'messages');
   const res = await addDoc(ref, payload);
+
+  // Determine recipient
+  const recipientType = senderType === 'teacher' ? 'parent' : 'teacher';
+  const recipientId = recipientType === 'teacher' ? teacherId : parentId;
+
+  // In-app notification (always)
+  try {
+    const { createNotification } = await import('../store/slices/notificationsSlice');
+    const notificationData = {
+      userId: recipientId,
+      type: 'message',
+      title: 'Uusi viesti',
+      message: `${senderType === 'teacher' ? 'Opettaja' : 'Vanhempi'} lähetti sinulle viestin: "${text.trim()}"`,
+      navigationTarget: 'ConversationThread',
+      navigationParams: { teacherId, parentId }
+    };
+    // Dispatch notification (if Redux store available)
+    if (typeof window !== 'undefined' && window.store) {
+      window.store.dispatch(createNotification(notificationData));
+    } else {
+      // Fallback: create directly to Firestore
+      const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
+      await addDoc(collection(db, 'notifications'), {
+        ...notificationData,
+        read: false,
+        createdAt: serverTimestamp()
+      });
+    }
+  } catch (err) {
+    console.warn('[message] Failed to create in-app notification:', err);
+  }
+
+  // Push notification (only if recipient not active)
+  try {
+    // TODO: Check recipient activity (lastActive) here if implemented
+    // For now, always send push
+    const { sendExpoPushNotification } = await import('./pushService');
+    const { doc, getDoc } = await import('firebase/firestore');
+    const userDoc = await getDoc(doc(db, 'users', recipientId));
+    const token = userDoc.exists() ? userDoc.data()?.push?.expo?.token : null;
+    if (token) {
+      await sendExpoPushNotification(
+        token,
+        'Uusi viesti',
+        `${senderType === 'teacher' ? 'Opettaja' : 'Vanhempi'} lähetti sinulle viestin: "${text.trim()}"`,
+        { teacherId, parentId, type: 'message' }
+      );
+    }
+  } catch (err) {
+    console.warn('[message] Failed to send push notification:', err);
+  }
+
   return { id: res.id, ...payload };
 }
 

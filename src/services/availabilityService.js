@@ -162,18 +162,24 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
 
       // Try sending a push notification via Expo (best-effort)
       try {
+        console.log('[push] Fetching teacher push token for:', teacherIdForNotify);
         const userDoc = await getDoc(doc(db, 'users', teacherIdForNotify));
         const token = userDoc.exists() ? userDoc.data()?.push?.expo?.token : null;
+        
         if (token) {
-          await sendExpoPushNotification(
+          console.log('[push] Found token, sending push notification...');
+          const result = await sendExpoPushNotification(
             token,
-            'New booking',
+            '📅 New booking',
             `You have a new booking on ${startStr}.`,
-            { slotId, bookingId: bookingRef.id }
+            { slotId, bookingId: bookingRef.id, type: 'new_booking' }
           );
+          console.log('[push] ✅ Push notification sent successfully:', result);
+        } else {
+          console.warn('[push] ⚠️ No push token found for teacher:', teacherIdForNotify);
         }
       } catch (pushErr) {
-        console.warn('Push send skipped/failed', pushErr?.message || pushErr);
+        console.error('[push] ❌ Push send failed:', pushErr?.message || pushErr);
       }
     }
   } catch (notifyErr) {

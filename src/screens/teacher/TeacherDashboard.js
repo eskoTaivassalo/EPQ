@@ -14,7 +14,6 @@ import { useAuth } from '../../hooks/useAuth';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTeacherBookings, selectBookings, updateBookingStatus } from '../../store/slices/bookingsSlice';
 import { useAppData } from '../../hooks/useAppData';
-import * as NotificationService from '../../services/notificationService';
 import NotificationBell from '../../components/NotificationBell';
 import SimpleDrawer from '../../components/SimpleDrawer';
 import AppLogo from '../../components/AppLogo';
@@ -38,22 +37,7 @@ const TeacherDashboard = ({ navigation }) => {
     }
   }, [dispatch, user?.uid]);
 
-  // Schedule notifications for upcoming bookings (teacher role)
-  // Only reschedule when booking COUNT changes to avoid excessive rescheduling
-  const bookingCount = bookings.length;
-  const confirmedCount = bookings.filter(b => 
-    b.status === 'accepted' || b.status === 'confirmed'
-  ).length;
-  
-  useEffect(() => {
-    if (bookingCount > 0) {
-      console.log('📅 Scheduling notifications for teacher bookings...', {
-        total: bookingCount,
-        confirmed: confirmedCount
-      });
-      NotificationService.scheduleAllUpcomingReminders(bookings, 'teacher');
-    }
-  }, [bookingCount, confirmedCount]); // Only when counts change, not on every booking update
+
 
   // Treat legacy 'booked' as pending as well
   const isPendingLike = (status) => status === 'pending' || status === 'booked';
@@ -377,7 +361,8 @@ const TeacherDashboard = ({ navigation }) => {
               );
             }
             return upcoming.map(b => {
-              const d = new Date(b.date);
+              // Use b.start for the full timestamp, fallback to date if start is not available
+              const d = new Date(b.start || b.date);
               const parent = getParentById(b.parentId);
               const dayLabel = new Date().toDateString() === d.toDateString() ? 'Today' : d.toLocaleDateString('en-US', { weekday:'short' });
               const timeLabel = d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});

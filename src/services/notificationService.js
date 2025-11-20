@@ -49,60 +49,94 @@ export async function requestNotificationPermissions() {
 }
 
 /**
- * Schedule a local notification for upcoming booking
- * @param {Object} booking - Booking object with id, date, teacherName/parentName, meetingUrl
+ * Schedule notifications for upcoming booking with multiple reminders
+ * @param {Object} booking - Booking object with id, start, teacherName/parentName, meetingUrl
  * @param {string} userRole - 'teacher' or 'parent'
- * @returns {Promise<string|null>} notification identifier or null if failed
+ * @returns {Promise<Array<string>>} Array of scheduled notification identifiers
  */
 export async function scheduleBookingReminder(booking, userRole = 'parent') {
   try {
-    const bookingDate = new Date(booking.date);
+    // CRITICAL: Must use booking.start for accurate time
+    if (!booking.start) {
+      console.warn(`⚠️ Booking ${booking.id} missing 'start' field, using 'date' as fallback (may be inaccurate)`);
+    }
+    
+    const bookingDate = new Date(booking.start || booking.date);
     const now = new Date();
     
-    // Schedule notification 5 minutes before booking
-    const reminderTime = new Date(bookingDate.getTime() - 5 * 60 * 1000);
+    const hoursUntilBooking = (bookingDate - now) / (1000 * 60 * 60);
+    console.log(`📅 Booking ID: ${booking.id}`);
+    console.log(`   Booking time: ${bookingDate.toLocaleString()}`);
+    console.log(`   Hours until booking: ${hoursUntilBooking.toFixed(2)}`);
     
-    // Don't schedule if:
-    // 1. Reminder time is in the past
-    // 2. Booking is less than 30 minutes away (too soon to be useful, prevents spam)
+    // Don't schedule anything if booking is less than 30 minutes away
     const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
-    if (reminderTime <= now) {
-      console.log('⏰ Reminder time in past, skipping');
-      return null;
-    }
     if (bookingDate < thirtyMinutesFromNow) {
-      console.log('⏰ Booking less than 30 min away, skipping reminder to prevent spam');
-      return null;
+      console.log(`⏰ ❌ Booking less than 30 min away, skipping all reminders`);
+      return [];
     }
 
     const counterpartName = userRole === 'parent' 
       ? (booking.teacherName || 'Teacher')
       : (booking.parentName || 'Parent');
 
-    const notificationContent = {
-      title: '🔔 Tunti alkaa kohta!',
-      body: `${counterpartName} odottaa sinua videossa 5 minuutin kuluttua.\n👉 Paina tästä liittyäksesi`,
-      data: {
-        bookingId: booking.id,
-        meetingUrl: booking.meetingUrl,
-        type: 'booking_reminder'
+    const scheduledIds = [];
+
+    // Define notification times: 24h, 1h, and 5min before
+    const notificationSchedule = [
+      {
+        minutesBefore: 24 * 60, // 24 hours
+        title: '📅 Huomenna tunti',
+        body: `Muistutus: ${counterpartName} odottaa sinua huomenna klo ${bookingDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}`,
+        priority: Notifications.AndroidNotificationPriority.DEFAULT,
       },
-      sound: true,
-      priority: Notifications.AndroidNotificationPriority.HIGH,
-      channelId: 'bookings',
-    };
+      {
+        minutesBefore: 60, // 1 hour
+        title: '⏰ Tunti alkaa tunnin päästä',
+        body: `${counterpartName} - valmistaudu tuntiin. Muista tarkistaa materiaali!`,
+        priority: Notifications.AndroidNotificationPriority.HIGH,
+      },
+      {
+        minutesBefore: 5, // 5 minutes
+        title: '🔔 Tunti alkaa kohta!',
+        body: `${counterpartName} odottaa sinua videossa 5 minuutin kuluttua.\n👉 Paina tästä liittyäksesi`,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      },
+    ];
 
-    const trigger = {
-      date: reminderTime,
-    };
+    // Schedule each notification if it's in the future
+    for (const schedule of notificationSchedule) {
+      const reminderTime = new Date(bookingDate.getTime() - schedule.minutesBefore * 60 * 1000);
+      
+      if (reminderTime > now) {
+        const notificationId = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: schedule.title,
+            body: schedule.body,
+            data: {
+              bookingId: booking.id,
+              meetingUrl: booking.meetingUrl,
+              type: 'booking_reminder',
+              minutesBefore: schedule.minutesBefore
+            },
+            sound: true,
+            priority: schedule.priority,
+            channelId: 'bookings',
+          },
+          trigger: {
+            date: reminderTime,
+          },
+        });
+        
+        scheduledIds.push(notificationId);
+        console.log(`   ✅ Scheduled ${schedule.minutesBefore}min reminder for ${reminderTime.toLocaleString()}`);
+      } else {
+        console.log(`   ⏭️ Skipped ${schedule.minutesBefore}min reminder (already passed)`);
+      }
+    }
 
-    const notificationId = await Notifications.scheduleNotificationAsync({
-      content: notificationContent,
-      trigger,
-    });
-
-    console.log(`✅ Scheduled booking reminder (ID: ${notificationId}) for ${reminderTime.toLocaleString()}`);
-    return notificationId;
+    console.log(`✅ Total ${scheduledIds.length} reminders scheduled for booking ${booking.id}`);
+    return scheduledIds;
 
   } catch (error) {
     console.error('❌ Error scheduling booking reminder:', error);
@@ -117,23 +151,35 @@ export async function scheduleBookingReminder(booking, userRole = 'parent') {
  */
 export async function scheduleAllUpcomingReminders(bookings, userRole) {
   try {
-    // Cancel all existing scheduled notifications first
-    await Notifications.cancelAllScheduledNotificationsAsync();
+    // NOTE: Caller should cancel existing notifications before calling this
+    // to avoid race conditions. We don't cancel here.
     
     const now = new Date();
     const upcomingBookings = bookings.filter(b => {
       const isConfirmed = b.status === 'accepted' || b.status === 'confirmed';
-      const bookingDate = new Date(b.date);
+      // Use b.start for full timestamp, fallback to date if not available
+      const bookingDate = new Date(b.start || b.date);
       return isConfirmed && bookingDate > now && b.meetingUrl;
     });
 
     console.log(`📅 Scheduling reminders for ${upcomingBookings.length} upcoming bookings`);
+    console.log('🔍 ALL BOOKINGS CHECK:');
+    bookings.forEach(b => {
+      const bookingTime = new Date(b.start || b.date);
+      const hoursUntil = (bookingTime - now) / (1000 * 60 * 60);
+      console.log(`   - Booking ${b.id}: ${bookingTime.toLocaleString()}`);
+      console.log(`     Hours until: ${hoursUntil.toFixed(2)}h`);
+      console.log(`     Status: ${b.status}, Has start: ${!!b.start}, Has meetingUrl: ${!!b.meetingUrl}`);
+    });
+    
     if (upcomingBookings.length > 0) {
-      console.log('📋 Booking details:', upcomingBookings.map(b => ({
+      console.log('📋 CONFIRMED upcoming booking details:', upcomingBookings.map(b => ({
         id: b.id,
         date: b.date,
+        start: b.start,
         status: b.status,
-        daysFromNow: Math.round((new Date(b.date) - now) / (1000 * 60 * 60 * 24))
+        bookingTime: new Date(b.start || b.date).toLocaleString(),
+        hoursFromNow: Math.round((new Date(b.start || b.date) - now) / (1000 * 60 * 60))
       })));
     }
 
@@ -143,6 +189,16 @@ export async function scheduleAllUpcomingReminders(bookings, userRole) {
 
     const successCount = scheduled.filter(id => id !== null).length;
     console.log(`✅ Successfully scheduled ${successCount} reminders`);
+    
+    // Debug: Show what notifications are actually scheduled
+    const allScheduled = await Notifications.getAllScheduledNotificationsAsync();
+    console.log(`\n🔔 Total scheduled notifications in system: ${allScheduled.length}`);
+    allScheduled.forEach((notif, index) => {
+      const triggerDate = notif.trigger?.date ? new Date(notif.trigger.date) : null;
+      console.log(`   ${index + 1}. ID: ${notif.identifier}`);
+      console.log(`      Trigger: ${triggerDate ? triggerDate.toLocaleString() : 'unknown'}`);
+      console.log(`      Title: ${notif.content?.title}`);
+    });
 
     return successCount;
   } catch (error) {
