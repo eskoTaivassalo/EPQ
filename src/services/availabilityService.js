@@ -22,7 +22,7 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
   }
 
   const created = [];
-  const { daysOfWeek: dows = [1,2,3,4,5], startTime = '09:00', endTime = '16:00', durationMin = 60 } = template || {};
+  const { daysOfWeek: dows = [1,2,3,4,5], startTime = '09:00', endTime = '16:00', durationMin = 60, subjects = [] } = template || {};
   const { h: sh, m: sm } = parseTimeHM(startTime);
   const { h: eh, m: em } = parseTimeHM(endTime);
 
@@ -55,6 +55,7 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
           status: 'available',
           locationType: options.locationType || 'online',
           price: options.price || null,
+          subjects: Array.isArray(subjects) ? subjects : [],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }, { merge: true });
@@ -100,32 +101,33 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
   let teacherIdForNotify = null;
   let startISO = null;
   let endISO = null;
+  let bookedSubject = null;
 
   await runTransaction(db, async (tx) => {
     const slotSnap = await tx.get(slotRef);
     if (!slotSnap.exists()) throw new Error('Slot not found');
     const slot = slotSnap.data();
     if (slot.status !== 'available') throw new Error('Slot not available');
-    
-    // Check if slot is in the future (TESTING MODE: reduced from 2 hours to allow immediate bookings)
+    // Check if slot is in the future
     const slotStart = new Date(slot.start);
     const now = new Date();
-    
     if (slotStart <= now) {
       throw new Error('Cannot book a time slot in the past');
     }
-
-    // capture for notification after transaction
     teacherIdForNotify = slot.teacherId;
     startISO = slot.start;
     endISO = slot.end;
-
+    // Determine booked subject
+    if (metadata.subject) {
+      bookedSubject = metadata.subject;
+    } else if (Array.isArray(slot.subjects) && slot.subjects.length === 1) {
+      bookedSubject = slot.subjects[0];
+    }
     tx.update(slotRef, {
       status: 'booked',
       parentId,
       updatedAt: serverTimestamp(),
     });
-
     tx.set(bookingRef, {
       slotId,
       teacherId: slot.teacherId,
@@ -134,6 +136,7 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
       start: slot.start,
       end: slot.end,
       status: 'booked',
+      subject: bookedSubject || null,
       createdAt: serverTimestamp(),
       ...metadata,
     });
@@ -147,7 +150,7 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
         userId: teacherIdForNotify,
         type: 'booking',
         title: 'New booking',
-        message: `A parent booked a lesson for ${startStr}.`,
+        message: `A parent booked a lesson for ${startStr}${bookedSubject ? ` (Subject: ${bookedSubject})` : ''}.`,
         read: false,
         createdAt: serverTimestamp(),
         data: {
@@ -156,6 +159,7 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
           parentId,
           start: startISO,
           end: endISO,
+          subject: bookedSubject || null,
           ...metadata,
         },
       });
@@ -171,8 +175,8 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
           const result = await sendExpoPushNotification(
             token,
             '📅 New booking',
-            `You have a new booking on ${startStr}.`,
-            { slotId, bookingId: bookingRef.id, type: 'new_booking' }
+            `You have a new booking on ${startStr}${bookedSubject ? ` (Subject: ${bookedSubject})` : ''}.`,
+            { slotId, bookingId: bookingRef.id, type: 'new_booking', subject: bookedSubject || null }
           );
           console.log('[push] ✅ Push notification sent successfully:', result);
         } else {

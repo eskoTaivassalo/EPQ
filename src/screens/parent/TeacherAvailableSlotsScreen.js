@@ -44,36 +44,45 @@ export default function TeacherAvailableSlotsScreen({ route, navigation }) {
 
   const handleBook = async (slot) => {
     if (!user?.uid) return Alert.alert('Error', 'Not authenticated');
-    
     // Double-check that slot is still valid (at least 2 hours from now)
     const now = new Date();
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     const slotStart = new Date(slot.start);
-    
     if (slotStart <= twoHoursFromNow) {
       Alert.alert(
         'Cannot Book',
         'This time slot is too soon. Please book a time at least 2 hours in advance.',
         [{ text: 'OK' }]
       );
-      // Remove this slot from the list
       setSlots(prev => prev.filter(s => s.id !== slot.id));
       return;
     }
-    
+    // Subject selection
+    let selectedSubject = null;
+    if (Array.isArray(slot.subjects) && slot.subjects.length > 0) {
+      selectedSubject = await new Promise(resolve => {
+        Alert.alert(
+          'Select subject',
+          'Choose which subject you want to book for this slot:',
+          [
+            ...slot.subjects.map(subj => ({ text: subj, onPress: () => resolve(subj) })),
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) }
+          ]
+        );
+      });
+      if (!selectedSubject) return;
+    }
     try {
       const ok = await new Promise(resolve => {
         Alert.alert(
           'Confirm booking',
-          `${new Date(slot.start).toLocaleString()} - ${new Date(slot.end).toLocaleTimeString()}`,
+          `${new Date(slot.start).toLocaleString()} - ${new Date(slot.end).toLocaleTimeString()}` + (selectedSubject ? `\nSubject: ${selectedSubject}` : ''),
           [ { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) }, { text: 'Book', onPress: () => resolve(true) } ]
         );
       });
       if (!ok) return;
-
-      const res = await bookSlot(slot.id, user.uid, {});
+      const res = await bookSlot(slot.id, user.uid, selectedSubject ? { subject: selectedSubject } : {});
       Alert.alert('Booked', 'Your lesson has been booked');
-      // remove from list
       setSlots(prev => prev.filter(s => s.id !== slot.id));
     } catch (e) {
       console.error('Book slot error', e);
@@ -87,6 +96,11 @@ export default function TeacherAvailableSlotsScreen({ route, navigation }) {
       <View style={{ marginLeft: 10, flex: 1 }}>
         <Text style={styles.slotDate}>{new Date(item.start).toLocaleDateString()}</Text>
         <Text style={styles.slotTime}>{new Date(item.start).toLocaleTimeString()} - {new Date(item.end).toLocaleTimeString()}</Text>
+        {Array.isArray(item.subjects) && item.subjects.length > 0 && (
+          <Text style={{ fontSize: 12, color: colors.textSecondary, marginTop: 2 }}>
+            Subjects: {item.subjects.join(', ')}
+          </Text>
+        )}
       </View>
       <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
     </TouchableOpacity>

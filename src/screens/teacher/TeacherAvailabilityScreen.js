@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { generateAvailabilitySlots } from '../../services/availabilityService';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../config/firebaseConfig';
 
 const DAYS = [
   { id: 1, label: 'Mon' },
@@ -19,21 +21,45 @@ const DAYS = [
 export default function TeacherAvailabilityScreen({ navigation }) {
   const { user } = useAuth();
   const [daysOfWeek, setDaysOfWeek] = useState([1,2,3,4,5]);
-  
   // Use hours as numbers for sliders (0-24)
   const [startHour, setStartHour] = useState(9);
   const [startMinute, setStartMinute] = useState(0);
   const [endHour, setEndHour] = useState(16);
   const [endMinute, setEndMinute] = useState(0);
-  
   const [durationMin, setDurationMin] = useState(60);
   const [rangeDays, setRangeDays] = useState(30);
   const [loading, setLoading] = useState(false);
+  // Subjects selection
+  const [profileSubjects, setProfileSubjects] = useState([]);
+  const [selectedSubjects, setSelectedSubjects] = useState([]);
+  // Fetch teacher's subjects from Firestore profile
+  useEffect(() => {
+    async function fetchSubjects() {
+      if (!user?.uid) return;
+      try {
+        const docRef = doc(db, 'teachers', user.uid);
+        const snap = await getDoc(docRef);
+        if (snap.exists()) {
+          const data = snap.data();
+          if (Array.isArray(data.subjects)) {
+            setProfileSubjects(data.subjects);
+          } else {
+            setProfileSubjects([]);
+          }
+        }
+      } catch (e) {
+        setProfileSubjects([]);
+      }
+    }
+    fetchSubjects();
+  }, [user?.uid]);
 
   const toggleDay = (dayId) => {
     setDaysOfWeek(prev => prev.includes(dayId) ? prev.filter(d => d !== dayId) : [...prev, dayId]);
   };
-  
+  const toggleSubject = (subject) => {
+    setSelectedSubjects(prev => prev.includes(subject) ? prev.filter(s => s !== subject) : [...prev, subject]);
+  };
   // Format time helpers
   const formatTime = (hour, minute) => {
     return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
@@ -41,36 +67,33 @@ export default function TeacherAvailabilityScreen({ navigation }) {
 
   const handleGenerate = async () => {
     if (!user?.uid) return Alert.alert('Error', 'Not authenticated');
-    
     // Validation
     if (daysOfWeek.length === 0) {
       return Alert.alert('Error', 'Please select at least one day');
     }
-    
+    if (selectedSubjects.length === 0) {
+      return Alert.alert('Error', 'Please select at least one subject');
+    }
     const startTimeStr = formatTime(startHour, startMinute);
     const endTimeStr = formatTime(endHour, endMinute);
-    
     // Check that end time is after start time
     const startMins = startHour * 60 + startMinute;
     const endMins = endHour * 60 + endMinute;
     if (endMins <= startMins) {
       return Alert.alert('Error', 'End time must be after start time');
     }
-
     setLoading(true);
     try {
       const start = new Date();
       const end = new Date();
       end.setDate(end.getDate() + rangeDays);
-
       const result = await generateAvailabilitySlots(
         user.uid,
-        { daysOfWeek, startTime: startTimeStr, endTime: endTimeStr, durationMin },
+        { daysOfWeek, startTime: startTimeStr, endTime: endTimeStr, durationMin, subjects: selectedSubjects },
         start,
         end,
         { locationType: 'online' }
       );
-
       Alert.alert('Success! 🎉', `${result.createdCount} time slots created`);
       navigation.goBack();
     } catch (e) {
@@ -107,11 +130,32 @@ export default function TeacherAvailabilityScreen({ navigation }) {
           ))}
         </View>
 
+        {/* Subjects selection - only from teacher profile */}
+        <Text style={styles.sectionTitle}>Select Subjects</Text>
+        <View style={styles.daysRow}>
+          {profileSubjects.length === 0 ? (
+            <Text style={{ color: colors.textSecondary }}>
+              No subjects found in your profile. Add subjects to your profile to enable slot creation.
+            </Text>
+          ) : (
+            profileSubjects.map(subject => (
+              <TouchableOpacity
+                key={subject}
+                style={[styles.dayChip, selectedSubjects.includes(subject) && styles.dayChipSelected]}
+                onPress={() => toggleSubject(subject)}
+              >
+                <Text style={[styles.dayChipText, selectedSubjects.includes(subject) && styles.dayChipTextSelected]}>
+                  {subject}
+                </Text>
+              </TouchableOpacity>
+            ))
+          )}
+        </View>
+
         {/* Start Time */}
         <View style={styles.timeSection}>
           <Text style={styles.label}>Start Time</Text>
           <Text style={styles.timeDisplay}>{formatTime(startHour, startMinute)}</Text>
-          
           <View style={styles.timeRow}>
             <View style={styles.timeControl}>
               <Text style={styles.timeLabel}>Hour</Text>
@@ -131,7 +175,6 @@ export default function TeacherAvailabilityScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
             </View>
-            
             <View style={styles.timeControl}>
               <Text style={styles.timeLabel}>Minute</Text>
               <View style={styles.controlRow}>
@@ -157,7 +200,6 @@ export default function TeacherAvailabilityScreen({ navigation }) {
         <View style={styles.timeSection}>
           <Text style={styles.label}>End Time</Text>
           <Text style={styles.timeDisplay}>{formatTime(endHour, endMinute)}</Text>
-          
           <View style={styles.timeRow}>
             <View style={styles.timeControl}>
               <Text style={styles.timeLabel}>Hour</Text>
@@ -177,7 +219,6 @@ export default function TeacherAvailabilityScreen({ navigation }) {
                 </TouchableOpacity>
               </View>
             </View>
-            
             <View style={styles.timeControl}>
               <Text style={styles.timeLabel}>Minute</Text>
               <View style={styles.controlRow}>
@@ -203,7 +244,6 @@ export default function TeacherAvailabilityScreen({ navigation }) {
         <View style={styles.timeSection}>
           <Text style={styles.label}>Lesson Duration</Text>
           <Text style={styles.timeDisplay}>{durationMin} min</Text>
-          
           <View style={styles.controlRow}>
             <TouchableOpacity 
               style={styles.controlButton} 
@@ -225,7 +265,6 @@ export default function TeacherAvailabilityScreen({ navigation }) {
         <View style={styles.timeSection}>
           <Text style={styles.label}>Generate for Next</Text>
           <Text style={styles.timeDisplay}>{rangeDays} days</Text>
-          
           <View style={styles.controlRow}>
             <TouchableOpacity 
               style={styles.controlButton} 

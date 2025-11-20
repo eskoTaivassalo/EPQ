@@ -126,37 +126,59 @@ export default function TeacherWeeklyAvailabilityScreen({ route, navigation }) {
     const now = new Date();
     const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     const slotStart = new Date(s.start);
-    
     if (slotStart <= twoHoursFromNow) {
       Alert.alert(
         'Cannot Book',
         'This time slot is too soon. Please book a time at least 2 hours in advance.',
         [{ text: 'OK' }]
       );
-      // Remove this slot from the calendar
       setEvents(prev => prev.filter(e => e.id !== s.id));
+      return;
+    }
+
+    // Enforce subject selection
+    let selectedSubject = null;
+    if (Array.isArray(s.subjects) && s.subjects.length > 0) {
+      if (s.subjects.length === 1) {
+        selectedSubject = s.subjects[0];
+      } else {
+        // Show subject picker
+        selectedSubject = await new Promise(resolve => {
+          Alert.alert(
+            'Valitse aine',
+            'Valitse varattava aine tälle tunnille:',
+            [
+              ...s.subjects.map(subj => ({ text: subj, onPress: () => resolve(subj) })),
+              { text: 'Peruuta', style: 'cancel', onPress: () => resolve(null) }
+            ]
+          );
+        });
+      }
+    }
+    if (!selectedSubject) {
+      Alert.alert('Aine vaaditaan', 'Et voi varata aikaa ilman aineen valintaa.');
       return;
     }
 
     const ok = await new Promise(resolve => {
       Alert.alert(
-        'Confirm booking',
-        `${new Date(s.start).toLocaleString()} - ${new Date(s.end).toLocaleTimeString()}`,
+        'Vahvista varaus',
+        `${new Date(s.start).toLocaleString()} - ${new Date(s.end).toLocaleTimeString()}\nAine: ${selectedSubject}`,
         [
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-          { text: 'Book', onPress: () => resolve(true) },
+          { text: 'Peruuta', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Varaa', onPress: () => resolve(true) },
         ]
       );
     });
     if (!ok) return;
 
     try {
-      await bookSlot(s.id, user.uid, {});
-      Alert.alert('Booked', 'Your lesson has been booked');
+      await bookSlot(s.id, user.uid, { subject: selectedSubject });
+      Alert.alert('Varaus onnistui', 'Tunti on varattu.');
       setEvents(prev => prev.filter(e => e.id !== s.id));
     } catch (e) {
       console.error('Book slot error', e);
-      Alert.alert('Error', e.message || 'Failed to book');
+      Alert.alert('Virhe', e.message || 'Varauksen tekeminen epäonnistui');
     }
   };
 

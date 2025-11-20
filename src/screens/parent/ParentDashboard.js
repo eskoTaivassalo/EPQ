@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Alert } from 'react-native';
 import {
   View,
   Text,
@@ -21,6 +22,8 @@ import { initDeviceLocation } from '../../store/slices/locationSlice';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { db } from '../../config/firebaseConfig';
 import { collection, query, limit, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import { SUBJECTS } from '../../constants/subjects';
+import { bookSlot, listAvailableSlots } from '../../services/availabilityService';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
 
 const ParentDashboard = ({ navigation }) => {
@@ -367,6 +370,69 @@ const ParentDashboard = ({ navigation }) => {
     }
   };
 
+  // ...existing code...
+
+  // Slot-listaus dashboardiin
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  useEffect(() => {
+    const loadSlots = async () => {
+      setSlotsLoading(true);
+      try {
+        // Listaa kaikki opettajien vapaat slotit seuraavan 7 päivän ajalta
+        const from = new Date();
+        const to = new Date();
+        to.setDate(to.getDate() + 7);
+        // Voit halutessasi rajata vain suosikkiopettajiin
+        let allSlots = [];
+        for (const teacher of recommendedTeachers) {
+          const slots = await listAvailableSlots(teacher.id, from, to);
+          allSlots = allSlots.concat(slots.map(s => ({ ...s, teacher })));
+        }
+        setAvailableSlots(allSlots);
+      } catch (e) {
+        console.error('Slot load error', e);
+      } finally {
+        setSlotsLoading(false);
+      }
+    };
+    loadSlots();
+  }, [recommendedTeachers]);
+
+  // Slotin varaus
+  const handleBookSlotWithSubject = async (slot) => {
+    let selectedSubject = null;
+    if (Array.isArray(slot.subjects) && slot.subjects.length > 0) {
+      selectedSubject = await new Promise(resolve => {
+        Alert.alert(
+          'Valitse aine',
+          'Valitse varattava aine tälle ajalle:',
+          [
+            ...slot.subjects.map(subj => ({ text: subj, onPress: () => resolve(subj) })),
+            { text: 'Peruuta', style: 'cancel', onPress: () => resolve(null) }
+          ]
+        );
+      });
+      if (!selectedSubject) return;
+    }
+    const ok = await new Promise(resolve => {
+      Alert.alert(
+        'Vahvista varaus',
+        `${new Date(slot.start).toLocaleString()} - ${new Date(slot.end).toLocaleTimeString()}` + (selectedSubject ? `\nAine: ${selectedSubject}` : ''),
+        [ { text: 'Peruuta', style: 'cancel', onPress: () => resolve(false) }, { text: 'Varaa', onPress: () => resolve(true) } ]
+      );
+    });
+    if (!ok) return;
+    try {
+      await bookSlot(slot.id, user.uid, selectedSubject ? { subject: selectedSubject } : {});
+      Alert.alert('Varaus tehty', 'Varaus onnistui!');
+      setAvailableSlots(prev => prev.filter(s => s.id !== slot.id));
+      dispatch(fetchParentBookings());
+    } catch (e) {
+      Alert.alert('Virhe', e.message || 'Varaus epäonnistui');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -400,64 +466,7 @@ const ParentDashboard = ({ navigation }) => {
           />
         }
       >
-        {/* Upcoming Lessons */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Lessons</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Calendar')}>
-              <Text style={styles.seeAllText}>See All</Text>
-            </TouchableOpacity>
-          </View>
-          
-          {upcomingBookings.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Ionicons name="calendar-outline" size={40} color={colors.textSecondary} />
-              <Text style={styles.emptyText}>No upcoming lessons</Text>
-            </View>
-          ) : (
-            upcomingBookings.map(booking => {
-              // Use booking.start for the full timestamp, fallback to date if start is not available
-              const bookingDate = new Date(booking.start || booking.date);
-              const teacher = getTeacherById(booking.teacherId);
-              const now = new Date();
-              const isToday = now.toDateString() === bookingDate.toDateString();
-              const isTomorrow = new Date(now.getTime() + 86400000).toDateString() === bookingDate.toDateString();
-              
-              let dayLabel;
-              if (isToday) dayLabel = 'Today';
-              else if (isTomorrow) dayLabel = 'Tomorrow';
-              else dayLabel = bookingDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-              
-              const timeLabel = bookingDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
 
-              return (
-                <View key={booking.id} style={styles.lessonCard}>
-                  <View style={styles.lessonTimeContainer}>
-                    <Text style={styles.lessonTime}>{timeLabel}</Text>
-                    <Text style={styles.lessonDate}>{dayLabel}</Text>
-                  </View>
-                  <View style={styles.lessonDetails}>
-                    <Text style={styles.lessonTeacher}>
-                      {teacher?.name || teacher?.fullName || teacher?.displayName || 'Teacher'}
-                    </Text>
-                    {booking.notes && (
-                      <Text style={styles.lessonSubject} numberOfLines={1}>{booking.notes}</Text>
-                    )}
-                  </View>
-                  {booking.meetingUrl ? (
-                    <TouchableOpacity style={styles.lessonAction} onPress={() => Linking.openURL(booking.meetingUrl)}>
-                      <Ionicons name="videocam" size={24} color={colors.primary} />
-                    </TouchableOpacity>
-                  ) : (
-                    <TouchableOpacity style={styles.lessonAction} onPress={() => navigation.navigate('Calendar')}>
-                      <Ionicons name="calendar" size={24} color={colors.textSecondary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })
-          )}
-        </View>
 
         {/* Recent Grades & Feedback */}
         <View style={styles.section}>
