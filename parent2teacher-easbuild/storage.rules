@@ -1,0 +1,92 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ========================================
+    // HELPER FUNCTIONS
+    // ========================================
+    
+    // Tarkista onko käyttäjä kirjautunut
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Tarkista onko käyttäjä tiedoston omistaja
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Tarkista tiedoston koko (max 5MB)
+    function isValidSize() {
+      return request.resource.size < 5 * 1024 * 1024;
+    }
+    
+    // Tarkista tiedoston tyyppi (vain kuvat)
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    // ========================================
+    // PROFILE IMAGES
+    // ========================================
+    // Polku: /profiles/{userId}/{filename}
+    match /profiles/{userId}/{filename} {
+      // Luku: Julkinen luku (VAIN KEHITYKSESSÄ - Vaihda tuotantoon!)
+      allow read: if true;
+      
+      // Kirjoitus: Vain kirjautuneet käyttäjät voivat ladata kuvia (kehitystestaus)
+      allow write: if isAuthenticated() && isImage() && isValidSize();
+      
+      // Poisto: Vain omistaja voi poistaa
+      allow delete: if isOwner(userId);
+    }
+    
+    // ========================================
+    // MESSAGE ATTACHMENTS (Tuleva ominaisuus)
+    // ========================================
+    // Polku: /messages/{senderId}/{messageId}/{filename}
+    match /messages/{senderId}/{messageId}/{filename} {
+      // Luku: Vain lähettäjä ja vastaanottaja voivat lukea
+      // HUOM: Tämä vaatii lisävalidointia Firestore:sta vastaanottajan tunnistamiseen
+      allow read: if isAuthenticated();
+      
+      // Kirjoitus: Vain lähettäjä voi ladata liitteitä
+      allow write: if isOwner(senderId) && 
+                     isValidSize() &&
+                     (isImage() || 
+                      request.resource.contentType.matches('application/pdf') ||
+                      request.resource.contentType.matches('application/msword') ||
+                      request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.*'));
+      
+      // Poisto: Vain lähettäjä voi poistaa
+      allow delete: if isOwner(senderId);
+    }
+    
+    // ========================================
+    // TEACHER DOCUMENTS (Tuleva ominaisuus - todistukset, CV jne.)
+    // ========================================
+    // Polku: /teachers/{teacherId}/documents/{filename}
+    match /teachers/{teacherId}/documents/{filename} {
+      // Luku: Vain opettaja itse ja mahdollisesti admin voivat lukea
+      allow read: if isOwner(teacherId);
+      
+      // Kirjoitus: Vain opettaja voi ladata dokumentteja
+      allow write: if isOwner(teacherId) && 
+                     isValidSize() &&
+                     (isImage() || 
+                      request.resource.contentType.matches('application/pdf'));
+      
+      // Poisto: Vain opettaja voi poistaa
+      allow delete: if isOwner(teacherId);
+    }
+    
+    // ========================================
+    // ESTÄ MUUT POLUT
+    // ========================================
+    // Kaikki muut polut ovat kiellettyjä oletuksena
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

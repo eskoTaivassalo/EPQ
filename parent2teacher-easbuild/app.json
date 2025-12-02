@@ -1,0 +1,91 @@
+{
+  "expo": {
+    "name": "EPQ",
+    "slug": "ParentsTeachersApp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.eepeequu.name",
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs access to the camera to take profile photos.",
+        "NSPhotoLibraryUsageDescription": "This app needs access to your photo library to select profile photos.",
+        "NSPhotoLibraryAddUsageDescription": "This app needs access to save photos to your photo library.",
+        "NSLocationWhenInUseUsageDescription": "This app needs your location to show nearby teachers.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs your location to show nearby teachers.",
+        "NSCalendarsUsageDescription": "This app needs access to your calendar to manage lesson bookings.",
+        "NSRemindersUsageDescription": "This app needs access to reminders to send booking notifications.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/logo.png",
+        "backgroundColor": "#EFEFEF"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.eepeequu.name",
+      "googleServicesFile": "./google-services.json",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR",
+        "android.permission.RECORD_AUDIO"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "@react-native-google-signin/google-signin",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app needs access to your photos to let you select profile pictures.",
+          "cameraPermission": "The app needs access to your camera to let you take profile pictures."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#4A90E2"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow EPQ to use your location to show nearby teachers.",
+          "locationAlwaysPermission": "Allow EPQ to use your location to show nearby teachers.",
+          "locationWhenInUsePermission": "Allow EPQ to use your location to show nearby teachers.",
+          "isIosBackgroundLocationEnabled": false
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "The app needs access to your calendar to manage lesson bookings."
+        }
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "47cd170f-2f54-49ae-b3bb-28c928f8a18d"
+      }
+    },
+    "owner": "eskotaivassalo"
+  }
+}
