@@ -109,29 +109,28 @@ service cloud.firestore {
     }
     
     // ========================================
-    // MESSAGES COLLECTION (Tuleva ominaisuus)
+    // MESSAGES COLLECTION
     // ========================================
     match /messages/{messageId} {
-      // Luku: Vain viestin lähettäjä tai vastaanottaja voi lukea
+      // Luku: Opettaja tai vanhempi voivat lukea viestit
       allow read: if isAuthenticated() && 
-                    (request.auth.uid == resource.data.senderId || 
-                     request.auth.uid == resource.data.receiverId);
+                    (request.auth.uid == resource.data.teacherId || 
+                     request.auth.uid == resource.data.parentId);
       
-      // Kirjoitus: Vain lähettäjä voi luoda viestin
+      // Kirjoitus: Opettaja tai vanhempi voivat luoda viestejä
       allow create: if isAuthenticated() && 
-                      request.auth.uid == request.resource.data.senderId &&
-                      isValidString('content') &&
-                      hasField('receiverId') &&
-                      hasField('timestamp');
+                      (request.auth.uid == request.resource.data.teacherId ||
+                       request.auth.uid == request.resource.data.parentId);
       
-      // Päivitys: Vain viestin omistaja voi päivittää (esim. merkitä luetuksi)
+      // Päivitys: Opettaja tai vanhempi voivat päivittää (esim. merkitä luetuksi)
       allow update: if isAuthenticated() && 
-                      (request.auth.uid == resource.data.senderId || 
-                       request.auth.uid == resource.data.receiverId);
+                      (request.auth.uid == resource.data.teacherId || 
+                       request.auth.uid == resource.data.parentId);
       
-      // Poisto: Vain lähettäjä voi poistaa
+      // Poisto: Molemmat voivat poistaa
       allow delete: if isAuthenticated() && 
-                      request.auth.uid == resource.data.senderId;
+                      (request.auth.uid == resource.data.teacherId ||
+                       request.auth.uid == resource.data.parentId);
     }
     
     // ========================================
@@ -249,6 +248,33 @@ service cloud.firestore {
       allow create: if isAuthenticated();
       allow update: if isAuthenticated();
       allow delete: if isAuthenticated();
+    }
+    
+    // ========================================
+    // COMMUNICATIONS COLLECTION
+    // ========================================
+    match /communications/{communicationId} {
+      // Luku ja kirjoitus: Kaikki kirjautuneet käyttäjät
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+    
+    // ========================================
+    // GRADES COLLECTION
+    // ========================================
+    match /grades/{gradeId} {
+      // Luku: Opettaja tai vanhempi voivat lukea
+      allow read: if isAuthenticated();
+      
+      // Kirjoitus: Vain opettaja voi lisätä arvosanoja
+      allow create: if isAuthenticated() && 
+                      request.auth.uid == request.resource.data.teacherId;
+      
+      // Päivitys ja poisto: Vain opettaja voi muokata
+      allow update, delete: if isAuthenticated() && 
+                              request.auth.uid == resource.data.teacherId;
     }
     
     // ========================================

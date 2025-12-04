@@ -41,10 +41,15 @@ export default function ConversationsScreen({ navigation, route }) {
     setLoading(true);
     setError(null);
     try {
+      console.log('🔍 Loading conversations for:', user.uid, 'role:', role);
       const rows = await listConversationsForUser(user.uid, role);
+      console.log('✅ Loaded conversations:', rows.length);
       setItems(rows);
       loadNames(rows);
     } catch (e) {
+      console.error('❌ Conversations error:', e);
+      console.error('Error code:', e.code);
+      console.error('Error message:', e.message);
       setError(e.message || 'Failed to load conversations');
     } finally {
       setLoading(false);

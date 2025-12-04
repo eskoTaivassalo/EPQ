@@ -86,8 +86,8 @@ export async function listMessagesForConversation(teacherId, parentId, limit = 5
   const ref = collection(db, 'messages');
   const q = query(
     ref,
-    where('teacherId', '==', teacherId),
     where('parentId', '==', parentId),
+    where('teacherId', '==', teacherId),
     orderBy('createdAt', 'asc')
   );
   const snap = await getDocs(q);
@@ -155,8 +155,8 @@ export function subscribeToConversation(teacherId, parentId, onChange) {
   const ref = collection(db, 'messages');
   const q = query(
     ref,
-    where('teacherId', '==', teacherId),
     where('parentId', '==', parentId),
+    where('teacherId', '==', teacherId),
     orderBy('createdAt', 'asc')
   );
   return onSnapshot(q, (snap) => {
