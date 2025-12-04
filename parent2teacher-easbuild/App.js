@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, ActivityIndicator, AppState } from 'react-native';
+import { View, ActivityIndicator, AppState, Alert } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Redux
@@ -203,13 +203,21 @@ const AppNavigator = () => {
   useEffect(() => {
     console.log('[push] 🎧 Setting up notification tap listener...');
     const subscription = NotificationService.addNotificationResponseListener((data) => {
-      const { meetingUrl, bookingId, type } = data;
+      const { meetingUrl, bookingId, type, exceptionDate, reason } = data;
       
-      console.log('[push] 👆 Notification tapped:', { type, bookingId, meetingUrl });
+      console.log('[push] 👆 Notification tapped:', { type, bookingId, meetingUrl, exceptionDate, reason });
       
       if (type === 'booking_reminder' && meetingUrl) {
         console.log('[push] 🎥 Opening meeting from notification:', meetingUrl);
         Linking.openURL(meetingUrl);
+      } else if (type === 'booking_exception') {
+        console.log('[push] 🚫 Student cancellation:', { exceptionDate, reason });
+        const dateStr = exceptionDate ? new Date(exceptionDate).toLocaleDateString() : 'Unknown date';
+        Alert.alert(
+          'Student Cannot Attend',
+          `Date: ${dateStr}\n\nReason: ${reason || 'No reason provided'}`,
+          [{ text: 'OK' }]
+        );
       } else if (type === 'new_booking') {
         console.log('[push] 📅 New booking notification tapped, bookingId:', bookingId);
         // Could navigate to bookings screen here if needed

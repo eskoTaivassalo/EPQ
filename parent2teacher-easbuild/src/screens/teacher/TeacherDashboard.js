@@ -342,13 +342,13 @@ const TeacherDashboard = ({ navigation }) => {
             console.log('📋 Upcoming Lessons:', {
               totalBookings: bookings.length,
               upcomingCount: upcoming.length,
-              upcomingWithMeetingUrl: upcoming.filter(b => b.meetingUrl).length,
+              upcomingWithMeetingUrl: upcoming.filter(b => b?.meetingUrl).length,
               sample: upcoming[0] ? {
                 id: upcoming[0].id,
                 status: upcoming[0].status,
                 date: upcoming[0].date,
-                hasMeetingUrl: !!upcoming[0].meetingUrl,
-                meetingUrl: upcoming[0].meetingUrl
+                hasMeetingUrl: !!upcoming[0]?.meetingUrl,
+                meetingUrl: upcoming[0]?.meetingUrl
               } : 'none'
             });
             

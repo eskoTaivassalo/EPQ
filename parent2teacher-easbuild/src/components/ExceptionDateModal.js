@@ -8,6 +8,8 @@ import {
   TextInput,
   Alert,
   Platform,
+  ScrollView,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
@@ -86,7 +88,10 @@ const ExceptionDateModal = ({ visible, onConfirm, onClose, bookedDates = [] }) =
       transparent={true}
       onRequestClose={handleClose}
     >
-      <View style={styles.modalOverlay}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalOverlay}
+      >
         <View style={styles.modalContent}>
           <View style={styles.header}>
             <View style={styles.iconCircle}>
@@ -98,7 +103,7 @@ const ExceptionDateModal = ({ visible, onConfirm, onClose, bookedDates = [] }) =
             </TouchableOpacity>
           </View>
 
-          <View style={styles.body}>
+          <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent} keyboardShouldPersistTaps="handled">
             <Text style={styles.description}>
               Let your teacher know if you can't make it to a scheduled session.
             </Text>
@@ -164,6 +169,8 @@ const ExceptionDateModal = ({ visible, onConfirm, onClose, bookedDates = [] }) =
                 multiline
                 numberOfLines={3}
                 maxLength={200}
+                blurOnSubmit={true}
+                returnKeyType="done"
               />
               <Text style={styles.hint}>{reason.length}/200 characters</Text>
             </View>
@@ -174,7 +181,7 @@ const ExceptionDateModal = ({ visible, onConfirm, onClose, bookedDates = [] }) =
                 Your teacher will be notified and this session will be cancelled.
               </Text>
             </View>
-          </View>
+          </ScrollView>
 
           <View style={styles.footer}>
             <TouchableOpacity style={styles.cancelButton} onPress={handleClose}>
@@ -186,7 +193,7 @@ const ExceptionDateModal = ({ visible, onConfirm, onClose, bookedDates = [] }) =
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -232,6 +239,9 @@ const styles = StyleSheet.create({
   },
   body: {
     padding: 20,
+  },
+  bodyContent: {
+    paddingBottom: 30,
   },
   description: {
     fontSize: 15,

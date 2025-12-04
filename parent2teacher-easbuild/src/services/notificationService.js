@@ -249,12 +249,12 @@ export async function sendImmediateNotification(title, body, data = {}) {
  */
 export function addNotificationResponseListener(callback) {
   const subscription = Notifications.addNotificationResponseReceivedListener(response => {
-    const { meetingUrl, bookingId, type } = response.notification.request.content.data;
+    const data = response?.notification?.request?.content?.data || {};
     
-    console.log('📬 Notification tapped:', { meetingUrl, bookingId, type });
+    console.log('📬 Notification tapped:', { data, hasData: !!Object.keys(data).length });
     
     if (callback) {
-      callback({ meetingUrl, bookingId, type });
+      callback(data); // Return all data fields
     }
   });
 

@@ -551,13 +551,25 @@ export const addExceptionDate = createAsyncThunk(
   'bookings/addExceptionDate',
   async ({ recurringBookingId, exceptionDate, reason }, { rejectWithValue, dispatch }) => {
     try {
+      console.log('[addExceptionDate] Starting...');
+      console.log('[addExceptionDate] User:', auth?.currentUser?.uid);
+      
       if (!auth?.currentUser) throw new Error('Not authenticated');
       
       const ref = doc(db, 'recurringBookings', recurringBookingId);
       const snap = await getDoc(ref);
+      
+      console.log('[addExceptionDate] Doc exists:', snap.exists());
       if (!snap.exists()) throw new Error('Recurring booking not found');
       
       const data = snap.data();
+      console.log('[addExceptionDate] Doc data:', {
+        parentId: data.parentId,
+        teacherId: data.teacherId,
+        status: data.status,
+        hasExceptions: !!data.exceptions
+      });
+      
       const exceptions = data.exceptions || [];
       
       // Add new exception
@@ -589,13 +601,21 @@ export const addExceptionDate = createAsyncThunk(
           });
           
           // Notify teacher
+          console.log('[addExceptionDate] Creating notification for teacher:', data.teacherId);
+          console.log('[addExceptionDate] Current user (parent):', auth?.currentUser?.uid);
+          
           dispatch(createNotification({
             userId: data.teacherId,
             type: 'booking_exception',
             title: 'Student Cannot Attend',
             message: `Student cancelled recurring booking for ${exceptionDateObj.toLocaleDateString()}${reason ? ': ' + reason : ''}`,
             navigationTarget: 'TeacherBookings',
-            navigationParams: { bookingId: bookingDoc.id }
+            navigationParams: { bookingId: bookingDoc.id },
+            data: {
+              exceptionDate: exceptionDate,
+              reason: reason,
+              recurringBookingId: recurringBookingId
+            }
           }));
         }
       });

@@ -13,7 +13,7 @@ import {
   serverTimestamp,
   Timestamp
 } from 'firebase/firestore';
-import { db } from '../../config/firebaseConfig';
+import { db, auth } from '../../config/firebaseConfig';
 
 // Fetch notifications for current user
 export const fetchNotifications = createAsyncThunk(
@@ -72,6 +72,9 @@ export const markAsRead = createAsyncThunk(
   'notifications/markAsRead',
   async (notificationId) => {
     try {
+      console.log('[markAsRead] Starting for notificationId:', notificationId);
+      console.log('[markAsRead] Current user:', auth?.currentUser?.uid);
+      
       const ref = doc(db, 'notifications', notificationId);
       const snap = await getDoc(ref);
       if (!snap.exists()) {
@@ -79,6 +82,12 @@ export const markAsRead = createAsyncThunk(
         return notificationId; // Graceful: return so reducer can ignore if needed
       }
       const data = snap.data();
+      console.log('[markAsRead] Notification data:', {
+        userId: data.userId,
+        type: data.type,
+        read: data.read
+      });
+      
       if (!data || typeof data.userId !== 'string') {
         console.warn('[notifications] markAsRead skipped: missing userId field (legacy malformed doc?)', notificationId);
         return notificationId;
