@@ -242,13 +242,15 @@ export const updateBookingStatus = createAsyncThunk(
           
           // Create a single grouped notification (Redux will handle duplicates)
           try {
+            console.log('[updateBookingStatus] 🔔 Creating notification FOR PARENT:', parentId, '(current user:', auth.currentUser.uid, ')');
             dispatch(createNotification({
-              userId: parentId,
+              userId: parentId, // IMPORTANT: This goes to PARENT, not teacher
               type: 'recurring_booking_accepted',
               title: `${acceptedCount} Recurring Session${acceptedCount > 1 ? 's' : ''} Approved! 🎉`,
               message: `${teacherName || 'Teacher'} has approved ${acceptedCount} of your recurring booking sessions. Check your bookings for meeting links.`,
               navigationTarget: 'ParentBookings'
             }));
+            console.log('[updateBookingStatus] ✅ Notification created for parent:', parentId);
           } catch (notifErr) {
             console.error('[updateBookingStatus] Error creating recurring notification:', notifErr);
           }
@@ -294,6 +296,8 @@ export const updateBookingStatus = createAsyncThunk(
           notificationData.type = 'booking_accepted';
           notificationData.title = 'Varaus hyväksytty! 🎉';
           notificationData.message = `${teacherName || 'Opettaja'} hyväksyi varauksesi ${date ? new Date(date).toLocaleString('fi-FI') : ''}\n\n📹 Video-linkki:\n${meetingUrl}\n\nLiity Dashboard → Upcoming Lessons kautta`;
+          
+          console.log('[updateBookingStatus] 🔔 Creating notification FOR PARENT:', parentId, '(current user:', auth.currentUser.uid, ')');
           
           // Send push notification to parent (but not if it's the same user testing)
           (async () => {
@@ -368,6 +372,8 @@ export const updateBookingStatus = createAsyncThunk(
         }
 
         if (notificationData.type) {
+          console.log('[updateBookingStatus] 🔔 Creating notification with data:', { ...notificationData, targetUser: notificationData.userId });
+          console.log('[updateBookingStatus] ⚠️ If notification appears for teacher, check that parentId is correct!');
           dispatch(createNotification(notificationData));
         }
       }
@@ -749,7 +755,15 @@ export const approveAllRecurringBookings = createAsyncThunk(
 const bookingsSlice = createSlice({
   name: 'bookings',
   initialState,
-  reducers: {},
+  reducers: {
+    clearBookings: (state) => {
+      console.log('🧹 [bookingsSlice] Clearing all bookings data');
+      state.myBookings = [];
+      state.recurringBookings = [];
+      state.loading = false;
+      state.error = null;
+    }
+  },
   extraReducers: (builder) => {
     builder
       .addCase(createBooking.pending, (state) => {

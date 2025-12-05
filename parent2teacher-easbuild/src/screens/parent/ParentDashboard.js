@@ -7,7 +7,8 @@ import {
   StyleSheet,
   ScrollView,
   Linking,
-  RefreshControl
+  RefreshControl,
+  Animated
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -16,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import NotificationBell from '../../components/NotificationBell';
 import SimpleDrawer from '../../components/SimpleDrawer';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { useAppData } from '../../hooks/useAppData';
 import { fetchParentBookings, selectBookings } from '../../store/slices/bookingsSlice';
 import { initDeviceLocation } from '../../store/slices/locationSlice';
@@ -25,6 +27,7 @@ import { collection, query, limit, getDocs, orderBy, doc, getDoc } from 'firebas
 import { SUBJECTS } from '../../constants/subjects';
 import { bookSlot, listAvailableSlots } from '../../services/availabilityService';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
+import { listFeedbackForUser } from '../../services/feedbackService';
 
 const ParentDashboard = ({ navigation }) => {
   const { user, logout, refreshUser } = useAuth();
@@ -34,6 +37,11 @@ const ParentDashboard = ({ navigation }) => {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [recommendedTeachers, setRecommendedTeachers] = useState([]);
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [feedbacksLoading, setFeedbacksLoading] = useState(false);
+  const [learningProgress, setLearningProgress] = useState([]);
+  const scrollY = new Animated.Value(0);
+  const menuButtonScale = new Animated.Value(1);
 
   useEffect(() => {
     if (user?.uid) {
@@ -248,23 +256,137 @@ const ParentDashboard = ({ navigation }) => {
       // Limit to 6 best matches
       teachers = teachers.slice(0, 6);
       
-      console.log(`📚 Showing ${teachers.length} recommended teachers`);
-      setRecommendedTeachers(teachers);
+      // Enrich with ratings from feedback
+      const teachersWithRatings = await Promise.all(
+        teachers.map(async (teacher) => {
+          try {
+            const feedbacks = await listFeedbackForUser(teacher.id);
+            const ratingsOnly = feedbacks.filter(fb => fb.rating && fb.rating > 0);
+            
+            if (ratingsOnly.length > 0) {
+              const sum = ratingsOnly.reduce((acc, fb) => acc + fb.rating, 0);
+              const avgRating = sum / ratingsOnly.length;
+              return { 
+                ...teacher, 
+                rating: avgRating,
+                reviewCount: feedbacks.length
+              };
+            }
+            return { ...teacher, rating: 0, reviewCount: 0 };
+          } catch (err) {
+            console.warn(`Could not load rating for teacher ${teacher.id}:`, err);
+            return { ...teacher, rating: 0, reviewCount: 0 };
+          }
+        })
+      );
+      
+      console.log(`📚 Showing ${teachersWithRatings.length} recommended teachers with ratings`);
+      setRecommendedTeachers(teachersWithRatings);
     } catch (error) {
       console.error('❌ Error loading recommended teachers:', error);
       console.error('Error details:', error.message, error.code);
     }
   };
 
+  // Load feedback for parent
+  const loadFeedbacks = async () => {
+    if (!user?.uid) return;
+    setFeedbacksLoading(true);
+    try {
+      const feedbackList = await listFeedbackForUser(user.uid);
+      console.log('📝 Loaded feedbacks:', feedbackList.length);
+      
+      // Enrich with teacher details
+      const enrichedFeedbacks = await Promise.all(
+        feedbackList.slice(0, 5).map(async (feedback) => {
+          try {
+            const teacherDoc = await getDoc(doc(db, 'teachers', feedback.fromUserId));
+            const teacherData = teacherDoc.exists() ? teacherDoc.data() : {};
+            return {
+              ...feedback,
+              teacherName: teacherData.firstName 
+                ? `${teacherData.firstName} ${teacherData.lastName || ''}`.trim()
+                : teacherData.displayName || 'Teacher',
+              subject: feedback.subject || 'General'
+            };
+          } catch (err) {
+            console.warn('Error loading teacher for feedback:', err);
+            return { ...feedback, teacherName: 'Teacher', subject: 'General' };
+          }
+        })
+      );
+      
+      setFeedbacks(enrichedFeedbacks);
+    } catch (error) {
+      console.error('Error loading feedbacks:', error);
+    } finally {
+      setFeedbacksLoading(false);
+    }
+  };
+
+  // Calculate learning progress from bookings
+  const calculateLearningProgress = () => {
+    if (!bookings || bookings.length === 0) {
+      setLearningProgress([]);
+      return;
+    }
+
+    // Group bookings by subject
+    const subjectStats = {};
+    
+    bookings.forEach((booking) => {
+      const subject = booking.subject || booking.lessonSubject || 'General';
+      if (!subjectStats[subject]) {
+        subjectStats[subject] = {
+          subject,
+          total: 0,
+          completed: 0
+        };
+      }
+      
+      subjectStats[subject].total++;
+      
+      // Count as completed if status is accepted/confirmed and date is in the past
+      const bookingDate = new Date(booking.start || booking.date);
+      const isPast = bookingDate < new Date();
+      const isCompleted = (booking.status === 'accepted' || booking.status === 'confirmed') && isPast;
+      
+      if (isCompleted) {
+        subjectStats[subject].completed++;
+      }
+    });
+
+    // Convert to array and calculate percentages
+    const progressData = Object.values(subjectStats)
+      .map((stat) => ({
+        subject: stat.subject,
+        completed: stat.completed,
+        total: stat.total,
+        percentage: stat.total > 0 ? Math.round((stat.completed / stat.total) * 100) : 0
+      }))
+      .sort((a, b) => b.total - a.total) // Sort by total lessons (most active subjects first)
+      .slice(0, 5); // Show top 5 subjects
+
+    console.log('📊 Learning progress:', progressData);
+    setLearningProgress(progressData);
+  };
+
   useEffect(() => {
     loadRecommendedTeachers();
-  }, []);
+    loadFeedbacks();
+  }, [user?.uid]);
+
+  // Calculate progress when bookings change
+  useEffect(() => {
+    calculateLearningProgress();
+  }, [bookings]);
 
   // Reload recommendations when screen comes into focus (e.g., after editing profile)
   useFocusEffect(
     useCallback(() => {
       console.log('📱 ParentDashboard focused - reloading recommendations');
       loadRecommendedTeachers();
+      loadFeedbacks();
     }, [user?.uid])
   );
 
@@ -276,6 +398,8 @@ const ParentDashboard = ({ navigation }) => {
         await dispatch(fetchParentBookings());
       }
       await loadRecommendedTeachers();
+      await loadFeedbacks();
+      // Progress will recalculate automatically via useEffect when bookings update
     } catch (error) {
       console.error('Refresh error:', error);
     } finally {
@@ -435,28 +559,68 @@ const ParentDashboard = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Welcome,</Text>
-            <Text style={styles.headerName}>{user?.name || 'Parent'}!</Text>
+      <WatercolorBackground />
+      
+      {/* Floating Header */}
+      <View style={styles.floatingHeader}>
+        <Animated.View 
+          style={[
+            styles.floatingHeaderLeft,
+            {
+              opacity: scrollY.interpolate({
+                inputRange: [0, 100],
+                outputRange: [1, 0],
+                extrapolate: 'clamp',
+              }),
+            }
+          ]}
+        >
+          <View>
+            <Text style={styles.floatingHeaderTitle}>Welcome,</Text>
+            <Text style={styles.floatingHeaderName}>{user?.name || 'Student'}!</Text>
           </View>
-          <View style={styles.headerActions}>
-            <NotificationBell />
-            <TouchableOpacity 
-              style={styles.menuButton}
-              onPress={() => setDrawerVisible(true)}
+        </Animated.View>
+        <View style={styles.floatingHeaderRight}>
+          <NotificationBell />
+          <TouchableOpacity 
+            activeOpacity={0.8}
+            onPressIn={() => {
+              Animated.spring(menuButtonScale, {
+                toValue: 0.85,
+                useNativeDriver: true,
+              }).start();
+            }}
+            onPressOut={() => {
+              Animated.spring(menuButtonScale, {
+                toValue: 1,
+                friction: 3,
+                tension: 40,
+                useNativeDriver: true,
+              }).start();
+            }}
+            onPress={() => setDrawerVisible(true)}
+          >
+            <Animated.View 
+              style={[
+                styles.menuButton,
+                { transform: [{ scale: menuButtonScale }] }
+              ]}
             >
-              <Ionicons name="menu" size={28} color={colors.white} />
-            </TouchableOpacity>
-          </View>
+              <Ionicons name="menu" size={28} color={colors.primary} />
+            </Animated.View>
+          </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView 
-        style={styles.content} 
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -477,64 +641,90 @@ const ParentDashboard = ({ navigation }) => {
             </TouchableOpacity>
           </View>
           
-          <View style={styles.feedbackCard}>
-            <View style={styles.feedbackHeader}>
-              <View style={styles.feedbackInfo}>
-                <Text style={styles.feedbackSubject}>Mathematics</Text>
-                <Text style={styles.feedbackTeacher}>Ms. Anderson</Text>
-              </View>
-              <View style={styles.gradeContainer}>
-                <Text style={styles.gradeText}>A</Text>
-              </View>
+          {feedbacksLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading feedback...</Text>
             </View>
-            <Text style={styles.feedbackComment}>
-              "Excellent progress in algebra! Emma shows great understanding of equations."
-            </Text>
-            <Text style={styles.feedbackDate}>2 days ago</Text>
-          </View>
-
-          <View style={styles.feedbackCard}>
-            <View style={styles.feedbackHeader}>
-              <View style={styles.feedbackInfo}>
-                <Text style={styles.feedbackSubject}>English</Text>
-                <Text style={styles.feedbackTeacher}>Mr. Thompson</Text>
-              </View>
-              <View style={styles.gradeContainer}>
-                <Text style={styles.gradeText}>B+</Text>
-              </View>
+          ) : feedbacks.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Ionicons name="chatbubbles-outline" size={48} color={colors.textSecondary} />
+              <Text style={styles.emptyText}>No feedback yet</Text>
+              <Text style={styles.emptySubtext}>Feedback from teachers will appear here</Text>
             </View>
-            <Text style={styles.feedbackComment}>
-              "Good essay writing skills. Focus on grammar for improvement."
-            </Text>
-            <Text style={styles.feedbackDate}>5 days ago</Text>
-          </View>
+          ) : (
+            feedbacks.map((feedback) => {
+              const feedbackDate = feedback.createdAt?.toDate ? feedback.createdAt.toDate() : new Date(feedback.createdAt);
+              const daysAgo = Math.floor((Date.now() - feedbackDate.getTime()) / (1000 * 60 * 60 * 24));
+              const timeAgoText = daysAgo === 0 ? 'Today' : daysAgo === 1 ? '1 day ago' : `${daysAgo} days ago`;
+              
+              return (
+                <View key={feedback.id} style={styles.feedbackCard}>
+                  <View style={styles.feedbackHeader}>
+                    <View style={styles.feedbackInfo}>
+                      <Text style={styles.feedbackSubject}>{feedback.subject}</Text>
+                      <Text style={styles.feedbackTeacher}>{feedback.teacherName}</Text>
+                    </View>
+                    {feedback.rating && (
+                      <View style={styles.ratingContainer}>
+                        <Ionicons name="star" size={16} color="#FFD700" />
+                        <Text style={styles.ratingText}>{feedback.rating}/5</Text>
+                      </View>
+                    )}
+                  </View>
+                  {feedback.feedbackText && (
+                    <Text style={styles.feedbackComment} numberOfLines={3}>
+                      "{feedback.feedbackText}"
+                    </Text>
+                  )}
+                  <Text style={styles.feedbackDate}>{timeAgoText}</Text>
+                </View>
+              );
+            })
+          )}
         </View>
 
         {/* Learning Progress */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Learning Progress</Text>
           
-          <View style={styles.progressCard}>
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressSubject}>Mathematics</Text>
-              <Text style={styles.progressPercentage}>75%</Text>
+          {learningProgress.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Ionicons name="bar-chart-outline" size={48} color={colors.textSecondary} />
+              <Text style={styles.emptyText}>No progress data yet</Text>
+              <Text style={styles.emptySubtext}>Book lessons to track your progress</Text>
             </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: '75%', backgroundColor: colors.primary }]} />
-            </View>
-            <Text style={styles.progressDetails}>12 of 16 lessons completed</Text>
-          </View>
-
-          <View style={styles.progressCard}>
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressSubject}>English Literature</Text>
-              <Text style={styles.progressPercentage}>50%</Text>
-            </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: '50%', backgroundColor: colors.secondary }]} />
-            </View>
-            <Text style={styles.progressDetails}>6 of 12 lessons completed</Text>
-          </View>
+          ) : (
+            learningProgress.map((progress, index) => {
+              // Alternate colors for visual variety
+              const progressColor = index % 3 === 0 ? colors.primary : 
+                                   index % 3 === 1 ? colors.secondary : '#9C27B0';
+              
+              return (
+                <View key={progress.subject} style={styles.progressCard}>
+                  <View style={styles.progressHeader}>
+                    <Text style={styles.progressSubject}>{progress.subject}</Text>
+                    <Text style={[styles.progressPercentage, { color: progressColor }]}>
+                      {progress.percentage}%
+                    </Text>
+                  </View>
+                  <View style={styles.progressBar}>
+                    <View 
+                      style={[
+                        styles.progressFill, 
+                        { 
+                          width: `${progress.percentage}%`, 
+                          backgroundColor: progressColor 
+                        }
+                      ]} 
+                    />
+                  </View>
+                  <Text style={styles.progressDetails}>
+                    {progress.completed} of {progress.total} lessons completed
+                  </Text>
+                </View>
+              );
+            })
+          )}
         </View>
 
         {/* Recommended Teachers */}
@@ -556,30 +746,35 @@ const ParentDashboard = ({ navigation }) => {
                   >
                     <ProfileImagePicker
                       imageUri={teacher.photoURL || teacher.profile?.photoURL}
-                      size={60}
+                      size={80}
                       editable={false}
                     />
-                    <Text style={styles.teacherName} numberOfLines={1}>
+                    <Text style={styles.teacherName} numberOfLines={1} ellipsizeMode="tail">
                       {teacher.name || teacher.fullName || 'Teacher'}
                     </Text>
-                    <Text style={styles.teacherSubject} numberOfLines={1}>
-                      {teacher.subjects?.[0] || teacher.profile?.subjects?.[0] || 'Various Subjects'}
-                    </Text>
-                    {teacher.rating && (
+                    
+                    {/* Subjects */}
+                    <View style={styles.teacherSubjects}>
+                      <Text style={styles.teacherSubject} numberOfLines={2}>
+                        {(teacher.subjects || teacher.profile?.subjects || []).slice(0, 2).join(', ') || 'Various Subjects'}
+                      </Text>
+                    </View>
+                    
+                    {/* Location */}
+                    {(teacher.location || teacher.profile?.location) && (
+                      <Text style={styles.locationText} numberOfLines={1}>
+                        <Ionicons name="location-outline" size={11} color={colors.textSecondary} /> {teacher.location || teacher.profile?.location}
+                      </Text>
+                    )}
+                    
+                    {/* Rating */}
+                    {teacher.rating > 0 && (
                       <View style={styles.teacherRating}>
                         <Ionicons name="star" size={14} color="#FFD700" />
                         <Text style={styles.ratingText}>{teacher.rating.toFixed(1)}</Text>
+                        <Text style={styles.reviewCount}>({teacher.reviewCount})</Text>
                       </View>
                     )}
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.messageButton}
-                    onPress={() => navigation.navigate('Conversations', {
-                      recipientId: teacher.id,
-                      recipientName: teacher.name || teacher.fullName || 'Teacher'
-                    })}
-                  >
-                    <Ionicons name="chatbubble" size={16} color={colors.white} />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -645,41 +840,52 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    backgroundColor: '#E91E63',
-    paddingBottom: 20,
-  },
-  headerContent: {
+  floatingHeader: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
+    zIndex: 1000,
+  },
+  floatingHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  floatingHeaderTitle: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  floatingHeaderName: {
+    color: colors.text,
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  floatingHeaderRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   menuButton: {
     padding: 8,
-    marginRight: 12,
-  },
-  headerTitle: {
-    color: colors.white,
-    fontSize: 16,
-    opacity: 0.9,
-  },
-  headerName: {
-    color: colors.white,
-    fontSize: 24,
-    fontWeight: 'bold',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.3)',
   },
   logoutButton: {
     padding: 8,
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
   content: {
-    flex: 1,
     padding: 20,
+    paddingTop: 100,
+    paddingBottom: 40,
   },
   locationCard: {
     backgroundColor: colors.white,
@@ -815,6 +1021,41 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
   },
+  emptySubtext: {
+    marginTop: 4,
+    fontSize: 12,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  loadingContainer: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF9E6',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  ratingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F59E0B',
+    marginLeft: 4,
+  },
   feedbackCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
@@ -911,20 +1152,18 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   teacherCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    marginRight: 12,
-    width: 140,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 3,
+    backgroundColor: 'rgba(102, 126, 234, 0.25)',
+    borderRadius: 20,
+    marginRight: 16,
+    width: 190,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.4)',
     overflow: 'hidden',
   },
   teacherCardContent: {
-    padding: 16,
+    padding: 20,
     alignItems: 'center',
+    gap: 10,
   },
   messageButton: {
     backgroundColor: colors.primary,
@@ -934,26 +1173,71 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderBottomLeftRadius: 12,
     borderBottomRightRadius: 12,
-    marginTop: 4,
   },
   teacherName: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.text,
     textAlign: 'center',
     marginTop: 8,
-    marginBottom: 4,
+    width: '100%',
+    paddingHorizontal: 8,
   },
-  teacherSubject: {
-    fontSize: 12,
+  locationText: {
+    fontSize: 11,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 8,
+    width: '100%',
+    marginTop: 2,
   },
   teacherRating: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginTop: 4,
+  },
+  ratingText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  reviewCount: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  teacherSubjects: {
+    width: '100%',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+    borderRadius: 10,
+    marginVertical: 4,
+  },
+  teacherSubject: {
+    fontSize: 12,
+    color: colors.text,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  teacherExperience: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  experienceText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  teacherLocation: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    maxWidth: '100%',
+  },
+  locationText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    flex: 1,
   },
   ratingText: {
     fontSize: 12,

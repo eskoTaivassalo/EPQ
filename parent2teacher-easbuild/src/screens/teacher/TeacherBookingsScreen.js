@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, Modal, TextInput, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
 import { useDispatch, useSelector } from 'react-redux';
 import { fetchTeacherBookings, selectBookings, selectBookingsLoading, updateBookingStatus, approveAllRecurringBookings } from '../../store/slices/bookingsSlice';
@@ -230,6 +231,7 @@ const TeacherBookingsScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.white} />

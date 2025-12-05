@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, TextInput, Linking } from 'react-native';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import BookingCalendar from '../../components/BookingCalendar';
 import BookingParticipantCard from '../../components/BookingParticipantCard';
 import { useSelector, useDispatch } from 'react-redux';
@@ -86,6 +87,7 @@ export default function CalendarScreen() {
 
   return (
     <View style={styles.container}>
+      <WatercolorBackground />
       <BookingCalendar bookings={bookings} onSelectDate={onSelectDate} />
       {loading && <Text style={styles.loadingText}>Ladataan varauksia...</Text>}
       <View style={styles.legendRow}>
@@ -93,60 +95,67 @@ export default function CalendarScreen() {
         <View style={styles.legendItem}><View style={[styles.legendDot,{backgroundColor:'#4CAF50'}]} /><Text style={styles.legendLabel}>Vahvistettu</Text></View>
         <View style={styles.legendItem}><View style={[styles.legendDot,{backgroundColor:'#F44336'}]} /><Text style={styles.legendLabel}>Hylätty</Text></View>
       </View>
-      <Modal visible={!!selectedDate} transparent animationType="fade" onRequestClose={() => setSelectedDate(null)}>
+      <Modal visible={!!selectedDate} transparent animationType="slide" onRequestClose={() => setSelectedDate(null)}>
         <View style={styles.modalBackdrop}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{selectedDate}</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{selectedDate ? new Date(selectedDate).toLocaleDateString('fi-FI', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}</Text>
+              <TouchableOpacity onPress={() => setSelectedDate(null)} style={styles.closeIconBtn}>
+                <Text style={styles.closeIcon}>✕</Text>
+              </TouchableOpacity>
+            </View>
             {selectedBookings.length === 0 ? (
-              <Text style={styles.emptyText}>Ei varauksia</Text>
+              <View style={styles.emptyContainer}>
+                <Text style={styles.emptyIcon}>📅</Text>
+                <Text style={styles.emptyText}>Ei varauksia tälle päivälle</Text>
+              </View>
             ) : (
               <FlatList
                 data={selectedBookings}
                 keyExtractor={b => b.id}
+                contentContainerStyle={styles.bookingsList}
                 renderItem={({ item }) => (
-                  <View style={styles.bookingRow}>
+                  <View style={styles.bookingCard}>
                     <BookingParticipantCard
                       profile={profiles[ role === 'teacher' ? item.parentId : item.teacherId ]}
                       roleLabel={role === 'teacher' ? 'Vanhempi' : 'Opettaja'}
                       booking={item}
                     />
-                    {(item.status === 'accepted' || item.status === 'confirmed') && item.meetingUrl && (
-                      <TouchableOpacity style={styles.joinBtn} onPress={() => Linking.openURL(item.meetingUrl)}>
-                        <Text style={styles.joinBtnText}>Liity</Text>
-                      </TouchableOpacity>
-                    )}
-                    {canCancel(item, authUser?.uid) && !isFinal(item.status) && (
-                      <View style={styles.actionRow}>
-                        <TouchableOpacity style={styles.cancelBtn} onPress={() => handleCancel(item)}>
-                          <Text style={styles.cancelBtnText}>Peruuta</Text>
+                    <View style={styles.bookingActions}>
+                      {(item.status === 'accepted' || item.status === 'confirmed') && item.meetingUrl && (
+                        <TouchableOpacity style={styles.joinBtn} onPress={() => Linking.openURL(item.meetingUrl)}>
+                          <Text style={styles.joinBtnText}>Liity videoon</Text>
                         </TouchableOpacity>
-                        {/* Only allow editing for requests that are not yet confirmed. */}
-                        {/* TODO: In future, enable reschedule flow with mutual acknowledgment for confirmed bookings. */}
-                        {(item.status === 'pending' || item.status === 'booked') && (
-                          <TouchableOpacity style={styles.editBtn} onPress={() => handleEdit(item)}>
-                            <Text style={styles.editBtnText}>Muokkaa</Text>
+                      )}
+                      {canCancel(item, authUser?.uid) && !isFinal(item.status) && (
+                        <View style={styles.actionRow}>
+                          {(item.status === 'pending' || item.status === 'booked') && (
+                            <TouchableOpacity style={styles.editBtn} onPress={() => handleEdit(item)}>
+                              <Text style={styles.editBtnText}>Muokkaa</Text>
+                            </TouchableOpacity>
+                          )}
+                          <TouchableOpacity style={styles.cancelBtn} onPress={() => handleCancel(item)}>
+                            <Text style={styles.cancelBtnText}>Peruuta</Text>
                           </TouchableOpacity>
-                        )}
-                      </View>
-                    )}
+                        </View>
+                      )}
+                    </View>
                   </View>
                 )}
               />
             )}
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setSelectedDate(null)}>
-              <Text style={styles.closeBtnText}>Sulje</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>
       <Modal visible={showCancelModal} transparent animationType="fade" onRequestClose={() => setShowCancelModal(false)}>
-        <View style={styles.modalBackdrop}>
+        <View style={[styles.modalBackdrop, { justifyContent: 'center', alignItems: 'center' }]}>
           <View style={styles.cancelCard}>
-            <Text style={styles.modalTitle}>Peruuta varaus</Text>
+            <Text style={styles.modalTitle}>⚠️ Peruuta varaus</Text>
             <Text style={styles.reasonLabel}>Peruutuksen syy</Text>
             <TextInput
               style={styles.reasonInput}
               placeholder="Esim. Sairastapaus, tekninen ongelma..."
+              placeholderTextColor="#999"
               value={cancelReason}
               onChangeText={setCancelReason}
               multiline
@@ -208,33 +217,229 @@ function handleCancel(booking) {
 
 
 const styles = StyleSheet.create({
-  container:{flex:1,padding:12,backgroundColor:colors.background},
-  loadingText:{marginTop:8,fontSize:12,color:colors.textSecondary},
-  legendRow:{flexDirection:'row',justifyContent:'space-around',marginTop:12,paddingHorizontal:8},
-  legendItem:{flexDirection:'row',alignItems:'center'},
-  legendDot:{width:10,height:10,borderRadius:5,marginRight:4},
-  legendLabel:{fontSize:11,color:colors.textSecondary},
-  modalBackdrop:{flex:1,backgroundColor:'rgba(0,0,0,0.45)',alignItems:'center',justifyContent:'center',padding:16},
-  cancelCard:{backgroundColor:colors.white,borderRadius:12,padding:16,width:'90%'},
-  reasonLabel:{fontSize:12,color:colors.textSecondary,marginBottom:4},
-  reasonInput:{minHeight:80,backgroundColor:colors.background,borderRadius:8,padding:10,textAlignVertical:'top',color:colors.text},
-  cancelActions:{flexDirection:'row',justifyContent:'flex-end',marginTop:12,gap:12},
-  cancelSecondary:{paddingHorizontal:12,paddingVertical:10},
-  cancelSecondaryText:{color:colors.textSecondary,fontWeight:'600'},
-  cancelPrimary:{backgroundColor:colors.primary,paddingHorizontal:14,paddingVertical:10,borderRadius:8},
-  cancelPrimaryText:{color:colors.white,fontWeight:'700'},
-  modalCard:{backgroundColor:colors.white,borderRadius:12,padding:16,width:'90%',maxHeight:'70%'},
-  modalTitle:{fontSize:16,fontWeight:'700',marginBottom:8,color:colors.text},
-  emptyText:{color:colors.textSecondary,fontStyle:'italic'},
-  bookingRow:{marginBottom:10,paddingBottom:6,borderBottomWidth:1,borderBottomColor:'#eee'},
-  closeBtn:{marginTop:12,alignSelf:'flex-end',backgroundColor:colors.primary,paddingHorizontal:16,paddingVertical:8,borderRadius:8},
-  closeBtnText:{color:colors.white,fontWeight:'600'},
-  actionRow:{flexDirection:'row',gap:8,marginTop:8},
-  joinBtn:{backgroundColor:colors.primary,paddingVertical:8,paddingHorizontal:12,borderRadius:8,alignSelf:'flex-start',marginTop:8},
-  joinBtnText:{color:'#fff',fontWeight:'700'},
-  cancelBtn:{backgroundColor:'#F44336',paddingHorizontal:12,paddingVertical:8,borderRadius:8},
-  cancelBtnText:{color:colors.white,fontSize:12,fontWeight:'600'},
-  editBtn:{backgroundColor:colors.secondary,paddingHorizontal:12,paddingVertical:8,borderRadius:8},
-  editBtnText:{color:colors.white,fontSize:12,fontWeight:'600'},
-  cancelReason:{fontSize:11,color:'#F44336',marginTop:4}
+  container: { flex: 1, padding: 12, backgroundColor: colors.background },
+  loadingText: { marginTop: 8, fontSize: 12, color: colors.textSecondary },
+  legendRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 12, paddingHorizontal: 8 },
+  legendItem: { flexDirection: 'row', alignItems: 'center' },
+  legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 4 },
+  legendLabel: { fontSize: 11, color: colors.textSecondary },
+  
+  // Modal backdrop
+  modalBackdrop: { 
+    flex: 1, 
+    backgroundColor: 'rgba(0,0,0,0.6)', 
+    justifyContent: 'flex-end' 
+  },
+  
+  // Day view modal
+  modalCard: { 
+    backgroundColor: colors.white, 
+    borderTopLeftRadius: 24, 
+    borderTopRightRadius: 24, 
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+    maxHeight: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 8
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0'
+  },
+  modalTitle: { 
+    fontSize: 20, 
+    fontWeight: '700', 
+    color: colors.text,
+    textTransform: 'capitalize',
+    flex: 1
+  },
+  closeIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  closeIcon: {
+    fontSize: 18,
+    color: colors.textSecondary,
+    fontWeight: '600'
+  },
+  
+  // Empty state
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12
+  },
+  emptyText: { 
+    color: colors.textSecondary, 
+    fontSize: 16,
+    fontWeight: '500'
+  },
+  
+  // Bookings list
+  bookingsList: {
+    paddingBottom: 10
+  },
+  bookingCard: { 
+    backgroundColor: '#fafafa',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e8e8e8'
+  },
+  bookingActions: {
+    marginTop: 12,
+    gap: 8
+  },
+  
+  // Action buttons
+  actionRow: { 
+    flexDirection: 'row', 
+    gap: 10,
+    marginTop: 4
+  },
+  joinBtn: { 
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5
+  },
+  joinBtnText: { 
+    color: colors.white, 
+    fontWeight: 'bold',
+    fontSize: 15
+  },
+  cancelBtn: { 
+    flex: 1,
+    backgroundColor: colors.error,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5
+  },
+  cancelBtnText: { 
+    color: colors.white, 
+    fontSize: 15, 
+    fontWeight: 'bold'
+  },
+  editBtn: { 
+    flex: 1,
+    backgroundColor: colors.secondary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5
+  },
+  editBtnText: { 
+    color: colors.white, 
+    fontSize: 15, 
+    fontWeight: 'bold'
+  },
+  
+  // Cancel modal
+  cancelCard: { 
+    backgroundColor: colors.white, 
+    borderRadius: 10, 
+    padding: 20, 
+    width: '90%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5
+  },
+  reasonLabel: { 
+    fontSize: 14, 
+    color: colors.textLight,
+    fontWeight: '600',
+    marginBottom: 8,
+    marginTop: 8
+  },
+  reasonInput: { 
+    minHeight: 100,
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    padding: 15,
+    textAlignVertical: 'top',
+    color: colors.text,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: colors.border
+  },
+  cancelActions: { 
+    flexDirection: 'row', 
+    justifyContent: 'flex-end', 
+    marginTop: 20, 
+    gap: 10 
+  },
+  cancelSecondary: { 
+    paddingHorizontal: 20, 
+    paddingVertical: 15,
+    borderRadius: 8
+  },
+  cancelSecondaryText: { 
+    color: colors.textSecondary, 
+    fontWeight: 'bold',
+    fontSize: 16
+  },
+  cancelPrimary: { 
+    backgroundColor: colors.primary, 
+    paddingHorizontal: 20, 
+    paddingVertical: 15, 
+    borderRadius: 8,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5
+  },
+  cancelPrimaryText: { 
+    color: colors.white, 
+    fontWeight: 'bold',
+    fontSize: 16
+  },
+  cancelReason: { 
+    fontSize: 11, 
+    color: '#F44336', 
+    marginTop: 4 
+  }
 });

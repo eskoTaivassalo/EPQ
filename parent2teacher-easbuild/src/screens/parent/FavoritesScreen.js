@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { View, Text, FlatList, TouchableOpacity, StyleSheet, Image, Alert, Linking } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { useAppData } from '../../hooks/useAppData';
 import { colors } from '../../styles/commonStyles';
 import { SUBJECTS, LOCATIONS, TEACHING_METHODS, getTagLabels } from '../../constants/tags';
@@ -168,6 +169,7 @@ const FavoritesScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.white} />

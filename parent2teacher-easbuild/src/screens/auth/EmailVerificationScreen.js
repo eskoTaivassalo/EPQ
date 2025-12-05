@@ -9,6 +9,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { useAuth } from '../../hooks/useAuth';
 import { colors } from '../../styles/commonStyles';
 import AuthService from '../../services/authService';
@@ -36,11 +37,11 @@ const EmailVerificationScreen = ({ navigation }) => {
     return () => clearInterval(interval);
   }, [resendCooldown]);
 
-  // 🔄 Auto-check email verification status every 10 seconds (less aggressive)
+  // 🔄 Auto-check email verification status every 30 seconds (avoid rate limiting)
   useEffect(() => {
     const checkInterval = setInterval(async () => {
       await checkEmailVerification();
-    }, 10000); // Changed from 3000 to 10000 (10 seconds)
+    }, 30000); // 30 seconds to avoid too many requests
 
     return () => clearInterval(checkInterval);
   }, []);
@@ -95,11 +96,21 @@ const EmailVerificationScreen = ({ navigation }) => {
       setResendCooldown(60);
       
     } catch (error) {
-      Alert.alert(
-        '❌ Virhe',
-        `Vahvistusviestin lähettäminen epäonnistui:\n${error.message}`,
-        [{ text: 'OK' }]
-      );
+      // Käsittele too-many-requests erikseen
+      if (error.message && error.message.includes('too-many-requests')) {
+        Alert.alert(
+          '⏳ Odota hetki',
+          'Olet lähettänyt liian monta vahvistussähköpostia. Odota muutama minuutti ja yritä uudelleen.\n\nTarkista myös roskapostikansio - viesti on todennäköisesti jo lähetetty.',
+          [{ text: 'OK' }]
+        );
+        setResendCooldown(120); // 2 min cooldown jos liikaa pyyntöjä
+      } else {
+        Alert.alert(
+          '❌ Virhe',
+          `Vahvistusviestin lähettäminen epäonnistui:\n${error.message}`,
+          [{ text: 'OK' }]
+        );
+      }
     } finally {
       setLoading(false);
     }
@@ -141,6 +152,7 @@ const EmailVerificationScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 

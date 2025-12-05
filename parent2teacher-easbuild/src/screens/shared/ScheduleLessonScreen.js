@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import DateTimePicker, { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { colors } from '../../styles/commonStyles';
 import { useAppData } from '../../hooks/useAppData';
@@ -123,6 +124,7 @@ const ScheduleLessonScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.white} />

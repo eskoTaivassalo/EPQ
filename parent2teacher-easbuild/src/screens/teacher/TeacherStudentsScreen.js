@@ -2,9 +2,11 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { listStudentsForTeacher } from '../../services/availabilityService';
+import FeedbackModal from '../../components/FeedbackModal';
 
 /**
  * TeacherStudentsScreen - Lists parents (students) who have bookings with this teacher.
@@ -15,6 +17,8 @@ export default function TeacherStudentsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const load = useCallback(async () => {
     if (!user?.uid) return;
@@ -32,26 +36,50 @@ export default function TeacherStudentsScreen({ navigation }) {
 
   useEffect(() => { load(); }, [load]);
 
+  const openFeedbackModal = (student) => {
+    setSelectedStudent(student);
+    setFeedbackModalVisible(true);
+  };
+
+  const closeFeedbackModal = () => {
+    setFeedbackModalVisible(false);
+    setSelectedStudent(null);
+  };
+
   const renderItem = ({ item }) => (
-    <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('ParentProfile', { parentId: item.id })}>
-      <View style={styles.avatar}> 
-        <Ionicons name="person" size={30} color={colors.white} />
-      </View>
-      <View style={styles.cardContent}>
-        <Text style={styles.name}>{item.name || item.fullName || 'Unnamed Parent'}</Text>
-        {item.childrenAges && (
-          <Text style={styles.meta}>Children: {item.childrenAges}</Text>
-        )}
-        {item.location && (
-          <Text style={styles.meta}>{Array.isArray(item.location) ? item.location.join(', ') : item.location}</Text>
-        )}
-      </View>
-      <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
-    </TouchableOpacity>
+    <View style={styles.card}>
+      <TouchableOpacity 
+        style={styles.cardMain}
+        onPress={() => navigation.navigate('ParentProfile', { parentId: item.id })}
+      >
+        <View style={styles.avatar}> 
+          <Ionicons name="person" size={30} color={colors.white} />
+        </View>
+        <View style={styles.cardContent}>
+          <Text style={styles.name}>{item.name || item.fullName || 'Unnamed Parent'}</Text>
+          {item.childrenAges && (
+            <Text style={styles.meta}>Children: {item.childrenAges}</Text>
+          )}
+          {item.location && (
+            <Text style={styles.meta}>{Array.isArray(item.location) ? item.location.join(', ') : item.location}</Text>
+          )}
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={colors.textLight} />
+      </TouchableOpacity>
+      
+      <TouchableOpacity 
+        style={styles.feedbackButton}
+        onPress={() => openFeedbackModal(item)}
+      >
+        <Ionicons name="chatbubble-ellipses" size={20} color={colors.primary} />
+        <Text style={styles.feedbackButtonText}>Give Feedback</Text>
+      </TouchableOpacity>
+    </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
       <View style={styles.header}> 
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color={colors.white} />
@@ -93,6 +121,20 @@ export default function TeacherStudentsScreen({ navigation }) {
           contentContainerStyle={styles.listContent}
         />
       )}
+
+      {selectedStudent && (
+        <FeedbackModal
+          visible={feedbackModalVisible}
+          onClose={closeFeedbackModal}
+          parentId={selectedStudent.id}
+          parentName={selectedStudent.name || selectedStudent.fullName || 'Student'}
+          teacherId={user?.uid}
+          teacherName={user?.displayName || user?.name || 'You'}
+          roleFrom="teacher"
+          roleTo="parent"
+          subject="General"
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -110,9 +152,40 @@ const styles = StyleSheet.create({
   emptyTitle: { marginTop: 16, fontSize: 16, fontWeight: '600', color: colors.text },
   emptyText: { marginTop: 6, fontSize: 13, color: colors.textSecondary, textAlign: 'center' },
   listContent: { padding: 16 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, padding: 14, borderRadius: 12, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 2 },
+  card: { 
+    backgroundColor: colors.white, 
+    borderRadius: 12, 
+    marginBottom: 10, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 1 }, 
+    shadowOpacity: 0.08, 
+    shadowRadius: 2, 
+    elevation: 2,
+    overflow: 'hidden'
+  },
+  cardMain: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+  },
   avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   cardContent: { flex: 1 },
   name: { fontSize: 16, fontWeight: '600', color: colors.text },
   meta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  feedbackButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  feedbackButtonText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
 });

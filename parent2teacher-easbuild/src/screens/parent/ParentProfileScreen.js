@@ -10,12 +10,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { useAuth } from '../../hooks/useAuth';
 import { colors } from '../../styles/commonStyles';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
 import { AuthService } from '../../services/authService';
+import imagePickerService from '../../services/imagePickerService';
 import TagSelector from '../../components/TagSelector';
 import MessageModal from '../../components/MessageModal';
 import GradeModal from '../../components/GradeModal';
@@ -270,13 +272,43 @@ const ParentProfileScreen = ({ navigation, route }) => {
     }
   };
 
-  const handleImageSelected = (uri) => {
-    setProfileImageUri(uri);
-    setProfileData(prev => ({ ...prev, photoURL: uri }));
+  const handleImageSelected = async (uri) => {
+    if (!uri) {
+      // Kuva poistettu
+      setProfileImageUri(null);
+      setProfileData(prev => ({ ...prev, photoURL: null }));
+      return;
+    }
+
+    try {
+      console.log('📤 Uploading profile image to Storage...');
+      
+      // Lataa kuva Firebase Storageen
+      const downloadURL = await imagePickerService.uploadImage(uri, user.uid, 'profile.jpg');
+      
+      if (downloadURL) {
+        console.log('✅ Image uploaded successfully:', downloadURL);
+        setProfileImageUri(downloadURL);
+        setProfileData(prev => ({ ...prev, photoURL: downloadURL }));
+        
+        // Tallenna heti Firestoreen
+        await setDoc(doc(db, 'parents', user.uid), {
+          photoURL: downloadURL
+        }, { merge: true });
+        
+        Alert.alert('Onnistui', 'Profiilikuva tallennettu');
+      } else {
+        Alert.alert('Virhe', 'Kuvan lataaminen epäonnistui');
+      }
+    } catch (error) {
+      console.error('❌ Error handling image:', error);
+      Alert.alert('Virhe', 'Kuvan käsittely epäonnistui');
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}

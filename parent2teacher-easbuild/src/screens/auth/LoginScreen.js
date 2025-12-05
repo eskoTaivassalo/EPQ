@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,12 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  ScrollView
+  ScrollView,
+  Animated
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../hooks/useAuth';
 import { useDispatch } from 'react-redux';
 import { setUser } from '../../store/slices/authSlice';
@@ -21,6 +23,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { AuthService } from '../../services/authService';
 import AppLogo from '../../components/AppLogo';
+import WatercolorBackground from '../../components/WatercolorBackground';
 
 const LoginScreen = ({ route, navigation }) => {
   const { userType } = route.params || {};
@@ -34,6 +37,15 @@ const LoginScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
   const [resetLoading, setResetLoading] = useState(false);
   const [googleExistingLoading, setGoogleExistingLoading] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+  }, []);
 
   const handleLogin = async () => {
     console.log('🔑 LOGIN BUTTON PRESSED!');
@@ -344,9 +356,12 @@ const LoginScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
+      
+      <Animated.View style={{ flex: 1, opacity: fadeAnim, backgroundColor: 'transparent' }}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        style={styles.container}
+        style={{ flex: 1, backgroundColor: 'transparent' }}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 90}
       >
         <ScrollView 
@@ -354,12 +369,9 @@ const LoginScreen = ({ route, navigation }) => {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           enableOnAndroid={true}
+          style={{ backgroundColor: 'transparent' }}
         >
           <View style={styles.content}>
-          {/* App Logo at top */}
-          <View style={styles.logoWrapper}>
-            <AppLogo size={80} />
-          </View>
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity 
@@ -369,8 +381,9 @@ const LoginScreen = ({ route, navigation }) => {
               <Ionicons name="arrow-back" size={24} color={colors.text} />
             </TouchableOpacity>
             
-            <View style={[styles.roleIcon, { backgroundColor: roleInfo.color }]}>
-              <Ionicons name={roleInfo.icon} size={30} color={colors.white} />
+            {/* App Logo */}
+            <View style={styles.logoWrapper}>
+              <AppLogo size={145} />
             </View>
             
             <Text style={styles.title}>{roleInfo.title}</Text>
@@ -431,25 +444,39 @@ const LoginScreen = ({ route, navigation }) => {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.loginButton, { backgroundColor: roleInfo.color }]}
               onPress={handleLogin}
               disabled={loading}
+              activeOpacity={0.8}
             >
-              <Text style={styles.loginButtonText}>
-                {loading ? 'Signing in...' : 'Sign In'}
-              </Text>
+              <LinearGradient
+                colors={[roleInfo.color, roleInfo.color + 'CC']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.loginButton}
+              >
+                <Text style={styles.loginButtonText}>
+                  {loading ? 'Signing in...' : 'Sign In'}
+                </Text>
+              </LinearGradient>
             </TouchableOpacity>
 
             {/* Existing account Google Sign-In */}
             <TouchableOpacity
-              style={[styles.googleExistingButton, googleExistingLoading && { opacity: 0.7 }]}
               onPress={handleGoogleExistingLogin}
               disabled={googleExistingLoading}
+              activeOpacity={0.8}
             >
-              <Ionicons name="logo-google" size={18} color={colors.white} style={{ marginRight: 8 }} />
-              <Text style={styles.googleExistingButtonText}>
-                {googleExistingLoading ? 'Signing in…' : 'Sign in with Google'}
+              <LinearGradient
+                colors={['#4285F4', '#34A853']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[styles.googleExistingButton, googleExistingLoading && { opacity: 0.7 }]}
+              >
+                <Ionicons name="logo-google" size={18} color={colors.white} style={{ marginRight: 8 }} />
+                <Text style={styles.googleExistingButtonText}>
+                {googleExistingLoading ? 'Signing in...' : 'Continue with Google'}
               </Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
 
@@ -463,6 +490,7 @@ const LoginScreen = ({ route, navigation }) => {
         </View>
         </ScrollView>
       </KeyboardAvoidingView>
+      </Animated.View>
     </SafeAreaView>
   );
 };
@@ -470,35 +498,30 @@ const LoginScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F9FD',
   },
   content: {
     flex: 1,
     padding: 20,
-  },
-  logoWrapper: {
-    alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 8,
+    backgroundColor: 'transparent',
   },
   header: {
     alignItems: 'center',
     marginTop: 20,
-    marginBottom: 40,
+    marginBottom: 30,
   },
   backButton: {
     position: 'absolute',
     left: 0,
     top: 0,
     padding: 10,
+    zIndex: 10,
   },
-  roleIcon: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    justifyContent: 'center',
+  logoWrapper: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginTop: 20,
+    marginBottom: 24,
+    overflow: 'hidden',
   },
   title: {
     fontSize: 24,
@@ -517,18 +540,20 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 12,
     marginBottom: 15,
     paddingHorizontal: 15,
-    shadowColor: '#000',
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.1)',
+    shadowColor: '#667eea',
     shadowOffset: {
       width: 0,
-      height: 1,
+      height: 3,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 4,
   },
   inputIcon: {
     marginRight: 10,
@@ -553,6 +578,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
+    backgroundColor: 'transparent',
   },
   forgotPasswordButton: {
     alignSelf: 'flex-end',
@@ -567,17 +593,17 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     padding: 18,
-    borderRadius: 10,
+    borderRadius: 14,
     alignItems: 'center',
     marginTop: 20,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 4,
     },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 4,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
   },
   loginButtonText: {
     color: colors.white,
@@ -589,14 +615,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1A73E8',
-    padding: 14,
-    borderRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
+    padding: 16,
+    borderRadius: 14,
+    shadowColor: '#4285F4',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
   },
   googleExistingButtonText: {
     color: colors.white,

@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
 import { useAppData } from '../../hooks/useAppData';
 import { useAuth } from '../../hooks/useAuth';
@@ -519,6 +520,7 @@ const FindTeachersScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
@@ -575,6 +577,7 @@ const FindTeachersScreen = ({ navigation }) => {
           renderItem={renderTeacherCard}
           keyExtractor={(item) => item.id}
           style={styles.teachersList}
+          contentContainerStyle={styles.teachersListContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -771,6 +774,9 @@ const styles = StyleSheet.create({
   teachersList: {
     flex: 1,
     padding: 20,
+  },
+  teachersListContent: {
+    paddingBottom: 40,
   },
   teacherCard: {
     backgroundColor: colors.white,

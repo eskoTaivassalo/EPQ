@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Agenda } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { listAvailableSlots, bookSlot } from '../../services/availabilityService';
@@ -104,6 +105,7 @@ export default function TeacherAvailabilityCalendarScreen({ route, navigation })
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{teacherName || 'Available times'}</Text>
       </View>

@@ -503,6 +503,21 @@ const appDataSlice = createSlice({
     clearParentsError: (state) => {
       state.parentsError = null;
     },
+    
+    // Clear all data (for logout)
+    clearData: (state) => {
+      console.log('🧹 [appDataSlice] Clearing all app data');
+      state.teachers = [];
+      state.parents = [];
+      state.searchResults = [];
+      state.searchQuery = '';
+      state.favoriteTeachers = [];
+      state.teachersLastFetch = null;
+      state.parentsLastFetch = null;
+      state.teachersError = null;
+      state.parentsError = null;
+      state.searchLoading = false;
+    },
   },
   extraReducers: (builder) => {
     // Fetch Teachers

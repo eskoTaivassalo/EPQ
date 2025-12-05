@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -131,6 +132,7 @@ EmailVerified: ${user?.emailVerified ? 'Yes' : 'No'}
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <WatercolorBackground />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 

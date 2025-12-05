@@ -10,6 +10,7 @@ import {
   Animated
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { useSelector, useDispatch } from 'react-redux';
 import { 
   fetchNotifications, 
@@ -291,6 +292,7 @@ const NotificationsScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity 
           onPress={() => navigation.goBack()} 

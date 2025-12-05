@@ -20,22 +20,38 @@ export const fetchNotifications = createAsyncThunk(
   'notifications/fetch',
   async (userId) => {
     try {
+      console.log('[fetchNotifications] 🔍 Fetching notifications for userId:', userId);
+      console.log('[fetchNotifications] Current auth user:', auth?.currentUser?.uid);
+      
+      if (!userId) {
+        console.error('[fetchNotifications] ❌ No userId provided!');
+        return [];
+      }
+      
       // Avoid orderBy to prevent missing-index failures on fresh environments; sort on client instead.
       const q = query(
         collection(db, 'notifications'),
         where('userId', '==', userId)
       );
       const snapshot = await getDocs(q);
-      const notifications = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate().toISOString() || new Date().toISOString()
-      }));
+      console.log('[fetchNotifications] 📊 Found', snapshot.docs.length, 'notifications');
+      
+      const notifications = snapshot.docs.map(doc => {
+        const data = doc.data();
+        console.log('[fetchNotifications] 📝 Notification:', { id: doc.id, type: data.type, userId: data.userId });
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString()
+        };
+      });
+      
       // Sort newest first
       notifications.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      console.log('[fetchNotifications] ✅ Returning', notifications.length, 'notifications for user:', userId);
       return notifications;
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('[fetchNotifications] ❌ Error fetching notifications:', error);
       throw error;
     }
   }
@@ -46,12 +62,27 @@ export const createNotification = createAsyncThunk(
   'notifications/create',
   async (notificationData) => {
     try {
+      console.log('[createNotification] 🔔 Creating notification FOR USER:', notificationData.userId);
+      console.log('[createNotification] Current auth user (sender):', auth?.currentUser?.uid);
+      console.log('[createNotification] Notification type:', notificationData.type);
+      
+      if (!notificationData.userId) {
+        console.error('[createNotification] ❌ ERROR: No userId specified in notification data!');
+        throw new Error('Notification must have a userId (recipient)');
+      }
+      
+      if (notificationData.userId === auth?.currentUser?.uid) {
+        console.warn('[createNotification] ⚠️ WARNING: Creating notification for SELF (sender = receiver). This is OK for testing but may indicate a bug.');
+      }
+      
       const docRef = await addDoc(collection(db, 'notifications'), {
         ...notificationData,
         read: false,
         createdAt: serverTimestamp()
       });
 
+      console.log('[createNotification] ✅ Notification created with ID:', docRef.id, 'for user:', notificationData.userId);
+      
       // Do NOT read back here: sender isn't allowed to read receiver's notifications by rules.
       // Return a serializable client timestamp for immediate UI update; the server timestamp remains in Firestore.
       return {
@@ -61,7 +92,8 @@ export const createNotification = createAsyncThunk(
         createdAt: new Date().toISOString()
       };
     } catch (error) {
-      console.error('Error creating notification:', error);
+      console.error('[createNotification] ❌ Error creating notification:', error);
+      console.error('[createNotification] Notification data was:', notificationData);
       throw error;
     }
   }

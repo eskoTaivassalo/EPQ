@@ -18,6 +18,7 @@ import { AuthService } from '../../services/authService';
 import { colors } from '../../styles/commonStyles';
 import TagSelector from '../../components/TagSelector';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import {
   SUBJECTS,
   EDUCATION_LEVELS,
@@ -288,6 +289,7 @@ const ParentSignupScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
@@ -316,9 +318,9 @@ const ParentSignupScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <Text style={styles.sectionTitle}>Create Your Student Account</Text>
           
-          {/* 📸 Profiilikuvan valinta */}
+          {/* 📸 Profiilikuva */}
           <ProfileImagePicker
             imageUri={profileImageUri}
             onImageSelected={setProfileImageUri}
@@ -346,153 +348,27 @@ const ParentSignupScreen = ({ navigation, route }) => {
               onChangeText={(text) => handleInputChange('email', text)}
               keyboardType="email-address"
               autoCapitalize="none"
+              editable={!googleUser}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number</Text>
+            <Text style={styles.label}>Location (City) *</Text>
             <TextInput
               style={styles.input}
-              placeholder="+1 (555) 123-4567"
-              value={formData.phoneNumber}
-              onChangeText={(text) => handleInputChange('phoneNumber', text)}
-              keyboardType="phone-pad"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Location</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="City, Country"
+              placeholder="e.g. Helsinki"
               value={formData.location}
               onChangeText={(text) => handleInputChange('location', text)}
             />
           </View>
 
-          <Text style={styles.sectionTitle}>About Your Family</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Children's Ages</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., 5, 8, 12 years old"
-              value={formData.childrenAges}
-              onChangeText={(text) => handleInputChange('childrenAges', text)}
-            />
-          </View>
-
           <TagSelector
-            title="School Grades/Levels"
-            tags={EDUCATION_LEVELS}
-            selectedTags={formData.childrenGrades}
-            onTagPress={(tags) => setFormData({...formData, childrenGrades: tags})}
-            showIcons={true}
-          />
-
-          <TagSelector
-            title="Subjects Needed Help With *"
+            title="Subjects You Need Help With *"
             tags={SUBJECTS}
             selectedTags={formData.subjectsNeeded}
             onTagPress={(tags) => setFormData({...formData, subjectsNeeded: tags})}
             showIcons={true}
           />
-
-          <Text style={styles.sectionTitle}>Learning Preferences</Text>
-
-          <TagSelector
-            title="Preferred Teaching Styles"
-            tags={TEACHING_STYLES}
-            selectedTags={formData.preferredTeachingStyle}
-            onTagPress={(tags) => setFormData({...formData, preferredTeachingStyle: tags})}
-            showIcons={true}
-          />
-
-          <TagSelector
-            title="Learning Methods"
-            tags={TEACHING_METHODS}
-            selectedTags={formData.learningPreferences}
-            onTagPress={(tags) => setFormData({...formData, learningPreferences: tags})}
-            showIcons={true}
-          />
-
-          <TagSelector
-            title="Special Needs or Learning Difficulties"
-            tags={SPECIAL_NEEDS}
-            selectedTags={formData.specialNeeds}
-            onTagPress={(tags) => setFormData({...formData, specialNeeds: tags})}
-            showIcons={true}
-          />
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Learning Goals</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="What do you hope to achieve with tutoring?"
-              value={formData.goals}
-              onChangeText={(text) => handleInputChange('goals', text)}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-
-          <Text style={styles.sectionTitle}>Practical Details</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Budget per hour (€)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. 25"
-              value={formData.budget}
-              onChangeText={(text) => handleInputChange('budget', text)}
-              keyboardType="numeric"
-            />
-          </View>
-
-          <TagSelector
-            title="Preferred Price Range"
-            tags={PRICE_RANGES}
-            selectedTags={[formData.priceRange]}
-            onTagPress={(tag) => setFormData({...formData, priceRange: tag})}
-            multiSelect={false}
-            showIcons={true}
-          />
-
-          <TagSelector
-            title="Preferred Locations"
-            tags={LOCATIONS}
-            selectedTags={formData.location}
-            onTagPress={(tags) => setFormData({...formData, location: tags})}
-            showIcons={true}
-          />
-
-          <TagSelector
-            title="Preferred Availability"
-            tags={AVAILABILITY}
-            selectedTags={formData.availability}
-            onTagPress={(tags) => setFormData({...formData, availability: tags})}
-            showIcons={true}
-          />
-
-          <TagSelector
-            title="Languages Preferred"
-            tags={LANGUAGES}
-            selectedTags={formData.languages}
-            onTagPress={(tags) => setFormData({...formData, languages: tags})}
-            showIcons={true}
-          />
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Additional Notes</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Any other information that might be helpful for teachers to know..."
-              value={formData.notes}
-              onChangeText={(text) => handleInputChange('notes', text)}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
 
           <Text style={styles.sectionTitle}>Account Security</Text>
 

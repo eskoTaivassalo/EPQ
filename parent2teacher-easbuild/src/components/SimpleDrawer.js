@@ -44,6 +44,13 @@ export default function SimpleDrawer({ visible, onClose, navigation, menuItems, 
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
+        {/* Tausta joka sulkee drawerin kun klikataan */}
+        <TouchableOpacity 
+          style={styles.backdrop} 
+          activeOpacity={1} 
+          onPress={onClose}
+        />
+        
         {/* Drawer-sisältö oikealla */}
         <Animated.View 
           style={[
@@ -109,13 +116,6 @@ export default function SimpleDrawer({ visible, onClose, navigation, menuItems, 
             </View>
           </SafeAreaView>
         </Animated.View>
-        
-        {/* Tausta joka sulkee drawerin kun klikataan */}
-        <TouchableOpacity 
-          style={styles.backdrop} 
-          activeOpacity={1} 
-          onPress={onClose}
-        />
       </View>
     </Modal>
   );
@@ -124,70 +124,86 @@ export default function SimpleDrawer({ visible, onClose, navigation, menuItems, 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    flexDirection: 'row',
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    flexDirection: 'row-reverse',
+    backgroundColor: 'rgba(0,0,0,0.4)',
   },
   backdrop: {
     flex: 1,
   },
   drawerContainer: {
-    width: 280,
-    backgroundColor: colors.white,
+    width: 300,
+    backgroundColor: '#F8F9FA',
     shadowColor: '#000',
-    shadowOffset: { width: -2, height: 0 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 4, height: 0 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
   },
   drawer: {
     flex: 1,
   },
   header: {
     backgroundColor: colors.primary,
-    padding: 20,
-    paddingTop: 30,
+    padding: 24,
+    paddingTop: 40,
+    borderBottomLeftRadius: 24,
   },
   appName: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: colors.white,
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: 1,
   },
   userTypeLabel: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.white,
-    opacity: 0.9,
+    opacity: 0.95,
+    fontWeight: '500',
   },
   menuContainer: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
   menuIcon: {
-    marginRight: 15,
+    marginRight: 16,
     width: 24,
   },
   menuLabel: {
     flex: 1,
     fontSize: 16,
     color: colors.text,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 20,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 12,
     backgroundColor: '#FFF5F5',
+    shadowColor: colors.error,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
   },
   logoutLabel: {
     flex: 1,
@@ -196,13 +212,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   footer: {
-    padding: 20,
+    padding: 16,
+    paddingBottom: 24,
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
   },
   version: {
     fontSize: 12,
     color: colors.textSecondary,
+    opacity: 0.7,
   },
 });

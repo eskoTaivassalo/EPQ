@@ -10,11 +10,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
 import { useAuth } from '../../hooks/useAuth';
+import FeedbackModal from '../../components/FeedbackModal';
+import { listFeedbackForUser } from '../../services/feedbackService';
 import {
   SUBJECTS,
   EDUCATION_LEVELS,
@@ -32,9 +35,13 @@ export default function TeacherProfileViewScreen({ route, navigation }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [teacherData, setTeacherData] = useState(null);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [feedbacksLoading, setFeedbacksLoading] = useState(false);
 
   useEffect(() => {
     loadTeacherProfile();
+    loadTeacherFeedback();
   }, [teacherId]);
 
   const loadTeacherProfile = async () => {
@@ -80,6 +87,53 @@ export default function TeacherProfileViewScreen({ route, navigation }) {
       teacherId: teacherId,
       teacherName: teacherData?.name || teacherData?.fullName || 'Teacher'
     });
+  };
+
+  const openFeedbackModal = () => {
+    setFeedbackModalVisible(true);
+  };
+
+  const closeFeedbackModal = () => {
+    setFeedbackModalVisible(false);
+    // Reload feedback after submitting
+    loadTeacherFeedback();
+  };
+
+  const loadTeacherFeedback = async () => {
+    if (!teacherId) return;
+    
+    try {
+      setFeedbacksLoading(true);
+      const feedbackList = await listFeedbackForUser(teacherId);
+      
+      // Enrich with parent names
+      const enrichedFeedbacks = await Promise.all(
+        feedbackList.map(async (fb) => {
+          try {
+            const parentDoc = await getDoc(doc(db, 'parents', fb.fromUserId));
+            const parentName = parentDoc.exists() 
+              ? (parentDoc.data().name || parentDoc.data().fullName || 'Anonymous')
+              : 'Anonymous';
+            return { ...fb, fromUserName: parentName };
+          } catch (err) {
+            return { ...fb, fromUserName: 'Anonymous' };
+          }
+        })
+      );
+      
+      setFeedbacks(enrichedFeedbacks);
+    } catch (error) {
+      console.error('Error loading feedback:', error);
+    } finally {
+      setFeedbacksLoading(false);
+    }
+  };
+
+  const calculateAverageRating = () => {
+    const ratingsOnly = feedbacks.filter(fb => fb.rating && fb.rating > 0);
+    if (ratingsOnly.length === 0) return 0;
+    const sum = ratingsOnly.reduce((acc, fb) => acc + fb.rating, 0);
+    return (sum / ratingsOnly.length).toFixed(1);
   };
 
   const handleCall = () => {
@@ -139,6 +193,7 @@ export default function TeacherProfileViewScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
+      <WatercolorBackground />
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -189,8 +244,88 @@ export default function TeacherProfileViewScreen({ route, navigation }) {
                 View Schedule
               </Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.feedbackButton]}
+              onPress={openFeedbackModal}
+            >
+              <Ionicons name="star" size={20} color={colors.primary} />
+              <Text style={[styles.actionButtonText, styles.secondaryButtonText]}>
+                Give Feedback
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
+
+        {/* Ratings & Reviews */}
+        <ProfileSection title="Ratings & Reviews">
+          <View style={styles.ratingSummary}>
+            <View style={styles.ratingAverageContainer}>
+              <Text style={styles.ratingNumber}>{calculateAverageRating()}</Text>
+              <View style={styles.starsRow}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Ionicons
+                    key={star}
+                    name={star <= Math.round(calculateAverageRating()) ? 'star' : 'star-outline'}
+                    size={20}
+                    color="#FFD700"
+                  />
+                ))}
+              </View>
+              <Text style={styles.ratingCount}>
+                {feedbacks.length} {feedbacks.length === 1 ? 'review' : 'reviews'}
+              </Text>
+            </View>
+          </View>
+
+          {feedbacksLoading ? (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading reviews...</Text>
+            </View>
+          ) : feedbacks.length === 0 ? (
+            <View style={styles.emptyFeedback}>
+              <Ionicons name="chatbox-outline" size={40} color={colors.textSecondary} />
+              <Text style={styles.emptyFeedbackText}>No reviews yet</Text>
+              <Text style={styles.emptyFeedbackSubtext}>
+                Be the first to review this teacher!
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.feedbackList}>
+              {feedbacks.slice(0, 5).map((feedback, index) => (
+                <View key={feedback.id || index} style={styles.feedbackItem}>
+                  <View style={styles.feedbackHeader}>
+                    <View style={styles.feedbackAuthor}>
+                      <Ionicons name="person-circle" size={32} color={colors.primary} />
+                      <View style={styles.feedbackAuthorInfo}>
+                        <Text style={styles.feedbackAuthorName}>
+                          {feedback.fromUserName || 'Anonymous'}
+                        </Text>
+                        <Text style={styles.feedbackDate}>
+                          {feedback.createdAt?.toDate 
+                            ? new Date(feedback.createdAt.toDate()).toLocaleDateString()
+                            : 'Recently'}
+                        </Text>
+                      </View>
+                    </View>
+                    {feedback.rating > 0 && (
+                      <View style={styles.feedbackRating}>
+                        <Ionicons name="star" size={16} color="#FFD700" />
+                        <Text style={styles.feedbackRatingText}>{feedback.rating}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.feedbackText}>{feedback.feedbackText}</Text>
+                </View>
+              ))}
+              
+              {feedbacks.length > 5 && (
+                <Text style={styles.moreReviews}>
+                  +{feedbacks.length - 5} more reviews
+                </Text>
+              )}
+            </View>
+          )}
+        </ProfileSection>
 
         {/* Teaching Information */}
         <ProfileSection title="Teaching Information">
@@ -283,6 +418,18 @@ export default function TeacherProfileViewScreen({ route, navigation }) {
 
         <View style={styles.bottomPadding} />
       </ScrollView>
+
+      {/* Feedback Modal */}
+      <FeedbackModal
+        visible={feedbackModalVisible}
+        onClose={closeFeedbackModal}
+        parentId={user?.uid}
+        parentName={user?.displayName || user?.name || 'You'}
+        teacherId={teacherId}
+        teacherName={teacherData?.name || teacherData?.fullName || 'Teacher'}
+        roleFrom="parent"
+        roleTo="teacher"
+      />
     </SafeAreaView>
   );
 }
@@ -351,6 +498,7 @@ const styles = StyleSheet.create({
   },
   quickActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
     marginTop: 24,
     width: '100%',
@@ -370,6 +518,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderWidth: 1,
     borderColor: colors.primary,
+  },
+  feedbackButton: {
+    backgroundColor: colors.white,
+    borderWidth: 1,
+    borderColor: '#FFB300',
   },
   actionButtonText: {
     color: colors.white,
@@ -446,6 +599,113 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textSecondary,
     marginTop: 2,
+  },
+  ratingSummary: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e8e8e8',
+    marginBottom: 16,
+  },
+  ratingAverageContainer: {
+    alignItems: 'center',
+  },
+  ratingNumber: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 8,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 8,
+  },
+  ratingCount: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  loadingContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  loadingText: {
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  emptyFeedback: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyFeedbackText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginTop: 12,
+  },
+  emptyFeedbackSubtext: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  feedbackList: {
+    gap: 16,
+  },
+  feedbackItem: {
+    padding: 16,
+    backgroundColor: '#fafafa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e8e8e8',
+  },
+  feedbackHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  feedbackAuthor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  feedbackAuthorInfo: {
+    gap: 2,
+  },
+  feedbackAuthorName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  feedbackDate: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  feedbackRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFF9E6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  feedbackRatingText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFB300',
+  },
+  feedbackText: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+  },
+  moreReviews: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 8,
   },
   bottomPadding: {
     height: 24,

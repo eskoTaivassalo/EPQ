@@ -75,59 +75,128 @@ function pick(arr, n = 1) {
     const EXPERIENCE = ['beginner','intermediate','experienced','expert'];
     const PRICE_RANGES = ['budget','standard','premium','luxury'];
 
-    const firstNames = ['Anna','Mika','Erik','Sara','Noora','Ville','Oskari','Emma','Laura','Kalle','Jenna','Matias','Sofia','Oona','Juho','Eero','Julia','Nelli'];
-    const lastNames  = ['Virtanen','Korhonen','Mäkinen','Nieminen','Heikkinen','Hämäläinen','Laine','Koskinen','Järvinen','Lehtonen','Lehtinen','Saarinen'];
+    const firstNames = ['Anna','Mika','Erik','Sara','Noora','Ville','Oskari','Emma','Laura','Kalle','Jenna','Matias','Sofia','Oona','Juho','Eero','Julia','Nelli','Petri','Liisa','Mikko','Hanna','Antti','Maria','Jari','Kaisa','Timo','Sanna','Pekka','Riikka'];
+    const lastNames  = ['Virtanen','Korhonen','Mäkinen','Nieminen','Heikkinen','Hämäläinen','Laine','Koskinen','Järvinen','Lehtonen','Lehtinen','Saarinen','Rantanen','Laaksonen','Savolainen'];
 
-    const howMany = Math.min(parseInt(count, 10) || 15, SUBJECTS.length);
+    const howMany = Math.min(parseInt(count, 10) || 30, 30);
 
-    console.log(`Seeding ${howMany} teachers to Firestore project ${projectId}...`);
+    console.log(`\n🌱 Seeding ${howMany} teachers to Firestore project ${projectId}...\n`);
 
     const batch = db.batch();
     const nowIso = new Date().toISOString();
 
     for (let i = 0; i < howMany; i++) {
-      const subject = SUBJECTS[i];
-      const fullName = `${firstNames[i % firstNames.length]} ${lastNames[i % lastNames.length]}`;
-      const email = `${subject}.${i + 1}@example.com`.replace(/[^a-zA-Z0-9@._-]/g,'');
+      const mainSubject = SUBJECTS[i % SUBJECTS.length];
+      const additionalSubjects = pick(SUBJECTS.filter(s => s !== mainSubject), Math.floor(Math.random() * 2) + 1);
+      const allSubjects = [mainSubject, ...additionalSubjects];
+      
+      const firstName = firstNames[i % firstNames.length];
+      const lastName = lastNames[Math.floor(i / firstNames.length) % lastNames.length];
+      const fullName = `${firstName} ${lastName}`;
+      const email = `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i + 1}@example.com`;
 
-      const pricePerHour = [15, 22, 28, 35, 45, 55][i % 6];
-      const priceRange = pricePerHour <= 20 ? 'budget' : pricePerHour <= 35 ? 'standard' : pricePerHour <= 50 ? 'premium' : 'luxury';
+      const experienceYears = Math.floor(Math.random() * 20) + 1;
+      const pricePerHour = Math.floor(25 + Math.random() * 50); // 25-75€
+      const priceRange = pricePerHour <= 35 ? 'budget' : pricePerHour <= 50 ? 'standard' : pricePerHour <= 65 ? 'premium' : 'luxury';
+
+      const descriptions = [
+        `Passionate ${mainSubject.replaceAll('_',' ')} educator with ${experienceYears} years of experience.`,
+        `Dedicated teacher specializing in ${mainSubject.replaceAll('_',' ')} and helping students achieve their goals.`,
+        `Experienced ${mainSubject.replaceAll('_',' ')} instructor committed to student success.`,
+        `Creative and engaging teacher with expertise in ${mainSubject.replaceAll('_',' ')}.`,
+        `Results-driven educator focused on ${mainSubject.replaceAll('_',' ')} excellence.`
+      ];
+
+      const educationLevels = pick(['elementary','middle_school','high_school','university','adult'], Math.floor(Math.random() * 3) + 1);
+      const phoneNumber = `+358 ${40 + Math.floor(Math.random() * 10)} ${Math.floor(Math.random() * 900) + 100} ${Math.floor(Math.random() * 9000) + 1000}`;
 
       const docRef = db.collection('teachers').doc(); // auto-id
       const data = {
-        // Display
+        // Display & Contact
         fullName,
+        name: fullName,
+        firstName,
+        lastName,
         displayName: fullName,
         email,
-        description: `Certified ${subject.replaceAll('_',' ')} teacher helping students succeed.`,
+        phone: phoneNumber,
+        phoneNumber,
+        description: descriptions[i % descriptions.length],
 
         // Core tags (IDs from constants)
-        subjects: [subject],
-        location: [pick(LOCATIONS, 1)[0]],
-        languages: pick(LANGUAGES, 2),
-        teachingMethods: pick(TEACHING_METHODS, 1),
-        teachingStyles: pick(TEACHING_STYLES, 2),
+        subjects: allSubjects,
+        educationLevels,
+        location: pick(LOCATIONS, Math.floor(Math.random() * 2) + 1),
+        languages: pick(LANGUAGES, Math.floor(Math.random() * 2) + 2),
+        teachingMethods: pick(TEACHING_METHODS, Math.floor(Math.random() * 2) + 1),
+        teachingStyles: pick(TEACHING_STYLES, Math.floor(Math.random() * 3) + 2),
         experience: EXPERIENCE[i % EXPERIENCE.length],
+        experienceLevel: EXPERIENCE[i % EXPERIENCE.length],
         priceRange,
 
         // Numerics used by app
         pricePerHour,
-        hourlyRate: String(pricePerHour),
-        rating: +(4 + Math.random() * 1).toFixed(2), // 4.00 - 5.00
-        reviewCount: Math.floor(20 + Math.random() * 200),
-        totalStudents: Math.floor(5 + Math.random() * 100),
+        hourlyRate: pricePerHour,
+        experienceYears,
+        yearsOfExperience: experienceYears,
+
+        // Professional details
+        education: `${['Bachelor','Master','PhD'][i % 3]} in ${mainSubject.replaceAll('_',' ')}`,
+        degrees: [`${['Bachelor','Master'][i % 2]} in Education`],
+        certifications: [
+          { type: 'Teaching Certificate', country: 'Finland', year: String(2015 + Math.floor(Math.random() * 8)) }
+        ],
+        qualifications: `${experienceYears} years of teaching experience with proven results`,
+        
+        // Location data
+        geoLocation: {
+          latitude: 60.1695 + (Math.random() - 0.5) * 2,
+          longitude: 24.9354 + (Math.random() - 0.5) * 2
+        },
+
+        // Additional fields
+        availability: pick(['morning','afternoon','evening','weekend'], Math.floor(Math.random() * 3) + 2),
+        clientFocus: pick(['children','teenagers','adults'], Math.floor(Math.random() * 2) + 1),
+        gradeRanges: pick(['1-3','4-6','7-9','10-12'], Math.floor(Math.random() * 2) + 1),
+        specializations: [mainSubject],
+        teachingApproach: descriptions[i % descriptions.length],
 
         // Flags & meta
-        verified: true,
+        verified: Math.random() > 0.3,
+        isActive: true,
+        isGoogleAuth: false,
+        acceptMarketing: Math.random() > 0.5,
+        userType: 'teacher',
+        role: 'teacher',
+        professionalType: 'teacher',
         profileImage: null,
-        createdAt: nowIso,
+        photoURL: null,
+        
+        // Timestamps
+        createdAt: admin.firestore.Timestamp.fromDate(
+          new Date(Date.now() - Math.random() * 365 * 24 * 60 * 60 * 1000)
+        ),
+        updatedAt: admin.firestore.Timestamp.now(),
+
+        // Nested profile
+        profile: {
+          photoURL: null,
+          subjects: allSubjects,
+          location: pick(LOCATIONS, 1)
+        }
       };
 
       batch.set(docRef, data);
+      console.log(`✅ Created: ${fullName} - ${allSubjects.join(', ')}`);
     }
 
     await batch.commit();
-    console.log('Seeding completed successfully.');
+    console.log(`\n🎉 Successfully created ${howMany} teacher profiles!`);
+    console.log('\n📊 Summary:');
+    console.log(`Total teachers: ${howMany}`);
+    console.log(`Subjects covered: ${SUBJECTS.length}`);
+    console.log(`Locations: ${LOCATIONS.join(', ')}`);
+    console.log('\n✨ Seeding completed successfully!\n');
     process.exit(0);
   } catch (err) {
     console.error('Seeding failed:', err);

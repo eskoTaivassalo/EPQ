@@ -5,7 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  RefreshControl
+  RefreshControl,
+  Animated
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Linking } from 'react-native';
@@ -17,6 +18,7 @@ import { useAppData } from '../../hooks/useAppData';
 import NotificationBell from '../../components/NotificationBell';
 import SimpleDrawer from '../../components/SimpleDrawer';
 import AppLogo from '../../components/AppLogo';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors, commonStyles } from '../../styles/commonStyles';
 
 const TeacherDashboard = ({ navigation }) => {
@@ -26,6 +28,8 @@ const TeacherDashboard = ({ navigation }) => {
   const { getParentById } = useAppData();
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const scrollY = new Animated.Value(0);
+  const menuButtonScale = new Animated.Value(1);
 
   useEffect(() => {
     // Only fetch if user is authenticated
@@ -295,28 +299,68 @@ const TeacherDashboard = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Welcome,</Text>
-            <Text style={styles.headerName}> {user?.name || 'User'}!</Text>
+      <WatercolorBackground />
+      
+      {/* Floating Header */}
+      <View style={styles.floatingHeader}>
+        <Animated.View 
+          style={[
+            styles.floatingHeaderLeft,
+            {
+              opacity: scrollY.interpolate({
+                inputRange: [0, 100],
+                outputRange: [1, 0],
+                extrapolate: 'clamp',
+              }),
+            }
+          ]}
+        >
+          <View>
+            <Text style={styles.floatingHeaderTitle}>Welcome,</Text>
+            <Text style={styles.floatingHeaderName}>{user?.name || 'Teacher'}!</Text>
           </View>
-          <View style={styles.headerActions}>
-            <NotificationBell />
-            <TouchableOpacity 
-              style={styles.menuButton}
-              onPress={() => setDrawerVisible(true)}
+        </Animated.View>
+        <View style={styles.floatingHeaderRight}>
+          <NotificationBell />
+          <TouchableOpacity 
+            activeOpacity={0.8}
+            onPressIn={() => {
+              Animated.spring(menuButtonScale, {
+                toValue: 0.85,
+                useNativeDriver: true,
+              }).start();
+            }}
+            onPressOut={() => {
+              Animated.spring(menuButtonScale, {
+                toValue: 1,
+                friction: 3,
+                tension: 40,
+                useNativeDriver: true,
+              }).start();
+            }}
+            onPress={() => setDrawerVisible(true)}
+          >
+            <Animated.View 
+              style={[
+                styles.menuButton,
+                { transform: [{ scale: menuButtonScale }] }
+              ]}
             >
-              <Ionicons name="menu" size={28} color={colors.white} />
-            </TouchableOpacity>
-          </View>
+              <Ionicons name="menu" size={28} color={colors.primary} />
+            </Animated.View>
+          </TouchableOpacity>
         </View>
       </View>
 
       <ScrollView 
-        style={styles.content} 
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
+        onScroll={Animated.event(
+          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+          { useNativeDriver: false }
+        )}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -524,65 +568,73 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  header: {
-    backgroundColor: colors.secondary,
-    paddingBottom: 12,
-  },
-  headerContent: {
+  floatingHeader: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
+    zIndex: 1000,
   },
-  menuButton: {
-    padding: 8,
-    marginRight: 12,
+  floatingHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  headerTitle: {
-    color: colors.white,
-    fontSize: 16,
-    opacity: 0.9,
+  floatingHeaderTitle: {
+    color: colors.textSecondary,
+    fontSize: 14,
   },
-  headerName: {
-    color: colors.white,
+  floatingHeaderName: {
+    color: colors.text,
     fontSize: 20,
     fontWeight: 'bold',
   },
-  logoutButton: {
-    padding: 8,
-  },
-  headerActions: {
+  floatingHeaderRight: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+  },
+  menuButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.3)',
   },
   content: {
-    flex: 1,
-    padding: 16,
+    padding: 20,
+    paddingTop: 100,
+    paddingBottom: 40,
   },
   section: {
-    marginBottom: 16,
+    marginBottom: 24,
   },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: colors.text,
   },
   seeAllText: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.primary,
     fontWeight: '600',
   },
   lessonCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -595,10 +647,10 @@ const styles = StyleSheet.create({
   lessonTimeContainer: {
     marginRight: 16,
     alignItems: 'center',
-    minWidth: 54,
+    minWidth: 60,
   },
   lessonTime: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: colors.text,
   },
@@ -611,12 +663,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   lessonStudent: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
     color: colors.text,
   },
   lessonSubject: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
     marginTop: 4,
   },
@@ -626,30 +678,30 @@ const styles = StyleSheet.create({
   requestCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 3.84,
     elevation: 3,
   },
   emptyRequestsCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 16,
+    padding: 32,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 3.84,
     elevation: 3,
   },
   emptyRequestsText: {
-    fontSize: 13,
+    fontSize: 14,
     color: colors.textSecondary,
-    marginTop: 8,
+    marginTop: 12,
   },
   requestHeader: {
     flexDirection: 'row',
@@ -727,7 +779,7 @@ const styles = StyleSheet.create({
   statCard: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 12,
+    padding: 16,
     alignItems: 'center',
     flex: 1,
     shadowColor: '#000',
@@ -737,13 +789,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   statNumber: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: colors.text,
     marginTop: 8,
   },
   statLabel: {
-    fontSize: 11,
+    fontSize: 12,
     color: colors.textSecondary,
     marginTop: 4,
   },

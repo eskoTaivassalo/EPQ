@@ -18,21 +18,8 @@ import { AuthService } from '../../services/authService';
 import { colors } from '../../styles/commonStyles';
 import TagSelector from '../../components/TagSelector';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
-import {
-  SUBJECTS,
-  EDUCATION_LEVELS,
-  LOCATIONS,
-  LANGUAGES,
-  TEACHING_METHODS,
-  TEACHING_STYLES,
-  AVAILABILITY,
-  EXPERIENCE_LEVELS,
-  // NEW professional profile tags
-  SPECIALIZATIONS,
-  ACADEMIC_INTERESTS,
-  CLIENT_FOCUS,
-  GRADE_RANGES
-} from '../../constants/tags';
+import WatercolorBackground from '../../components/WatercolorBackground';
+import { SUBJECTS } from '../../constants/tags';
 
 const TeacherSignupScreen = ({ navigation, route }) => {
   const { register } = useAuth();
@@ -234,20 +221,28 @@ const TeacherSignupScreen = ({ navigation, route }) => {
         console.log('🔧 Skipping password validation for Google user');
       }
 
-      // Validoi specialization
-      if (!formData.specialization) {
-        console.log('🔧 Validation failed: No specialization');
-        Alert.alert('Virhe', 'Valitse asiantuntijuusalueesi');
+      // Validoi että ainakin yksi aine valittu
+      if (!formData.subjects || formData.subjects.length === 0) {
+        console.log('🔧 Validation failed: No subjects');
+        Alert.alert('Virhe', 'Valitse vähintään yksi opetettava aine');
         return false;
       }
 
-      // Professional Qualifications minimal requirements
-      if (!formData.gradeRanges.length) {
-        Alert.alert('Virhe', 'Valitse vähintään yksi Grade Level / Age Group');
+      // Validoi tuntihinta
+      if (!formData.hourlyRate || !formData.hourlyRate.trim()) {
+        Alert.alert('Virhe', 'Anna tuntihintasi');
         return false;
       }
-      if (!formData.specializations.length) {
-        Alert.alert('Virhe', 'Valitse vähintään yksi Specialization');
+
+      // Validoi sijainti
+      if (!formData.location || !formData.location.trim()) {
+        Alert.alert('Virhe', 'Anna sijaintisi');
+        return false;
+      }
+
+      // Validoi kuvaus
+      if (!formData.description || !formData.description.trim()) {
+        Alert.alert('Virhe', 'Kirjoita lyhyt kuvaus itsestäsi');
         return false;
       }
       if (formData.experienceYears && isNaN(Number(formData.experienceYears))) {
@@ -503,6 +498,7 @@ const TeacherSignupScreen = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton}
@@ -531,9 +527,9 @@ const TeacherSignupScreen = ({ navigation, route }) => {
         </View>
 
         <View style={styles.form}>
-          <Text style={styles.sectionTitle}>Personal Information</Text>
+          <Text style={styles.sectionTitle}>Create Your Teacher Profile</Text>
           
-          {/* 📸 Profiilikuvan valinta */}
+          {/* 📸 Profiilikuva */}
           <ProfileImagePicker
             imageUri={profileImageUri}
             onImageSelected={setProfileImageUri}
@@ -561,107 +557,28 @@ const TeacherSignupScreen = ({ navigation, route }) => {
               onChangeText={(text) => handleInputChange('email', text)}
               keyboardType="email-address"
               autoCapitalize="none"
+              editable={!googleUser}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Phone Number</Text>
+            <Text style={styles.label}>Location (City) *</Text>
             <TextInput
               style={styles.input}
-              placeholder="+1 (555) 123-4567"
-              value={formData.phoneNumber}
-              onChangeText={(text) => handleInputChange('phoneNumber', text)}
-              keyboardType="phone-pad"
+              placeholder="e.g. Helsinki"
+              value={formData.location}
+              onChangeText={(text) => handleInputChange('location', text)}
             />
           </View>
 
-          <Text style={styles.sectionTitle}>Professional Information</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Area of Expertise *</Text>
-            <View style={styles.pickerContainer}>
-              <TouchableOpacity
-                style={styles.picker}
-                onPress={() => {
-                  Alert.alert(
-                    'Select Your Specialization',
-                    '',
-                    specializations.map(spec => ({
-                      text: spec,
-                      onPress: () => handleInputChange('specialization', spec)
-                    })).concat([{ text: 'Cancel', style: 'cancel' }])
-                  );
-                }}
-              >
-                <Text style={[styles.pickerText, !formData.specialization && styles.placeholderText]}>
-                  {formData.specialization || 'Select your area of expertise'}
-                </Text>
-                <Ionicons name="chevron-down" size={20} color={colors.textLight} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Qualifications & Certifications</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="e.g., Master's in Child Psychology, Board Certified Behavior Analyst..."
-              value={formData.qualifications}
-              onChangeText={(text) => handleInputChange('qualifications', text)}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Years of Experience</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., 5"
-              value={formData.experience}
-              onChangeText={(text) => handleInputChange('experience', text)}
-              keyboardType="numeric"
-            />
-          </View>
-
-          {/* NEW: Subjects */}
-          <Text style={styles.sectionTitle}>Teaching Subjects *</Text>
           <TagSelector
-            title="Select subjects you teach"
+            title="Subjects You Teach *"
             tags={SUBJECTS}
             selectedTags={formData.subjects}
             onTagPress={(tags) => handleInputChange('subjects', tags)}
             showIcons
           />
 
-          {/* Education Levels */}
-          <Text style={styles.sectionTitle}>Education Levels</Text>
-          <TagSelector
-            title="Which levels do you teach?"
-            tags={EDUCATION_LEVELS}
-            selectedTags={formData.educationLevels}
-            onTagPress={(tags) => handleInputChange('educationLevels', tags)}
-            showIcons
-          />
-
-          {/* Location + Teaching Methods */}
-          <Text style={styles.sectionTitle}>Location & Methods</Text>
-          <TagSelector
-            title="Where do you teach?"
-            tags={LOCATIONS}
-            selectedTags={formData.location}
-            onTagPress={(tags) => handleInputChange('location', tags)}
-            showIcons
-          />
-          <TagSelector
-            title="How do you teach?"
-            tags={TEACHING_METHODS}
-            selectedTags={formData.teachingMethods}
-            onTagPress={(tags) => handleInputChange('teachingMethods', tags)}
-            showIcons
-          />
-
-          {/* Hourly Rate */}
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Hourly Rate (€) *</Text>
             <TextInput
@@ -673,158 +590,15 @@ const TeacherSignupScreen = ({ navigation, route }) => {
             />
           </View>
 
-          {/* Languages & Teaching Styles */}
-            <Text style={styles.sectionTitle}>Languages & Teaching Style</Text>
-            <TagSelector
-              title="Languages you speak"
-              tags={LANGUAGES}
-              selectedTags={formData.languages}
-              onTagPress={(tags) => handleInputChange('languages', tags)}
-              showIcons
-            />
-            <TagSelector
-              title="Your teaching style"
-              tags={TEACHING_STYLES}
-              selectedTags={formData.teachingStyles}
-              onTagPress={(tags) => handleInputChange('teachingStyles', tags)}
-              showIcons
-            />
-
-          {/* Availability */}
-          <Text style={styles.sectionTitle}>Availability</Text>
-          <TagSelector
-            title="When are you available?"
-            tags={AVAILABILITY}
-            selectedTags={formData.availability}
-            onTagPress={(tags) => handleInputChange('availability', tags)}
-            showIcons
-          />
-
-          {/* Education & Description */}
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Education & Qualifications (Formal)</Text>
+            <Text style={styles.label}>About You *</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
-              placeholder="e.g. M.Sc. in Education, University of Helsinki"
-              value={formData.education}
-              onChangeText={(text) => handleInputChange('education', text)}
-              multiline
-              numberOfLines={3}
-            />
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Public Profile Description</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Describe your teaching approach, achievements, philosophy..."
+              placeholder="Tell students about your teaching experience, qualifications, and approach..."
               value={formData.description}
               onChangeText={(text) => handleInputChange('description', text)}
               multiline
-              numberOfLines={4}
-            />
-          </View>
-
-          {/* NEW SECTION: Professional Qualifications */}
-          <Text style={styles.sectionTitle}>Professional Qualifications</Text>
-          <TagSelector
-            title="Grade Levels / Age Groups"
-            tags={GRADE_RANGES}
-            selectedTags={formData.gradeRanges}
-            onTagPress={(tags) => handleInputChange('gradeRanges', tags)}
-            showIcons
-          />
-          <TagSelector
-            title="Specializations"
-            tags={SPECIALIZATIONS}
-            selectedTags={formData.specializations}
-            onTagPress={(tags) => handleInputChange('specializations', tags)}
-            showIcons
-          />
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Years of Experience</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g., 5"
-              value={formData.experienceYears}
-              onChangeText={(text) => handleInputChange('experienceYears', text)}
-              keyboardType="numeric"
-            />
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Degrees (one per line)</Text>
-            <Text style={styles.helperText}>Example: M.Ed. | Special Education | 2019 | University of Helsinki</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Degree | Field | Year | Institution\n..."
-              value={formData.degreesInput}
-              onChangeText={(text) => handleInputChange('degreesInput', text)}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Certifications (one per line)</Text>
-            <Text style={styles.helperText}>Example: Finland | State License | 2020 | Early Childhood Education</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Country | Type | Year | Scope\n..."
-              value={formData.certificationsInput}
-              onChangeText={(text) => handleInputChange('certificationsInput', text)}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-
-          {/* NEW SECTION: Teaching Approach & Focus */}
-          <Text style={styles.sectionTitle}>Teaching Approach & Focus</Text>
-          <TagSelector
-            title="Client Focus"
-            tags={CLIENT_FOCUS}
-            selectedTags={formData.clientFocus}
-            onTagPress={(tags) => handleInputChange('clientFocus', tags)}
-            showIcons
-          />
-          <TagSelector
-            title="Academic Interests"
-            tags={ACADEMIC_INTERESTS}
-            selectedTags={formData.academicInterests}
-            onTagPress={(tags) => handleInputChange('academicInterests', tags)}
-            showIcons
-          />
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Teaching Philosophy / Approach</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Describe your methods, pedagogy, and values..."
-              value={formData.teachingApproach}
-              onChangeText={(text) => handleInputChange('teachingApproach', text)}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-
-          {/* NEW SECTION: Publications & Research (Optional) */}
-          <Text style={styles.sectionTitle}>Publications & Research (Optional)</Text>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Publications (one per line: Title | Type | Year | URL)</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Article Title | Journal | 2023 | https://...\n..."
-              value={formData.publicationsInput}
-              onChangeText={(text) => handleInputChange('publicationsInput', text)}
-              multiline
-              numberOfLines={4}
-            />
-          </View>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Research Areas (one per line)</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="e.g., Child development\nBehavior analysis\n..."
-              value={formData.researchAreasInput}
-              onChangeText={(text) => handleInputChange('researchAreasInput', text)}
-              multiline
-              numberOfLines={3}
+              numberOfLines={5}
             />
           </View>
 

@@ -278,6 +278,31 @@ service cloud.firestore {
     }
     
     // ========================================
+    // FEEDBACK COLLECTION
+    // ========================================
+    match /feedback/{feedbackId} {
+      // Luku: Kaikki kirjautuneet käyttäjät voivat lukea palautteet (julkinen data)
+      // Tämä mahdollistaa opettajan rating-näyttämisen profiilissa
+      allow read: if isAuthenticated();
+      
+      // Kirjoitus: Opettaja tai vanhempi voi antaa palautetta
+      allow create: if isAuthenticated() && 
+                      request.auth.uid == request.resource.data.fromUserId &&
+                      hasField('toUserId') &&
+                      hasField('roleFrom') &&
+                      hasField('roleTo') &&
+                      hasField('createdAt');
+      
+      // Päivitys: Vain lähettäjä voi muokata omaa palautettaan
+      allow update: if isAuthenticated() && 
+                      request.auth.uid == resource.data.fromUserId;
+      
+      // Poisto: Vain lähettäjä voi poistaa oman palautteensa
+      allow delete: if isAuthenticated() && 
+                      request.auth.uid == resource.data.fromUserId;
+    }
+    
+    // ========================================
     // ESTÄ MUUT KOKOELMAT
     // ========================================
     // Kaikki muut kokoelmat ovat kiellettyjä oletuksena

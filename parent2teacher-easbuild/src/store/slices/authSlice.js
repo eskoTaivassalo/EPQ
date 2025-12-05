@@ -3,7 +3,8 @@ import {
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
   signOut,
-  updateProfile
+  updateProfile,
+  sendEmailVerification
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -33,9 +34,19 @@ const initialState = {
 
 export const loginUser = createAsyncThunk(
   'auth/loginUser',
-  async ({ email, password }, { rejectWithValue }) => {
+  async ({ email, password }, { rejectWithValue, dispatch }) => {
     try {
       console.log('🔐 Redux: Login attempt for:', email);
+      
+      // Clear all previous user data before login (CRITICAL for device reuse!)
+      console.log('🧹 Redux: ========================================');
+      console.log('🧹 Redux: CLEARING ALL DATA FROM PREVIOUS USER');
+      console.log('🧹 Redux: (This prevents notifications/bookings from showing to wrong user)');
+      console.log('🧹 Redux: ========================================');
+      dispatch({ type: 'notifications/clearNotifications' });
+      dispatch({ type: 'bookings/clearBookings' });
+      dispatch({ type: 'appData/clearData' });
+      console.log('✅ Redux: Previous user data cleared - ready for new login');
       
       if (!auth || !db) {
         console.log('🔐 Redux: No Firebase, using fallback login');
@@ -215,6 +226,17 @@ export const registerUser = createAsyncThunk(
       
       console.log(`✅ Redux: User saved to ${collectionName} collection`);
 
+      // 📧 Lähetä vahvistussähköposti (vain email/password rekisteröinnille, ei Google-käyttäjille)
+      if (!userData.isGoogleAuth && !firebaseUser.emailVerified) {
+        try {
+          await sendEmailVerification(firebaseUser);
+          console.log('📧 Redux: Email verification sent to:', firebaseUser.email);
+        } catch (emailError) {
+          console.error('⚠️ Redux: Failed to send verification email:', emailError);
+          // Älä estä rekisteröintiä vaikka sähköpostin lähetys epäonnistuisi
+        }
+      }
+
       const finalUserData = {
         uid: firebaseUser.uid,
         email: firebaseUser.email,
@@ -241,7 +263,7 @@ export const registerUser = createAsyncThunk(
 
 export const logoutUser = createAsyncThunk(
   'auth/logoutUser',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch }) => {
     try {
       console.log('🚪 Redux: Logout attempt');
       
@@ -258,6 +280,13 @@ export const logoutUser = createAsyncThunk(
       // 3. Clear session data
       await SessionManager.clearSession();
       console.log('✅ Redux: Session cleared');
+      
+      // 4. Clear all Redux slices (CRITICAL for device reuse!)
+      console.log('🧹 Redux: Clearing all slices...');
+      dispatch({ type: 'notifications/clearNotifications' });
+      dispatch({ type: 'bookings/clearBookings' });
+      dispatch({ type: 'appData/clearData' });
+      console.log('✅ Redux: All slices cleared');
       
       console.log('✅ Redux: Logout successful');
       return null;

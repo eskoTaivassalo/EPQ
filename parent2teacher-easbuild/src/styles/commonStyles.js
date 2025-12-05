@@ -1,8 +1,8 @@
 import { StyleSheet } from 'react-native';
 
 export const colors = {
-  primary: '#4CAF50', // Vihreä (kuten sivustolla)
-  secondary: '#FF9800', // Oranssi (kuten sivustolla)
+  primary: '#667EEA', // Sinipurppura
+  secondary: '#764BA2', // Syvä purppura
   background: '#EFEFEF', // Hieman tummennettu tausta logon kanssa yhteensopivaksi
   white: '#FFFFFF',
   text: '#333333',
@@ -10,7 +10,7 @@ export const colors = {
   textSecondary: '#999999',
   border: '#E0E0E0',
   error: '#F44336',
-  success: '#4CAF50',
+  success: '#667EEA',
   warning: '#FF9800'
 };
 

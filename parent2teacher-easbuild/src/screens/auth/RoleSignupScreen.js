@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { getRoleConfig, getRoleColors, ROLE_TYPES } from '../../config/roleConfig';
 import { colors as defaultColors } from '../../styles/commonStyles';
 
@@ -195,6 +196,7 @@ const RoleSignupScreen = ({ route, navigation }) => {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: roleColors.background }]}>
+      <WatercolorBackground />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}

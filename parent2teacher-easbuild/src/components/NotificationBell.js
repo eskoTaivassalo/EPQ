@@ -20,7 +20,7 @@ const NotificationBell = () => {
 
   return (
     <TouchableOpacity onPress={handlePress} style={styles.container}>
-      <Ionicons name="notifications-outline" size={24} color={colors.white} />
+      <Ionicons name="notifications-outline" size={24} color="#F39C12" />
       {unreadCount > 0 && (
         <View style={styles.badge}>
           <Text style={styles.badgeText}>

@@ -1,29 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   StyleSheet,
   Image,
-  ScrollView
+  ScrollView,
+  Dimensions,
+  Animated
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import AppLogo from '../../components/AppLogo';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors, commonStyles } from '../../styles/commonStyles';
-import { 
-  ROLE_TYPES, 
-  ROLE_CATEGORIES,
-  getRoleConfig,
-  getProviderRoles,
-  getCustomerRoles
-} from '../../config/roleConfig';
+import { collection, getDocs, query, limit } from 'firebase/firestore';
+import { db } from '../../config/firebaseConfig';
+
+const { width, height } = Dimensions.get('window');
 
 const WelcomeScreen = ({ navigation }) => {
-  const [selectedCategory, setSelectedCategory] = useState(null);
-  
-  const providerRoles = getProviderRoles();
-  const customerRoles = getCustomerRoles();
+  const [featuredTeachers, setFeaturedTeachers] = useState([]);
+  const fadeAnim = new Animated.Value(0);
+  const slideAnim = new Animated.Value(50);
+  const scrollY = new Animated.Value(0);
+
+  // Fade in animation
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 800,
+        useNativeDriver: true,
+      })
+    ]).start();
+  }, []);
+
+  // Fetch featured teachers for preview
+  useEffect(() => {
+    const fetchFeaturedTeachers = async () => {
+      try {
+        if (!db) return;
+        const q = query(collection(db, 'teachers'), limit(6));
+        const snapshot = await getDocs(q);
+        const teachers = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        setFeaturedTeachers(teachers);
+      } catch (error) {
+        console.log('Could not load featured teachers:', error);
+      }
+    };
+    
+    fetchFeaturedTeachers();
+  }, []);
 
   const handleRoleSelection = (role) => {
     navigation.navigate('Login', { userType: role });
@@ -31,10 +68,6 @@ const WelcomeScreen = ({ navigation }) => {
 
   const handleSignupSelection = (role) => {
     navigation.navigate('RoleSignup', { roleType: role });
-  };
-
-  const handleCategorySelect = (category) => {
-    setSelectedCategory(selectedCategory === category ? null : category);
   };
 
   const renderRoleCard = (roleConfig) => {
@@ -65,104 +98,225 @@ const WelcomeScreen = ({ navigation }) => {
     );
   };
 
+  const renderFeatureCard = (icon, title, description) => (
+    <View style={styles.featureCard} key={title}>
+      <View style={styles.featureIcon}>
+        <Ionicons name={icon} size={28} color={colors.primary} />
+      </View>
+      <Text style={styles.featureTitle}>{title}</Text>
+      <Text style={styles.featureDescription}>{description}</Text>
+    </View>
+  );
+
+  const renderTeacherCard = (teacher) => (
+    <TouchableOpacity 
+      key={teacher.id}
+      style={styles.teacherCard}
+      onPress={() => {
+        // Show call-to-action to sign up
+        navigation.navigate('Login');
+      }}
+    >
+      <View style={styles.teacherAvatar}>
+        {teacher.photoURL ? (
+          <Image source={{ uri: teacher.photoURL }} style={styles.teacherAvatarImage} />
+        ) : (
+          <Ionicons name="person" size={32} color={colors.textSecondary} />
+        )}
+      </View>
+      <Text style={styles.teacherName} numberOfLines={1}>
+        {teacher.name || teacher.fullName || 'Teacher'}
+      </Text>
+      {teacher.subjects && teacher.subjects.length > 0 && (
+        <Text style={styles.teacherSubject} numberOfLines={1}>
+          {teacher.subjects[0]}
+        </Text>
+      )}
+      <View style={styles.teacherRating}>
+        <Ionicons name="star" size={14} color="#FFD700" />
+        <Text style={styles.teacherRatingText}>
+          {teacher.rating || '5.0'}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground variant="full" />
+
+      {/* Floating Header Bar */}
+      <View style={styles.floatingHeader}>
+        <View style={styles.headerLeft}>
+          <AppLogo size={100} />
+        </View>
+        <TouchableOpacity
+          style={styles.headerSignInButton}
+          onPress={() => navigation.navigate('Login')}
+        >
+          <Ionicons name="log-in-outline" size={20} color={colors.primary} />
+          <Text style={styles.headerSignInText}>Sign In</Text>
+        </TouchableOpacity>
+      </View>
+
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo */}
-        <View style={styles.logoContainer}>
-          <AppLogo size={120} />
-        </View>
 
-        <View style={styles.header}>
-          <Text style={styles.title}>Welcome</Text>
-          <Text style={styles.subtitle}>Choose how you want to get started</Text>
-        </View>
+        <Animated.View 
+          style={[
+            styles.header,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }]
+            }
+          ]}
+        >
+          <Text style={styles.title}>Connect Teachers & Students</Text>
+          <Text style={styles.subtitle}>Find qualified teachers or share your expertise with students</Text>
+        </Animated.View>
+
+        {/* Intro content */}
+        <>
+            {/* Subject Categories */}
+            <View style={styles.categoriesSection}>
+              <Text style={styles.sectionTitle}>Popular Subjects</Text>
+              <View style={styles.categoriesGrid}>
+                <View style={styles.categoryBadge}>
+                  <Ionicons name="calculator" size={20} color={colors.primary} />
+                  <Text style={styles.categoryBadgeText}>Mathematics</Text>
+                </View>
+                <View style={styles.categoryBadge}>
+                  <Ionicons name="language" size={20} color="#E74C3C" />
+                  <Text style={styles.categoryBadgeText}>Languages</Text>
+                </View>
+                <View style={styles.categoryBadge}>
+                  <Ionicons name="flask" size={20} color="#9B59B6" />
+                  <Text style={styles.categoryBadgeText}>Sciences</Text>
+                </View>
+                <View style={styles.categoryBadge}>
+                  <Ionicons name="musical-notes" size={20} color="#27AE60" />
+                  <Text style={styles.categoryBadgeText}>Music & Arts</Text>
+                </View>
+                <View style={styles.categoryBadge}>
+                  <Ionicons name="code-slash" size={20} color="#F39C12" />
+                  <Text style={styles.categoryBadgeText}>Programming</Text>
+                </View>
+                <View style={styles.categoryBadge}>
+                  <Ionicons name="fitness" size={20} color="#3498DB" />
+                  <Text style={styles.categoryBadgeText}>Sports</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Features Section */}
+            <View style={styles.featuresSection}>
+              <Text style={styles.sectionTitle}>Why Teachers & Students Love Us</Text>
+              <View style={styles.featuresGrid}>
+                {renderFeatureCard('checkmark-circle', 'Verified Professionals', 'All practitioners are verified and qualified')}
+                {renderFeatureCard('calendar', 'Flexible Booking', 'Schedule sessions at your convenience')}
+                {renderFeatureCard('videocam', 'Multiple Formats', 'Online video, phone or in-person sessions')}
+                {renderFeatureCard('shield-checkmark', 'Safe & Secure', 'Protected platform with secure payments')}
+              </View>
+            </View>
+
+            {/* Featured Professionals */}
+            {featuredTeachers.length > 0 && (
+              <View style={styles.teachersSection}>
+                <Text style={styles.sectionTitle}>Meet Our Professionals</Text>
+                <Text style={styles.sectionSubtitle}>Connect with experienced social care professionals ready to help</Text>
+                <ScrollView 
+                  horizontal 
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.teachersScroll}
+                >
+                  {featuredTeachers.map(teacher => renderTeacherCard(teacher))}
+                </ScrollView>
+                <TouchableOpacity 
+                  style={styles.viewAllButton}
+                  onPress={() => navigation.navigate('Login')}
+                >
+                  <Text style={styles.viewAllButtonText}>Sign in to view all teachers</Text>
+                  <Ionicons name="arrow-forward" size={18} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Stats Section */}
+            <View style={styles.statsSection}>
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>500+</Text>
+                <Text style={styles.statLabel}>Teachers</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>5k+</Text>
+                <Text style={styles.statLabel}>Students</Text>
+              </View>
+              <View style={styles.statDivider} />
+              <View style={styles.statItem}>
+                <Text style={styles.statNumber}>25k+</Text>
+                <Text style={styles.statLabel}>Lessons Completed</Text>
+              </View>
+            </View>
+
+            {/* Trust Section */}
+            <View style={styles.trustSection}>
+              <Ionicons name="ribbon" size={32} color={colors.primary} />
+              <Text style={styles.trustTitle}>Trusted by Thousands</Text>
+              <Text style={styles.trustDescription}>
+                Join our community of students and teachers making meaningful connections in education
+              </Text>
+            </View>
+        </>
 
         <View style={styles.mainSelection}>
-          {/* Main Choice: Provider or Customer */}
-          {selectedCategory === null ? (
-            <>
-              <Text style={styles.selectionPrompt}>What brings you here?</Text>
-              
-              <TouchableOpacity
-                style={[styles.mainChoiceCard, { borderColor: '#FF6B35' }]}
-                onPress={() => handleCategorySelect(ROLE_CATEGORIES.PROVIDER)}
+          {/* Main Choice: Teacher or Student */}
+          <Text style={styles.selectionPrompt}>Ready to Get Started?</Text>
+          
+          <TouchableOpacity
+                style={styles.mainChoiceCard}
+                onPress={() => navigation.navigate('TeacherSignup')}
               >
-                <View style={[styles.mainChoiceIcon, { backgroundColor: '#FF6B3520' }]}>
-                  <Ionicons name="briefcase" size={40} color="#FF6B35" />
-                </View>
-                <Text style={styles.mainChoiceTitle}>I Provide Services</Text>
-                <Text style={styles.mainChoiceDescription}>
-                  Offer your expertise and connect with clients
-                </Text>
-                <Ionicons name="arrow-forward" size={24} color="#FF6B35" style={styles.mainChoiceArrow} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.mainChoiceCard, { borderColor: '#4A90E2' }]}
-                onPress={() => handleCategorySelect(ROLE_CATEGORIES.CUSTOMER)}
-              >
-                <View style={[styles.mainChoiceIcon, { backgroundColor: '#4A90E220' }]}>
-                  <Ionicons name="search" size={40} color="#4A90E2" />
-                </View>
-                <Text style={styles.mainChoiceTitle}>I Need Services</Text>
-                <Text style={styles.mainChoiceDescription}>
-                  Find and book professionals for your needs
-                </Text>
-                <Ionicons name="arrow-forward" size={24} color="#4A90E2" style={styles.mainChoiceArrow} />
-              </TouchableOpacity>
-
-              {/* Already Have Account */}
-              <View style={styles.loginSection}>
-                <Text style={styles.loginPrompt}>Already have an account?</Text>
-                <TouchableOpacity
-                  style={styles.loginButton}
-                  onPress={() => navigation.navigate('Login')}
+                <LinearGradient
+                  colors={['#667eea', '#764ba2']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.mainChoiceGradient}
                 >
-                  <Text style={styles.loginButtonText}>Sign In</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <>
-              {/* Back Button */}
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => setSelectedCategory(null)}
-              >
-                <Ionicons name="arrow-back" size={24} color={colors.primary} />
-                <Text style={styles.backButtonText}>Back</Text>
+                  <View style={styles.mainChoiceIconGradient}>
+                    <Ionicons name="school" size={26} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.mainChoiceTitleGradient}>I'm a Teacher</Text>
+                  <Text style={styles.mainChoiceDescriptionGradient}>
+                    Share your knowledge and connect with students seeking to learn
+                  </Text>
+                  <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={styles.mainChoiceArrow} />
+                </LinearGradient>
               </TouchableOpacity>
 
-              {/* Role Selection */}
-              <Text style={styles.roleSelectionTitle}>
-                {selectedCategory === ROLE_CATEGORIES.PROVIDER 
-                  ? 'Choose Your Professional Role' 
-                  : 'What Are You Looking For?'}
-              </Text>
-
-              <View style={styles.rolesGrid}>
-                {selectedCategory === ROLE_CATEGORIES.PROVIDER 
-                  ? providerRoles.map((role) => renderRoleCard(role))
-                  : customerRoles.map((role) => renderRoleCard(role))}
-              </View>
-
-              {/* Already Have Account (also on role selection) */}
-              <View style={styles.loginSection}>
-                <Text style={styles.loginPrompt}>Already have an account?</Text>
-                <TouchableOpacity
-                  style={styles.loginButton}
-                  onPress={() => navigation.navigate('Login')}
+              <TouchableOpacity
+                style={styles.mainChoiceCard}
+                onPress={() => navigation.navigate('ParentSignup')}
+              >
+                <LinearGradient
+                  colors={['#4facfe', '#00f2fe']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.mainChoiceGradient}
                 >
-                  <Text style={styles.loginButtonText}>Sign In</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          )}
+                  <View style={styles.mainChoiceIconGradient}>
+                    <Ionicons name="book" size={26} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.mainChoiceTitleGradient}>I'm a Student</Text>
+                  <Text style={styles.mainChoiceDescriptionGradient}>
+                    Find qualified teachers and start learning new skills today
+                  </Text>
+                  <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={styles.mainChoiceArrow} />
+                </LinearGradient>
+              </TouchableOpacity>
         </View>
 
         <View style={styles.footer}>
@@ -176,8 +330,43 @@ const WelcomeScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F9FD',
   },
+  floatingHeader: {
+    position: 'absolute',
+    top: 20,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'transparent',
+    zIndex: 1000,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  headerSignInButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.4)',
+  },
+  headerSignInText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+    letterSpacing: 0.3,
+  },
+
   scrollView: {
     flex: 1,
   },
@@ -190,8 +379,22 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 20,
   },
+  logoWrapper: {
+    position: 'relative',
+  },
+  logoGlow: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.primary,
+    opacity: 0.2,
+    top: -10,
+    left: -10,
+  },
   header: {
     alignItems: 'center',
+    marginTop: 120,
     marginBottom: 10,
   },
   title: {
@@ -209,51 +412,60 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   selectionPrompt: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '600',
     color: colors.text,
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   mainChoiceCard: {
-    backgroundColor: colors.white,
     borderRadius: 16,
-    padding: 24,
-    marginBottom: 16,
-    alignItems: 'center',
-    borderWidth: 2,
+    marginBottom: 12,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 3,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 5,
   },
-  mainChoiceIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+  mainChoiceGradient: {
+    padding: 16,
+    alignItems: 'center',
+    borderRadius: 16,
+  },
+  mainChoiceIconGradient: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 10,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderWidth: 0,
   },
-  mainChoiceTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: colors.text,
-    marginBottom: 8,
+  mainChoiceTitleGradient: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 6,
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  mainChoiceDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
+  mainChoiceDescriptionGradient: {
+    fontSize: 12,
+    color: '#FFFFFF',
     textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 12,
+    lineHeight: 17,
+    marginBottom: 4,
+    opacity: 0.92,
   },
   mainChoiceArrow: {
-    marginTop: 8,
+    marginTop: 4,
+    opacity: 0.8,
   },
   backButton: {
     flexDirection: 'row',
@@ -445,6 +657,284 @@ const styles = StyleSheet.create({
   registrationSeparator: {
     fontSize: 11,
     color: colors.textLight,
+  },
+  // New styles for content sections
+  heroSection: {
+    borderRadius: 20,
+    padding: 28,
+    marginBottom: 24,
+    marginHorizontal: 8,
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  heroOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  heroContent: {
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  heroIconWrapper: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.4)',
+  },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginTop: 8,
+    marginBottom: 12,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 6,
+  },
+  heroSubtitle: {
+    fontSize: 15,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 22,
+    textShadowColor: 'rgba(0, 0, 0, 0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  featuresSection: {
+    marginBottom: 24,
+  },
+  featuresGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 12,
+  },
+  featureCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 18,
+    width: (width - 48) / 2,
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.1)',
+  },
+  featureIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: colors.primary + '30',
+  },
+  featureTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  featureDescription: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  teachersSection: {
+    marginBottom: 24,
+  },
+  teachersScroll: {
+    paddingRight: 16,
+  },
+  teacherCard: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 18,
+    marginRight: 12,
+    width: 150,
+    alignItems: 'center',
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.1)',
+  },
+  teacherAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.lightGray || '#F0F0F0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    overflow: 'hidden',
+  },
+  teacherAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  teacherName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  teacherSubject: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  teacherRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  teacherRatingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.white,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+  },
+  viewAllButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  statsSection: {
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 24,
+    justifyContent: 'space-around',
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.1)',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.primary,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: colors.border || '#E0E0E0',
+    marginHorizontal: 8,
+  },
+  // Professional categories
+  categoriesSection: {
+    marginBottom: 24,
+  },
+  categoriesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 12,
+    justifyContent: 'center',
+  },
+  categoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.3)',
+    elevation: 4,
+  },
+  categoryBadgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.text,
+  },
+  // Trust section
+  trustSection: {
+    backgroundColor: 'rgba(102, 126, 234, 0.08)',
+    borderRadius: 20,
+    padding: 28,
+    alignItems: 'center',
+    marginBottom: 24,
+    borderWidth: 2,
+    borderColor: 'rgba(102, 126, 234, 0.2)',
+    shadowColor: '#667eea',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  trustTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginTop: 12,
+    marginBottom: 8,
+  },
+  trustDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });
 

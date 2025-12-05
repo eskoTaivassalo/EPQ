@@ -12,12 +12,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import WatercolorBackground from '../../components/WatercolorBackground';
 import { useAuth } from '../../hooks/useAuth';
 import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../../styles/commonStyles';
 import TagSelector from '../../components/TagSelector';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
 import { AuthService } from '../../services/authService';
+import imagePickerService from '../../services/imagePickerService';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { ensurePermissionAndCoords } from '../../services/locationService';
 import { db, auth } from '../../config/firebaseConfig';
@@ -62,7 +64,6 @@ const TeacherMyProfileScreen = ({ navigation }) => {
     // NEW FIELDS - Professional Qualifications
     professionalType: 'teacher', // 'teacher', 'therapist', 'social_worker'
     certifications: [], // Array of {country, state, type, year}
-    gradeRanges: [], // Array of grade range IDs
     specializations: [], // Array of specialization IDs
     degrees: [], // Array of {degree, field, year, institution}
     experienceYears: '', // Numeric value
@@ -156,6 +157,38 @@ const TeacherMyProfileScreen = ({ navigation }) => {
     }, [user?.uid])
   );
 
+  const handleImageSelected = async (uri) => {
+    if (!uri) {
+      // Kuva poistettu
+      setProfileImageUri(null);
+      return;
+    }
+
+    try {
+      console.log('📤 Uploading profile image to Storage...');
+      
+      // Lataa kuva Firebase Storageen
+      const downloadURL = await imagePickerService.uploadImage(uri, user.uid, 'profile.jpg');
+      
+      if (downloadURL) {
+        console.log('✅ Image uploaded successfully:', downloadURL);
+        setProfileImageUri(downloadURL);
+        
+        // Tallenna heti Firestoreen
+        await setDoc(doc(db, 'teachers', user.uid), {
+          photoURL: downloadURL
+        }, { merge: true });
+        
+        Alert.alert('Onnistui', 'Profiilikuva tallennettu');
+      } else {
+        Alert.alert('Virhe', 'Kuvan lataaminen epäonnistui');
+      }
+    } catch (error) {
+      console.error('❌ Error handling image:', error);
+      Alert.alert('Virhe', 'Kuvan käsittely epäonnistui');
+    }
+  };
+
   const saveProfile = async () => {
     if (!db || !user?.uid) {
       Alert.alert('Virhe', 'Kirjaudu sisään ensin');
@@ -165,11 +198,7 @@ const TeacherMyProfileScreen = ({ navigation }) => {
       Alert.alert('Error', 'Please select at least one subject and set your hourly rate');
       return;
     }
-    // Basic validation for numeric years of experience (optional)
-    if (profileData?.experienceYears && !/^\d+$/.test(String(profileData.experienceYears))) {
-      Alert.alert('Error', 'Years of experience must be a number');
-      return;
-    }
+
 
     // Parse raw text inputs into structured arrays right before saving
     const parsedDegrees = (degreesInput || '')
@@ -243,7 +272,6 @@ const TeacherMyProfileScreen = ({ navigation }) => {
         // New professional profile fields (root)
         professionalType: profileData.professionalType,
         certifications: parsedCertifications,
-        gradeRanges: profileData.gradeRanges,
         specializations: profileData.specializations,
         degrees: parsedDegrees,
         experienceYears: profileData.experienceYears,
@@ -275,7 +303,6 @@ const TeacherMyProfileScreen = ({ navigation }) => {
           // New professional profile fields (nested)
           professionalType: profileData.professionalType,
           certifications: parsedCertifications,
-          gradeRanges: profileData.gradeRanges,
           specializations: profileData.specializations,
           degrees: parsedDegrees,
           experienceYears: profileData.experienceYears,
@@ -375,6 +402,7 @@ const TeacherMyProfileScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -407,7 +435,7 @@ const TeacherMyProfileScreen = ({ navigation }) => {
         {isEditing && (
           <ProfileImagePicker
             imageUri={profileImageUri || profileData.photoURL}
-            onImageSelected={setProfileImageUri}
+            onImageSelected={handleImageSelected}
             size={120}
             editable={true}
           />
@@ -529,14 +557,6 @@ const TeacherMyProfileScreen = ({ navigation }) => {
               <Text style={styles.sectionTitle}>Professional Qualifications</Text>
               
               <TagSelector
-                title="Grade Ranges You Teach"
-                tags={GRADE_RANGES}
-                selectedTags={profileData?.gradeRanges || []}
-                onTagPress={(tags) => setProfileData({ ...profileData, gradeRanges: tags })}
-                showIcons={true}
-              />
-
-              <TagSelector
                 title="Specializations"
                 tags={SPECIALIZATIONS}
                 selectedTags={profileData?.specializations || []}
@@ -544,16 +564,6 @@ const TeacherMyProfileScreen = ({ navigation }) => {
                 showIcons={true}
               />
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Years of Experience (numeric)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. 8"
-                  value={profileData?.experienceYears ?? ''}
-                  onChangeText={(text) => setProfileData({ ...profileData, experienceYears: text })}
-                  keyboardType="numeric"
-                />
-              </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Degrees (one per line: Degree | Field | Year)</Text>
@@ -691,20 +701,11 @@ const TeacherMyProfileScreen = ({ navigation }) => {
 
             <ProfileSection title="Professional Qualifications">
               <InfoRow 
-                label="Grade Ranges" 
-                value={getTagLabels(GRADE_RANGES, profileData?.gradeRanges || []).join(', ')} 
-                icon="school" 
-              />
-              <InfoRow 
                 label="Specializations" 
                 value={getTagLabels(SPECIALIZATIONS, profileData?.specializations || []).join(', ')} 
                 icon="medal" 
               />
-              <InfoRow 
-                label="Years of Experience" 
-                value={profileData?.experienceYears ? `${profileData.experienceYears} years` : null} 
-                icon="time" 
-              />
+       
               <InfoRow 
                 label="Education" 
                 value={profileData?.education} 
