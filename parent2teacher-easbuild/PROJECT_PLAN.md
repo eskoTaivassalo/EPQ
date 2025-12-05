@@ -112,6 +112,18 @@
   - Alakansiot: `auth/`, `parent/`, `teacher/`, `shared/`, `dev/`
   - Import-polut päivitetty `../../` rakenteeseen
   - Auth-screenit siirretty ja korjattu (LoginScreen, EmailVerificationScreen)
+- [x] **Modernit animaatiot ja scroll-efektit** ✅ (06.12.2025)
+  - Kelluva header dashboardeissa (fade-out scrollatessa)
+  - Animated API scroll interpolaatio
+  - Kimmoisa menu-button animaatio
+  - Smooth transitions
+- [x] **Värimaailman päivitys** ✅ (06.12.2025)
+  - Sinipurppura teema (#667EEA, #764BA2)
+  - Yhtenäinen gradientti-ilme
+- [x] **SimpleDrawer modernisointi** ✅ (06.12.2025)
+  - Korttimainen design
+  - Oikealta vasemmalle liuku
+  - Pehmeät varjot ja pyöristykset
 - [ ] **IN PROGRESS: TeacherProfile-screenit yhdistäminen**
   - TeacherMyProfileScreen + TeacherProfileScreen → yksi screen (view+edit toggle)
   - Tavoite: vähentää duplikaatiota
@@ -182,11 +194,12 @@
 - [ ] Profiilikuvien lisäys (Firebase Storage)
 - [ ] Profiilitietojen validointi parannus (Perusteet tehty, tarvitsee testaus)
 - [x] Tag-systeemin optimointi (Tehty constants/tags.js)
-- [ ] "Edit Profile" UX parannus
+- [x] "Edit Profile" UX parannus ✅ (06.12.2025 - Päällekkäisyydet poistettu)
 
 #### Keskiviikko: Opettajahaku & Suodatus
 - [ ] Hakutoiminnon optimointi (performance) - Osittain, tarvitsee testaus
 - [x] Lisää suodatusvaihtoehtoja (aineet, kielet, sijainnit) - TagSelector toteutettu
+- [x] UI-optimointi (padding, kortit näkyvät kokonaan) ✅ (06.12.2025)
 - [ ] Karttanäkymä opettajien sijaintiin
 - [ ] Favoriitin lisäys/poisto toiminnallisuus
 
@@ -242,14 +255,14 @@
 ### 📌 Viikko 3 (Päivät 11-15) - MA-PE
 
 #### Maanantai: Design System
-- [ ] Yhtenäisen väripaletin vahvistus
-- [ ] Typography-sääntöjen standardointi
+- [x] Yhtenäisen väripaletin vahvistus ✅ (06.12.2025 - Sinipurppura teema)
+- [x] Typography-sääntöjen standardointi ✅ (Yhtenäiset fontit ja koot)
 - [ ] Component library dokumentointi
 - [ ] Accessibility guidelines
 
 #### Tiistai: Käyttöliittymän kiillotus
-- [ ] Animaatioiden lisäys (React Native Reanimated)
-- [ ] Smooth transitions sivujen välillä
+- [x] Animaatioiden lisäys (Animated API) ✅ (06.12.2025)
+- [x] Smooth transitions sivujen välillä (scroll fade-out) ✅ (06.12.2025)
 - [ ] Loading states parannus
 - [ ] Error states parannus
 
@@ -580,3 +593,43 @@
   - Kaikki kentät muokattavissa ja tallennettavissa
 - **Dokumentaatio**
   - Kaikki arkkitehtuuri, refaktorointi ja migration-dokumentit päivitetty
+
+## 2025-12-06 ✅ UI/UX PÄIVITYKSET JA OPTIMOINNIT
+- **Dashboard-näkymien modernisointi**
+  - ✅ TeacherDashboard: Kelluva header animaatiolla (scroll fade-out)
+  - ✅ ParentDashboard: Kelluva header animaatiolla (scroll fade-out)
+  - ✅ Animated API käytössä scrollY interpolaatiolla
+  - ✅ Yhtenäinen ulkoasu molemmissa dashboardeissa
+- **SimpleDrawer modernisointi**
+  - ✅ Pehmeämpi, korttimainen design pyöristetyillä menuItem-korteilla
+  - ✅ Drawer liukuu oikeasta laidasta vasemmalle
+  - ✅ Header pyöristetty (borderBottomLeftRadius)
+  - ✅ Marginaalit ja varjot parannettu
+  - ✅ Drawer-tausta vaihdettu vaaleanharmaksi (#F8F9FA)
+- **Värimaailman päivitys**
+  - ✅ Vihreä (#4CAF50) vaihdettu sinipurppuraan (#667EEA)
+  - ✅ Secondary-väri päivitetty syvään purppuraan (#764BA2)
+  - ✅ Yhtenäinen gradientti-teema koko sovelluksessa
+- **Animaatiot**
+  - ✅ Hampurilaisvalikko: Kimmoisa painallus-animaatio (scale 1 → 0.85)
+  - ✅ Spring animation menuButton-klikkauksessa
+  - ✅ Smooth scroll-animaatiot dashboardeissa
+- **TeacherMyProfileScreen optimointi**
+  - ✅ Päällekkäinen "Grade Ranges" -kysymys poistettu
+  - ✅ "Education Levels" kattaa kouluasteet
+  - ✅ Profiilin rakenne vastaa asiakkaan vaatimuslistaa:
+    * Professional Type (teacher/therapist/social_worker)
+    * Certifications (Country/State)
+    * Specializations (ESL, Dyslexia, IB jne.)
+    * Years of Experience
+    * Degrees (structured)
+    * Academic Interests
+    * Teaching Approach
+    * Client Focus
+    * Publications & Research
+- **FindTeachersScreen parannus**
+  - ✅ FlatList contentContainerStyle paddingBottom: 40
+  - ✅ Alin kortti näkyy nyt kokonaan
+- **Email-verifiointi korjaukset**
+  - ✅ Rate limiting -virhe korjattu (EmailVerificationScreen)
+  - ✅ Alert-dialogi syntax error korjattu
