@@ -8,11 +8,12 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
 import { colors } from '../../styles/commonStyles';
 import { ROLE_CONFIG, ROLE_TYPES } from '../../config/roleConfig';
@@ -41,10 +42,14 @@ const AdminDashboard = ({ navigation }) => {
     totalUsers: 0,
     totalTeachers: 0,
     totalParents: 0,
+    totalAdmins: 0,
     activeBookings: 0,
     totalBookings: 0,
     pendingReports: 0,
+    supportMessages: 0,
+    unreadSupportMessages: 0,
     recentUsers: [],
+    recentSupportMessages: [],
   });
 
   useEffect(() => {
@@ -69,6 +74,21 @@ const AdminDashboard = ({ navigation }) => {
         ...doc.data()
       }));
 
+      // Fetch admins
+      const adminsSnapshot = await getDocs(collection(db, 'admins'));
+      const admins = adminsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // Fetch reports
+      const reportsSnapshot = await getDocs(collection(db, 'reports'));
+      const reports = reportsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      const pendingReports = reports.filter(r => r.status === 'pending' || !r.status);
+
       // Fetch bookings
       const bookingsSnapshot = await getDocs(collection(db, 'bookings'));
       const bookings = bookingsSnapshot.docs.map(doc => ({
@@ -84,6 +104,36 @@ const AdminDashboard = ({ navigation }) => {
         new Date(b.start) > now
       );
 
+      // Fetch support messages (type='support' and recipientId is admin)
+      let supportMessages = [];
+      let unreadSupportMessages = [];
+      let recentSupportMessages = [];
+      
+      try {
+        const messagesQuery = query(
+          collection(db, 'messages'),
+          where('recipientId', '==', user?.uid),
+          where('type', '==', 'support')
+        );
+        const messagesSnapshot = await getDocs(messagesQuery);
+        supportMessages = messagesSnapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .sort((a, b) => {
+            const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(0);
+            const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(0);
+            return dateB - dateA;
+          });
+
+        // Count unread support messages
+        unreadSupportMessages = supportMessages.filter(msg => !msg.read);
+
+        // Get recent support messages (last 5)
+        recentSupportMessages = supportMessages.slice(0, 5);
+      } catch (msgError) {
+        console.warn('⚠️ Could not fetch support messages (missing index?):', msgError.message);
+        // Continue without support messages
+      }
+
       // Get recent users (last 5)
       const allUsers = [...teachers, ...parents]
         .filter(u => u.createdAt)
@@ -98,10 +148,21 @@ const AdminDashboard = ({ navigation }) => {
         totalUsers: teachers.length + parents.length,
         totalTeachers: teachers.length,
         totalParents: parents.length,
+        totalAdmins: admins.length,
         activeBookings: activeBookings.length,
         totalBookings: bookings.length,
-        pendingReports: 0, // TODO: Implement reports system
+        pendingReports: pendingReports.length,
+        supportMessages: supportMessages.length,
+        unreadSupportMessages: unreadSupportMessages.length,
         recentUsers: allUsers,
+        recentSupportMessages: recentSupportMessages,
+      });
+
+      console.log('📊 Admin Dashboard Stats:', {
+        users: teachers.length + parents.length,
+        admins: admins.length,
+        reports: pendingReports.length,
+        supportMsgs: supportMessages.length,
       });
 
     } catch (error) {
@@ -172,6 +233,12 @@ const AdminDashboard = ({ navigation }) => {
                 Welcome back, {user?.displayName || 'Administrator'}
               </Text>
             </View>
+            <TouchableOpacity
+              style={styles.exitButton}
+              onPress={() => navigation.goBack()}
+            >
+              <Ionicons name="close" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -194,7 +261,7 @@ const AdminDashboard = ({ navigation }) => {
             />
 
             <View style={styles.statsRow}>
-              <View style={styles.halfStatCard}>
+              <View style={styles.thirdStatCard}>
                 <StatCard
                   icon="person"
                   label="Teachers"
@@ -202,12 +269,20 @@ const AdminDashboard = ({ navigation }) => {
                   color="#FF6B35"
                 />
               </View>
-              <View style={styles.halfStatCard}>
+              <View style={styles.thirdStatCard}>
                 <StatCard
                   icon="people-outline"
                   label="Parents"
                   value={stats.totalParents}
                   color="#3B82F6"
+                />
+              </View>
+              <View style={styles.thirdStatCard}>
+                <StatCard
+                  icon="shield-checkmark"
+                  label="Admins"
+                  value={stats.totalAdmins}
+                  color="#8B5CF6"
                 />
               </View>
             </View>
@@ -227,7 +302,77 @@ const AdminDashboard = ({ navigation }) => {
               color="#8B5CF6"
               onPress={() => navigation.navigate('AdminBookings')}
             />
+
+            <StatCard
+              icon="alert-circle"
+              label="Pending Reports"
+              value={stats.pendingReports}
+              color="#EF4444"
+              onPress={() => navigation.navigate('AdminReports')}
+            />
+
+            <StatCard
+              icon="mail"
+              label="Support Messages"
+              value={`${stats.unreadSupportMessages} / ${stats.supportMessages}`}
+              color="#F59E0B"
+            />
           </View>
+
+          {/* Support Messages */}
+          {stats.recentSupportMessages.length > 0 && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Recent Support Messages</Text>
+              {stats.recentSupportMessages.map((message) => (
+                <TouchableOpacity
+                  key={message.id}
+                  style={[
+                    styles.messageCard,
+                    !message.read && styles.unreadMessageCard
+                  ]}
+                  onPress={() => {
+                    // Navigate to Conversations screen
+                    navigation.navigate('Conversations');
+                  }}
+                >
+                  <View style={styles.messageHeader}>
+                    <View style={styles.messageBadge}>
+                      <Ionicons 
+                        name={message.category === 'technical' ? 'bug' : 
+                              message.category === 'billing' ? 'card' :
+                              message.category === 'feedback' ? 'chatbubble' :
+                              'help-circle'} 
+                        size={16} 
+                        color="#F59E0B" 
+                      />
+                      <Text style={styles.messageCategoryText}>
+                        {message.category?.toUpperCase() || 'GENERAL'}
+                      </Text>
+                    </View>
+                    {!message.read && (
+                      <View style={styles.unreadBadge}>
+                        <Text style={styles.unreadBadgeText}>NEW</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.messageSubject} numberOfLines={1}>
+                    {message.subject}
+                  </Text>
+                  <Text style={styles.messageSender}>
+                    From: {message.senderName} ({message.senderEmail})
+                  </Text>
+                  <Text style={styles.messagePreview} numberOfLines={2}>
+                    {message.text}
+                  </Text>
+                  <Text style={styles.messageTime}>
+                    {message.createdAt?.toDate ? 
+                      message.createdAt.toDate().toLocaleString() : 
+                      'Recently'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
 
           {/* Quick Actions */}
           <View style={styles.section}>
@@ -343,6 +488,11 @@ const styles = StyleSheet.create({
     opacity: 0.9,
     marginTop: 2,
   },
+  exitButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
   content: {
     flex: 1,
   },
@@ -392,6 +542,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   halfStatCard: {
+    flex: 1,
+  },
+  thirdStatCard: {
     flex: 1,
   },
   quickActionsGrid: {
@@ -461,6 +614,76 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textLight,
     marginTop: 4,
+  },
+  messageCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#F59E0B',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  unreadMessageCard: {
+    backgroundColor: '#FFFBEB',
+    borderLeftColor: '#F59E0B',
+  },
+  messageHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  messageBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  messageCategoryText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F59E0B',
+    marginLeft: 4,
+  },
+  unreadBadge: {
+    backgroundColor: '#EF4444',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  unreadBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  messageSubject: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  messageSender: {
+    fontSize: 13,
+    color: colors.textLight,
+    marginBottom: 8,
+  },
+  messagePreview: {
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  messageTime: {
+    fontSize: 12,
+    color: colors.textLight,
+    fontStyle: 'italic',
   },
 });
 

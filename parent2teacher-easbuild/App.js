@@ -189,7 +189,7 @@ const AppNavigator = () => {
       try {
         if (isAuthenticated && user?.uid && (user?.emailVerified ?? true)) {
           console.log('[push] 📱 Registering Expo push token for user:', user.uid);
-          const token = await registerAndSaveExpoPushToken(user.uid);
+          const token = await registerAndSaveExpoPushToken(user.uid, user.role || user.userType);
           if (token) {
             console.log('[push] ✅ Expo token registered & saved:', token);
           } else {

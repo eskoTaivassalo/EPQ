@@ -70,22 +70,67 @@ export default function ConversationsScreen({ navigation, route }) {
     }
   }, [recipientId, loading, navigation, role, user?.uid, recipientName]);
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('ConversationThread', {
-        teacherId: role === 'teacher' ? user.uid : item.counterpartId,
-        parentId: role === 'parent' ? user.uid : item.counterpartId,
-      })}
-    >
-      <View style={styles.avatar}><Ionicons name="person" size={24} color={colors.white} /></View>
-      <View style={{ flex: 1 }}>
-        <Text style={styles.name}>{nameMap[item.counterpartId] || item.counterpartId}</Text>
-        <Text style={styles.preview} numberOfLines={1}>{item.lastMessage || ''}</Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-    </TouchableOpacity>
-  );
+  const renderItem = ({ item }) => {
+    const isSupport = item.type === 'support';
+    const displayName = isSupport 
+      ? item.counterpartName || item.counterpartEmail || nameMap[item.counterpartId] || 'Support'
+      : nameMap[item.counterpartId] || item.counterpartId;
+    
+    const categoryIcon = isSupport && item.category === 'technical' ? 'bug' : 
+                        isSupport && item.category === 'billing' ? 'card' :
+                        isSupport && item.category === 'feedback' ? 'chatbubble' :
+                        isSupport ? 'help-circle' : 'person';
+    
+    return (
+      <TouchableOpacity
+        style={[styles.card, !item.isRead && isSupport && styles.unreadCard]}
+        onPress={() => {
+          if (isSupport) {
+            // Support conversation: pass senderId and recipientId
+            navigation.navigate('ConversationThread', {
+              isSupportConversation: true,
+              senderId: item.counterpartId,
+              recipientId: user.uid,
+              recipientName: displayName,
+              category: item.category,
+              subject: item.subject,
+            });
+          } else {
+            // Regular teacher<->parent conversation
+            navigation.navigate('ConversationThread', {
+              teacherId: role === 'teacher' ? user.uid : item.counterpartId,
+              parentId: role === 'parent' ? user.uid : item.counterpartId,
+              recipientName: displayName,
+            });
+          }
+        }}
+      >
+        <View style={[styles.avatar, isSupport && styles.supportAvatar]}>
+          <Ionicons name={categoryIcon} size={24} color={colors.white} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={styles.name}>{displayName}</Text>
+            {isSupport && item.category && (
+              <View style={styles.categoryBadge}>
+                <Text style={styles.categoryText}>{item.category.toUpperCase()}</Text>
+              </View>
+            )}
+            {!item.isRead && isSupport && (
+              <View style={styles.newBadge}>
+                <Text style={styles.newBadgeText}>NEW</Text>
+              </View>
+            )}
+          </View>
+          {isSupport && item.subject && (
+            <Text style={styles.subject} numberOfLines={1}>{item.subject}</Text>
+          )}
+          <Text style={styles.preview} numberOfLines={1}>{item.lastMessage || ''}</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -125,7 +170,14 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   emptyText: { marginTop: 8, color: colors.textSecondary },
   card: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, padding: 14, borderRadius: 12, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 2 },
+  unreadCard: { backgroundColor: '#FFFBEB', borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  supportAvatar: { backgroundColor: '#F59E0B' },
   name: { fontSize: 15, fontWeight: '600', color: colors.text },
+  subject: { fontSize: 13, fontWeight: '500', color: colors.text, marginTop: 2 },
   preview: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  categoryBadge: { backgroundColor: '#FEF3C7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  categoryText: { fontSize: 9, fontWeight: '700', color: '#F59E0B' },
+  newBadge: { backgroundColor: '#EF4444', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  newBadgeText: { fontSize: 9, fontWeight: '700', color: '#FFFFFF' },
 });

@@ -167,26 +167,174 @@ export function subscribeToConversation(teacherId, parentId, onChange) {
 }
 
 /**
+ * subscribeToSupportConversation - realtime updates for support messages between two users
+ * @param {string} userId1 - First user ID (can be sender or recipient)
+ * @param {string} userId2 - Second user ID (can be sender or recipient)
+ * @param {function} onChange - Callback with messages array
+ */
+export function subscribeToSupportConversation(userId1, userId2, onChange) {
+  if (!db) throw new Error('Firestore not initialized');
+  const ref = collection(db, 'messages');
+  
+  // Query messages where:
+  // (senderId = userId1 AND recipientId = userId2) OR (senderId = userId2 AND recipientId = userId1)
+  // AND type = 'support'
+  
+  // Since Firestore doesn't support OR queries directly with compound conditions,
+  // we need to do two separate queries and merge results
+  
+  const q1 = query(
+    ref,
+    where('senderId', '==', userId1),
+    where('recipientId', '==', userId2),
+    where('type', '==', 'support'),
+    orderBy('createdAt', 'asc')
+  );
+  
+  const q2 = query(
+    ref,
+    where('senderId', '==', userId2),
+    where('recipientId', '==', userId1),
+    where('type', '==', 'support'),
+    orderBy('createdAt', 'asc')
+  );
+  
+  let messages1 = [];
+  let messages2 = [];
+  
+  const unsub1 = onSnapshot(q1, (snap) => {
+    messages1 = [];
+    snap.forEach(d => messages1.push({ id: d.id, ...d.data() }));
+    mergeAndNotify();
+  });
+  
+  const unsub2 = onSnapshot(q2, (snap) => {
+    messages2 = [];
+    snap.forEach(d => messages2.push({ id: d.id, ...d.data() }));
+    mergeAndNotify();
+  });
+  
+  function mergeAndNotify() {
+    const now = Date.now();
+    const merged = [...messages1, ...messages2].sort((a, b) => {
+      // Handle pending timestamps (null from serverTimestamp before it resolves)
+      // Put pending messages at the end (most recent)
+      const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : now + 1000;
+      const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : now + 1000;
+      
+      // If both are pending or both have timestamps, compare normally
+      if (timeA === timeB) {
+        // Fallback to ID comparison for stable sort
+        return (a.id || '').localeCompare(b.id || '');
+      }
+      
+      return timeA - timeB;
+    });
+    onChange(merged);
+  }
+  
+  // Return unsubscribe function that cleans up both listeners
+  return () => {
+    unsub1();
+    unsub2();
+  };
+}
+
+/**
  * listConversationsForUser - derive conversations by grouping messages by the counterpart id.
- * Returns items: { counterpartId: string, counterpartRole: 'teacher'|'parent', lastMessage, lastAt }
+ * Returns items: { counterpartId: string, counterpartRole: 'teacher'|'parent'|'support', lastMessage, lastAt, type, category, subject }
+ * Supports both regular teacher<->parent messages and support messages (type='support')
  */
 export async function listConversationsForUser(userId, role) {
   if (!db) throw new Error('Firestore not initialized');
   const ref = collection(db, 'messages');
-  const q = role === 'teacher'
+  
+  // Query 1: Regular messages (teacher<->parent)
+  const q1 = role === 'teacher'
     ? query(ref, where('teacherId', '==', userId), orderBy('createdAt', 'desc'))
     : query(ref, where('parentId', '==', userId), orderBy('createdAt', 'desc'));
-  const snap = await getDocs(q);
+  
+  // Query 2: Support messages where user is recipient
+  const q2 = query(ref, where('recipientId', '==', userId), orderBy('createdAt', 'desc'));
+  
+  // Query 3: Support messages where user is sender
+  const q3 = query(ref, where('senderId', '==', userId), orderBy('createdAt', 'desc'));
+  
+  const [snap1, snap2, snap3] = await Promise.all([
+    getDocs(q1),
+    getDocs(q2),
+    getDocs(q3)
+  ]);
+  
   const map = new Map();
-  snap.forEach(docSnap => {
+  
+  // Process regular messages
+  snap1.forEach(docSnap => {
     const m = { id: docSnap.id, ...docSnap.data() };
+    if (m.type === 'support') return; // Skip support messages in regular query
     const counterpartId = role === 'teacher' ? m.parentId : m.teacherId;
     if (!counterpartId) return;
     if (!map.has(counterpartId)) {
-      map.set(counterpartId, { counterpartId, counterpartRole: role === 'teacher' ? 'parent' : 'teacher', lastMessage: m.text || m.content, lastAt: m.createdAt || m.timestamp });
+      map.set(counterpartId, { 
+        counterpartId, 
+        counterpartRole: role === 'teacher' ? 'parent' : 'teacher', 
+        lastMessage: m.text || m.content, 
+        lastAt: m.createdAt || m.timestamp,
+        type: 'regular'
+      });
     }
   });
-  return Array.from(map.values());
+  
+  // Process support messages (as recipient)
+  snap2.forEach(docSnap => {
+    const m = { id: docSnap.id, ...docSnap.data() };
+    if (m.type !== 'support') return;
+    const counterpartId = m.senderId;
+    if (!counterpartId) return;
+    const conversationKey = `support-${counterpartId}`;
+    if (!map.has(conversationKey)) {
+      map.set(conversationKey, { 
+        counterpartId, 
+        counterpartRole: m.senderRole || 'guest',
+        counterpartName: m.senderName,
+        counterpartEmail: m.senderEmail,
+        lastMessage: m.text || m.subject || m.content, 
+        lastAt: m.createdAt || m.timestamp,
+        type: 'support',
+        category: m.category,
+        subject: m.subject,
+        isRead: m.read
+      });
+    }
+  });
+  
+  // Process support messages (as sender)
+  snap3.forEach(docSnap => {
+    const m = { id: docSnap.id, ...docSnap.data() };
+    if (m.type !== 'support') return;
+    const counterpartId = m.recipientId;
+    if (!counterpartId) return;
+    const conversationKey = `support-${counterpartId}`;
+    if (!map.has(conversationKey)) {
+      map.set(conversationKey, { 
+        counterpartId, 
+        counterpartRole: m.recipientRole || 'admin',
+        counterpartName: m.recipientEmail?.split('@')[0] || 'Admin',
+        lastMessage: m.text || m.subject || m.content, 
+        lastAt: m.createdAt || m.timestamp,
+        type: 'support',
+        category: m.category,
+        subject: m.subject,
+        isRead: m.read
+      });
+    }
+  });
+  
+  return Array.from(map.values()).sort((a, b) => {
+    const timeA = a.lastAt?.toMillis ? a.lastAt.toMillis() : 0;
+    const timeB = b.lastAt?.toMillis ? b.lastAt.toMillis() : 0;
+    return timeB - timeA;
+  });
 }
 
 /**

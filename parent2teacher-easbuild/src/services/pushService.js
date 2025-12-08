@@ -81,30 +81,58 @@ export async function sendLocalNotification(title, body) {
 }
 
 // Store a user's Expo push token for later use
-export async function saveUserPushToken(userId, expoPushToken) {
+export async function saveUserPushToken(userId, expoPushToken, userRole = null) {
   if (!db) throw new Error('Firestore not initialized');
   if (!userId || !expoPushToken) return;
   
   console.log('[pushService] 💾 Saving push token to Firestore...');
   console.log('[pushService]   User ID:', userId);
   console.log('[pushService]   Token:', expoPushToken);
+  console.log('[pushService]   Role:', userRole);
   
-  const ref = doc(db, 'users', userId);
-  await setDoc(ref, {
-    push: {
-      expo: {
-        token: expoPushToken,
-        updatedAt: new Date().toISOString(),
-      },
-    },
-  }, { merge: true });
+  // Try to save to the correct collection based on role
+  // First try teachers, then parents, then users as fallback
+  const collections = userRole === 'teacher' ? ['teachers', 'parents'] : 
+                     userRole === 'parent' ? ['parents', 'teachers'] :
+                     userRole === 'admin' ? ['teachers', 'parents'] :
+                     ['teachers', 'parents'];
+  
+  let saved = false;
+  for (const collectionName of collections) {
+    try {
+      const { getDoc } = await import('firebase/firestore');
+      const userDocRef = doc(db, collectionName, userId);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists()) {
+        await setDoc(userDocRef, {
+          pushToken: expoPushToken,
+          push: {
+            expo: {
+              token: expoPushToken,
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        }, { merge: true });
+        console.log(`[pushService] ✅ Push token saved to ${collectionName}/${userId}`);
+        saved = true;
+        break;
+      }
+    } catch (error) {
+      console.warn(`[pushService] ⚠️ Could not save to ${collectionName}:`, error.message);
+    }
+  }
+  
+  if (!saved) {
+    console.warn('[pushService] ⚠️ Could not save push token to any collection');
+  }
   
   console.log('[pushService] ✅ Push token saved to Firestore');
 }
 
 // Register for push notifications, request permissions, and save token
 // Note: Requires expo-notifications and expo-device to be installed.
-export async function registerAndSaveExpoPushToken(userId) {
+export async function registerAndSaveExpoPushToken(userId, userRole = null) {
   try {
     const Notifications = await import('expo-notifications');
     const Device = await import('expo-device');
@@ -156,7 +184,7 @@ export async function registerAndSaveExpoPushToken(userId) {
     console.log('[pushService]   Token response:', token);
     
     if (token) {
-      await saveUserPushToken(userId, token);
+      await saveUserPushToken(userId, token, userRole);
       return token;
     }
     

@@ -478,9 +478,26 @@ const RoleDashboard = ({ navigation }) => {
             Quick Actions
           </Text>
           <View style={styles.quickActionsGrid}>
+            {/* Palkkaaminen button for parents/service providers */}
+            {(roleConfig.id === 'parent' || roleConfig.id === 'service_provider') && (
+              <TouchableOpacity
+                style={[styles.quickActionCard, { backgroundColor: roleColors.card }]}
+                onPress={() => navigation.navigate('FindTeachers')}
+              >
+                <View style={[styles.quickActionIcon, { backgroundColor: '#10B981' + '20' }]}>
+                  <Ionicons name="search" size={24} color="#10B981" />
+                </View>
+                <Text style={[styles.quickActionTitle, { color: roleColors.text }]}>
+                  Palkkaaminen
+                </Text>
+                <Text style={[styles.quickActionSubtitle, { color: roleColors.textSecondary }]}>
+                  Find teachers
+                </Text>
+              </TouchableOpacity>
+            )}
             {Object.values(roleConfig.navigation)
               .filter(nav => nav.screen !== 'Dashboard')
-              .slice(0, 6)
+              .slice(0, 5)
               .map(nav => renderQuickAction(nav))}
           </View>
         </View>

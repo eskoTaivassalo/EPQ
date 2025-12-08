@@ -353,6 +353,24 @@ service cloud.firestore {
     }
     
     // ========================================
+    // REPORTS COLLECTION
+    // ========================================
+    match /reports/{reportId} {
+      // Luku: Vain adminit voivat lukea raportit
+      allow read: if isAdmin();
+      
+      // Kirjoitus: Kirjautuneet käyttäjät voivat luoda raportteja
+      allow create: if isAuthenticated() &&
+                      hasField('reporterId') &&
+                      hasField('reportedId') &&
+                      hasField('reason') &&
+                      hasField('createdAt');
+      
+      // Päivitys ja poisto: Vain adminit
+      allow update, delete: if isAdmin();
+    }
+    
+    // ========================================
     // ESTÄ MUUT KOKOELMAT
     // ========================================
     // Kaikki muut kokoelmat ovat kiellettyjä oletuksena

@@ -329,6 +329,11 @@ export const ROLE_CONFIG = {
         icon: 'speedometer',
         screen: 'AdminDashboard',
       },
+      messages: {
+        name: 'Messages',
+        icon: 'chatbubbles',
+        screen: 'Conversations',
+      },
       users: {
         name: 'User Management',
         icon: 'people',

@@ -5,10 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
-import { subscribeToConversation, sendMessage } from '../../services/communicationService';
+import { subscribeToConversation, subscribeToSupportConversation, sendMessage } from '../../services/communicationService';
 
 export default function ConversationThreadScreen({ navigation, route }) {
-  const { teacherId, parentId, recipientName } = route.params || {};
+  const { teacherId, parentId, recipientName, isSupportConversation, senderId, recipientId, category, subject } = route.params || {};
   const { user } = useAuth();
   const role = (user?.userType || user?.type) === 'teacher' ? 'teacher' : 'parent';
   const [messages, setMessages] = useState([]);
@@ -16,10 +16,16 @@ export default function ConversationThreadScreen({ navigation, route }) {
   const listRef = useRef(null);
 
   useEffect(() => {
-    if (!teacherId || !parentId) return;
-    const unsub = subscribeToConversation(teacherId, parentId, setMessages);
-    return () => unsub && unsub();
-  }, [teacherId, parentId]);
+    if (isSupportConversation && senderId && recipientId) {
+      // Support conversation
+      const unsub = subscribeToSupportConversation(senderId, recipientId, setMessages);
+      return () => unsub && unsub();
+    } else if (teacherId && parentId) {
+      // Regular teacher<->parent conversation
+      const unsub = subscribeToConversation(teacherId, parentId, setMessages);
+      return () => unsub && unsub();
+    }
+  }, [isSupportConversation, senderId, recipientId, teacherId, parentId]);
 
   useEffect(() => {
     if (listRef.current && messages.length > 0) {
@@ -30,17 +36,47 @@ export default function ConversationThreadScreen({ navigation, route }) {
   const handleSend = async () => {
     const trimmed = text.trim();
     if (!trimmed) return;
-    await sendMessage({
-      teacherId,
-      parentId,
-      senderType: role,
-      text: trimmed,
-    });
+    
+    if (isSupportConversation) {
+      // Send support message
+      const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('../../config/firebaseConfig');
+      await addDoc(collection(db, 'messages'), {
+        senderId: user.uid,
+        recipientId: senderId === user.uid ? recipientId : senderId,
+        senderRole: user.role || 'admin',
+        recipientRole: senderId === user.uid ? 'guest' : (user.role || 'admin'),
+        type: 'support',
+        category: category || 'general',
+        subject: subject || 'Re: Support Request',
+        text: trimmed,
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+    } else {
+      // Regular message
+      await sendMessage({
+        teacherId,
+        parentId,
+        senderType: role,
+        text: trimmed,
+      });
+    }
+    
     setText('');
   };
 
   const renderItem = ({ item }) => {
-    const mine = (role === 'teacher' && item.senderType === 'teacher') || (role === 'parent' && item.senderType === 'parent');
+    let mine = false;
+    
+    if (isSupportConversation) {
+      // In support conversation, mine = message sent by current user
+      mine = item.senderId === user.uid;
+    } else {
+      // In regular conversation, check senderType
+      mine = (role === 'teacher' && item.senderType === 'teacher') || (role === 'parent' && item.senderType === 'parent');
+    }
+    
     return (
       <View style={[styles.message, mine ? styles.mine : styles.their]}> 
         <Text style={styles.messageText}>{item.text || item.content}</Text>
@@ -57,7 +93,15 @@ export default function ConversationThreadScreen({ navigation, route }) {
         </TouchableOpacity>
         <View style={styles.headerTextContainer}>
           <Text style={styles.headerTitle}>{recipientName || 'Conversation'}</Text>
-          {recipientName && <Text style={styles.headerSubtitle}>Message</Text>}
+          {isSupportConversation && subject && (
+            <Text style={styles.headerSubtitle}>{subject}</Text>
+          )}
+          {isSupportConversation && category && (
+            <Text style={styles.headerCategory}>📩 {category.toUpperCase()}</Text>
+          )}
+          {!isSupportConversation && recipientName && (
+            <Text style={styles.headerSubtitle}>Message</Text>
+          )}
         </View>
         <View style={{ width: 28 }} />
       </View>
@@ -100,6 +144,7 @@ const styles = StyleSheet.create({
   headerTextContainer: { flex: 1, alignItems: 'center' },
   headerTitle: { color: colors.white, fontSize: 18, fontWeight: '700' },
   headerSubtitle: { color: colors.white, fontSize: 12, opacity: 0.9, marginTop: 2 },
+  headerCategory: { color: colors.white, fontSize: 10, opacity: 0.8, marginTop: 2, fontWeight: '600' },
   message: { maxWidth: '80%', padding: 10, borderRadius: 12, marginBottom: 8 },
   mine: { alignSelf: 'flex-end', backgroundColor: colors.primary },
   their: { alignSelf: 'flex-start', backgroundColor: '#E0E0E0' },
