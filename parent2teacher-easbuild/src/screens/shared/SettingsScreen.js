@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -16,6 +16,10 @@ import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
+import { auth, db } from '../../config/firebaseConfig';
+import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { deleteUser, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { ROLE_CONFIG, getCanonicalRole } from '../../config/roleConfig';
 
 export default function SettingsScreen({ navigation }) {
   const { user, logout, refreshUser } = useAuth();
@@ -23,6 +27,93 @@ export default function SettingsScreen({ navigation }) {
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  // Load user notification preferences from Firestore
+  useEffect(() => {
+    if (user?.uid) {
+      loadNotificationSettings();
+    }
+  }, [user?.uid]);
+
+  const loadNotificationSettings = async () => {
+    try {
+      const canonicalRole = getCanonicalRole(user?.role || user?.type || user?.userType);
+      const roleConfig = ROLE_CONFIG[canonicalRole];
+      const collectionName = roleConfig?.collectionName || 'users';
+      
+      const userDocRef = doc(db, collectionName, user.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      if (userDoc.exists()) {
+        const data = userDoc.data();
+        const prefs = data.notificationPreferences || {};
+        
+        setNotificationsEnabled(prefs.enabled ?? true);
+        setEmailNotifications(prefs.email ?? true);
+        setPushNotifications(prefs.push ?? true);
+      }
+    } catch (error) {
+      console.error('Error loading notification settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveNotificationSettings = async (settings) => {
+    try {
+      const canonicalRole = getCanonicalRole(user?.role || user?.type || user?.userType);
+      const roleConfig = ROLE_CONFIG[canonicalRole];
+      const collectionName = roleConfig?.collectionName || 'users';
+      
+      const userDocRef = doc(db, collectionName, user.uid);
+      
+      await setDoc(userDocRef, {
+        notificationPreferences: settings,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+      
+      console.log('✅ Notification settings saved:', settings);
+    } catch (error) {
+      console.error('Error saving notification settings:', error);
+      Alert.alert('Error', 'Failed to save notification settings. Please try again.');
+    }
+  };
+
+  const handleNotificationsToggle = (value) => {
+    setNotificationsEnabled(value);
+    const settings = {
+      enabled: value,
+      email: value ? emailNotifications : false,
+      push: value ? pushNotifications : false
+    };
+    
+    // If disabling all, turn off sub-toggles too
+    if (!value) {
+      setEmailNotifications(false);
+      setPushNotifications(false);
+    }
+    
+    saveNotificationSettings(settings);
+  };
+
+  const handleEmailNotificationsToggle = (value) => {
+    setEmailNotifications(value);
+    saveNotificationSettings({
+      enabled: notificationsEnabled,
+      email: value,
+      push: pushNotifications
+    });
+  };
+
+  const handlePushNotificationsToggle = (value) => {
+    setPushNotifications(value);
+    saveNotificationSettings({
+      enabled: notificationsEnabled,
+      email: emailNotifications,
+      push: value
+    });
+  };
 
   const handleLogout = async () => {
     Alert.alert(
@@ -55,11 +146,84 @@ export default function SettingsScreen({ navigation }) {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            Alert.alert('Info', 'Account deletion will be implemented soon.');
+            // Second confirmation
+            Alert.alert(
+              'Final Confirmation',
+              'This will permanently delete:\n\n• Your profile and personal data\n• All bookings and appointments\n• Messages and conversations\n• Uploaded files and images\n\nType DELETE to confirm',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'I Understand, Delete',
+                  style: 'destructive',
+                  onPress: confirmDeleteAccount,
+                },
+              ]
+            );
           },
         },
       ]
     );
+  };
+
+  const confirmDeleteAccount = async () => {
+    try {
+      setRefreshing(true);
+      
+      const canonicalRole = getCanonicalRole(user?.role || user?.type || user?.userType);
+      const roleConfig = ROLE_CONFIG[canonicalRole];
+      const collectionName = roleConfig?.collectionName || 'users';
+      
+      // Get current Firebase Auth user
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('No authenticated user found');
+      }
+
+      // 1. Delete user data from Firestore FIRST (while still authenticated)
+      const userDocRef = doc(db, collectionName, user.uid);
+      await deleteDoc(userDocRef);
+      console.log('✅ User document deleted from Firestore');
+
+      // 2. Delete user from Firebase Authentication
+      await deleteUser(currentUser);
+      console.log('✅ User deleted from Firebase Authentication');
+      
+      // 3. Clear Redux state immediately (prevents permission errors)
+      await logout();
+      
+      // No Alert needed - user is already logged out and redirected
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      
+      // Check if re-authentication is needed
+      if (error.code === 'auth/requires-recent-login') {
+        Alert.alert(
+          'Re-authentication Required',
+          'For security reasons, please log out and log back in before deleting your account.',
+          [
+            {
+              text: 'Log Out',
+              onPress: async () => {
+                try {
+                  await logout();
+                } catch (logoutError) {
+                  console.error('Logout error:', logoutError);
+                }
+              },
+            },
+            { text: 'Cancel', style: 'cancel' }
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Error',
+          `Failed to delete account: ${error.message}\n\nPlease try again or contact support.`,
+          [{ text: 'OK' }]
+        );
+      }
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleRefreshProfile = async () => {
@@ -177,7 +341,7 @@ EmailVerified: ${user?.emailVerified ? 'Yes' : 'No'}
               icon="person-circle-outline"
               title="Profile"
               subtitle="Edit your personal information"
-              onPress={() => navigation.navigate(user?.userType === 'teacher' || user?.type === 'teacher' ? 'TeacherMyProfile' : 'ParentMyProfile')}
+              onPress={() => navigation.navigate('Profile')}
             />
             <View style={styles.divider} />
             <SettingItem
@@ -205,23 +369,23 @@ EmailVerified: ${user?.emailVerified ? 'Yes' : 'No'}
               title="All Notifications"
               subtitle="Enable or disable all notifications"
               value={notificationsEnabled}
-              onValueChange={setNotificationsEnabled}
+              onValueChange={handleNotificationsToggle}
             />
             <View style={styles.divider} />
             <SettingToggle
               icon="mail-outline"
               title="Email Notifications"
               subtitle="Receive updates via email"
-              value={emailNotifications}
-              onValueChange={setEmailNotifications}
+              value={emailNotifications && notificationsEnabled}
+              onValueChange={handleEmailNotificationsToggle}
             />
             <View style={styles.divider} />
             <SettingToggle
               icon="phone-portrait-outline"
               title="Push Notifications"
               subtitle="Receive push notifications"
-              value={pushNotifications}
-              onValueChange={setPushNotifications}
+              value={pushNotifications && notificationsEnabled}
+              onValueChange={handlePushNotificationsToggle}
             />
           </View>
         </View>

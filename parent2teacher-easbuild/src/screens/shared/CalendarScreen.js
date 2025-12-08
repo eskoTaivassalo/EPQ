@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, TextInput, Linking } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import BookingCalendar from '../../components/BookingCalendar';
 import BookingParticipantCard from '../../components/BookingParticipantCard';
@@ -8,7 +9,7 @@ import { colors } from '../../styles/commonStyles';
 import { fetchParentBookings, fetchTeacherBookings, selectBookings, selectBookingsLoading, cancelBooking } from '../../store/slices/bookingsSlice';
 
 // Assumes bookings stored in bookings slice with items containing { id, date, status, teacherName, parentName }
-export default function CalendarScreen() {
+export default function CalendarScreen({ navigation }) {
   const dispatch = useDispatch();
   const authUser = useSelector(state => state.auth.user);
   // Determine role (supports legacy userType field)
@@ -86,9 +87,13 @@ export default function CalendarScreen() {
   }, []);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       <WatercolorBackground />
-      <BookingCalendar bookings={bookings} onSelectDate={onSelectDate} />
+      <BookingCalendar 
+        bookings={bookings} 
+        onSelectDate={onSelectDate}
+        onClose={() => navigation.goBack()}
+      />
       {loading && <Text style={styles.loadingText}>Ladataan varauksia...</Text>}
       <View style={styles.legendRow}>
         <View style={styles.legendItem}><View style={[styles.legendDot,{backgroundColor:'#FFC107'}]} /><Text style={styles.legendLabel}>Odottaa</Text></View>
@@ -171,7 +176,7 @@ export default function CalendarScreen() {
           </View>
         </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -217,9 +222,9 @@ function handleCancel(booking) {
 
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 12, backgroundColor: colors.background },
-  loadingText: { marginTop: 8, fontSize: 12, color: colors.textSecondary },
-  legendRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 12, paddingHorizontal: 8 },
+  container: { flex: 1, backgroundColor: colors.background },
+  loadingText: { marginTop: 8, fontSize: 12, color: colors.textSecondary, paddingHorizontal: 12 },
+  legendRow: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 8, marginBottom: 12, paddingHorizontal: 12 },
   legendItem: { flexDirection: 'row', alignItems: 'center' },
   legendDot: { width: 10, height: 10, borderRadius: 5, marginRight: 4 },
   legendLabel: { fontSize: 11, color: colors.textSecondary },

@@ -28,8 +28,8 @@ function endOfWeek(date) {
   return e;
 }
 
-export default function TeacherWeeklyAvailabilityScreen({ route, navigation }) {
-  const { teacherId, teacherName } = route.params || {};
+export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) {
+  const { teacherId, teacherName } = route.params || {}; // TODO: rename to providerId, providerName
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);

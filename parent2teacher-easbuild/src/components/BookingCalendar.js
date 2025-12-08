@@ -8,8 +8,9 @@ import { Ionicons } from '@expo/vector-icons';
  * Props:
  *  bookings: Array<{ id, date (ISO), status }>
  *  onSelectDate(dateISO, dayBookings)
+ *  onClose() - optional close handler
  */
-export default function BookingCalendar({ bookings = [], onSelectDate }) {
+export default function BookingCalendar({ bookings = [], onSelectDate, onClose }) {
   const [monthCursor, setMonthCursor] = useState(new Date());
 
   // Group bookings by YYYY-MM-DD
@@ -63,9 +64,16 @@ export default function BookingCalendar({ bookings = [], onSelectDate }) {
           <Ionicons name="chevron-back" size={20} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.monthTitle}>{monthCursor.toLocaleDateString('fi-FI',{month:'long', year:'numeric'})}</Text>
-        <TouchableOpacity onPress={goNext} style={styles.navBtn}>
-          <Ionicons name="chevron-forward" size={20} color={colors.white} />
-        </TouchableOpacity>
+        <View style={styles.rightButtons}>
+          <TouchableOpacity onPress={goNext} style={styles.navBtn}>
+            <Ionicons name="chevron-forward" size={20} color={colors.white} />
+          </TouchableOpacity>
+          {onClose && (
+            <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+              <Ionicons name="close" size={24} color={colors.white} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       <View style={styles.weekHeader}>
@@ -116,18 +124,34 @@ function dotColorByStatus(status) {
 }
 
 const styles = StyleSheet.create({
-  wrapper:{},
-  headerRow:{flexDirection:'row',alignItems:'center',justifyContent:'space-between',backgroundColor:colors.secondary,paddingHorizontal:12,paddingVertical:8,borderRadius:10,marginBottom:10},
-  navBtn:{padding:4},
-  monthTitle:{color:colors.white,fontWeight:'700'},
-  weekHeader:{flexDirection:'row',justifyContent:'space-between',marginBottom:4,paddingHorizontal:4},
-  weekLabel:{flex:1,textAlign:'center',fontSize:12,fontWeight:'600',color:colors.textSecondary},
+  wrapper:{ flex: 1, paddingHorizontal: 12 },
+  headerRow:{
+    flexDirection:'row',
+    alignItems:'center',
+    justifyContent:'space-between',
+    backgroundColor:colors.secondary,
+    paddingHorizontal:16,
+    paddingVertical:12,
+    borderRadius:12,
+    marginBottom:16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3
+  },
+  navBtn:{padding:8},
+  rightButtons:{flexDirection:'row',alignItems:'center'},
+  closeBtn:{padding:8,marginLeft:4},
+  monthTitle:{color:colors.white,fontWeight:'700',fontSize:18},
+  weekHeader:{flexDirection:'row',justifyContent:'space-between',marginBottom:8,paddingHorizontal:4},
+  weekLabel:{flex:1,textAlign:'center',fontSize:13,fontWeight:'600',color:colors.textSecondary},
   grid:{flexDirection:'row',flexWrap:'wrap'},
-  cell:{width:'14.2857%',aspectRatio:1,alignItems:'center',paddingTop:6},
+  cell:{width:'14.2857%',aspectRatio:1,alignItems:'center',justifyContent:'center',paddingTop:6},
   cellEmpty:{width:'14.2857%',aspectRatio:1},
-  cellToday:{backgroundColor:'rgba(76,175,80,0.12)',borderRadius:6},
-  dayNumber:{fontSize:12,fontWeight:'600',color:colors.text},
-  dotsRow:{flexDirection:'row',flexWrap:'nowrap',marginTop:2,alignItems:'center'},
+  cellToday:{backgroundColor:'rgba(76,175,80,0.12)',borderRadius:8},
+  dayNumber:{fontSize:14,fontWeight:'600',color:colors.text},
+  dotsRow:{flexDirection:'row',flexWrap:'nowrap',marginTop:3,alignItems:'center'},
   dot:{width:6,height:6,borderRadius:3,marginRight:2},
   moreText:{fontSize:10,color:colors.textSecondary}
 });

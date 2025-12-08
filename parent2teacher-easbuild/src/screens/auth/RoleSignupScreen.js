@@ -16,12 +16,14 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { getRoleConfig, getRoleColors, ROLE_TYPES } from '../../config/roleConfig';
 import { colors as defaultColors } from '../../styles/commonStyles';
+import imagePickerService from '../../services/imagePickerService';
 
 const RoleSignupScreen = ({ route, navigation }) => {
   const { roleType } = route.params || { roleType: ROLE_TYPES.CLIENT };
@@ -39,12 +41,35 @@ const RoleSignupScreen = ({ route, navigation }) => {
   
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [profileImage, setProfileImage] = useState(null); // Required profile image
 
   const handleFieldChange = (key, value) => {
     setFormData(prev => ({ ...prev, [key]: value }));
   };
 
+  const handlePickImage = async () => {
+    try {
+      const result = await imagePickerService.pickImage();
+      if (result) {
+        setProfileImage(result);
+        console.log('✅ Profile image selected:', result.uri);
+      }
+    } catch (error) {
+      console.error('❌ Error picking image:', error);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
+    }
+  };
+
   const handleSignup = async () => {
+    // Validate profile image (REQUIRED)
+    if (!profileImage) {
+      Alert.alert(
+        'Profile Photo Required',
+        'Please upload a profile photo to continue. This helps other users recognize you.'
+      );
+      return;
+    }
+
     // Validate required fields
     const missingFields = roleConfig.signupFields
       .filter(field => field.required)
@@ -61,17 +86,13 @@ const RoleSignupScreen = ({ route, navigation }) => {
       return;
     }
 
-    setLoading(true);
-    try {
-      // TODO: Integrate with authService
-      console.log('Signup data:', { role: roleType, ...formData });
-      
-      Alert.alert('Success', 'Account created successfully!');
-      navigation.navigate('Login');
-    } catch (error) {
-      Alert.alert('Error', error.message);
-    } finally {
-      setLoading(false);
+    // Redirect to legacy signup screens that have full functionality
+    if (roleType === ROLE_TYPES.SERVICE_PROVIDER || roleType === ROLE_TYPES.COACH) {
+      navigation.navigate('TeacherSignup');
+    } else if (roleType === ROLE_TYPES.CLIENT || roleType === ROLE_TYPES.ATHLETE) {
+      navigation.navigate('ParentSignup');
+    } else {
+      Alert.alert('Error', 'Invalid role type');
     }
   };
 
@@ -220,6 +241,43 @@ const RoleSignupScreen = ({ route, navigation }) => {
           contentContainerStyle={styles.formContainer}
           showsVerticalScrollIndicator={false}
         >
+          {/* Profile Image Picker - REQUIRED */}
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: roleColors.text }]}>
+              Profile Photo
+              <Text style={styles.required}> * (Required)</Text>
+            </Text>
+            <Text style={styles.helperText}>
+              Upload a clear photo of yourself. This helps build trust with other users.
+            </Text>
+            
+            <TouchableOpacity
+              style={[styles.imagePickerButton, { borderColor: roleColors.primary }]}
+              onPress={handlePickImage}
+            >
+              {profileImage ? (
+                <Image source={{ uri: profileImage.uri }} style={styles.profileImage} />
+              ) : (
+                <View style={styles.imagePickerPlaceholder}>
+                  <Ionicons name="camera" size={40} color={roleColors.primary} />
+                  <Text style={[styles.imagePickerText, { color: roleColors.primary }]}>
+                    Tap to Upload Photo
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            
+            {profileImage && (
+              <TouchableOpacity
+                style={[styles.changeImageButton, { backgroundColor: roleColors.primary }]}
+                onPress={handlePickImage}
+              >
+                <Ionicons name="camera" size={18} color="#FFFFFF" />
+                <Text style={styles.changeImageText}>Change Photo</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {roleConfig.signupFields.map(field => renderField(field))}
 
           {/* Sign Up Button */}
@@ -368,6 +426,45 @@ const styles = StyleSheet.create({
   loginLink: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  imagePickerButton: {
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    minHeight: 200,
+  },
+  imagePickerPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagePickerText: {
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  profileImage: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+    resizeMode: 'cover',
+  },
+  changeImageButton: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+  },
+  changeImageText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

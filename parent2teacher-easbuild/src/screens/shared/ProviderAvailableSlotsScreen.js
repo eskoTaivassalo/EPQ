@@ -7,8 +7,8 @@ import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { listAvailableSlots, bookSlot } from '../../services/availabilityService';
 
-export default function TeacherAvailableSlotsScreen({ route, navigation }) {
-  const { teacherId, teacherName } = route.params || {};
+export default function ProviderAvailableSlotsScreen({ route, navigation }) {
+  const { teacherId, teacherName } = route.params || {}; // TODO: rename to providerId, providerName
   const { user } = useAuth();
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);

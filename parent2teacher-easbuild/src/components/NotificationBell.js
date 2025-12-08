@@ -13,6 +13,14 @@ import { colors } from '../styles/commonStyles';
 const NotificationBell = () => {
   const navigation = useNavigation();
   const unreadCount = useSelector(state => state.notifications.unreadCount);
+  const notifications = useSelector(state => state.notifications.notifications);
+
+  // Debug logging
+  React.useEffect(() => {
+    console.log('🔔 NotificationBell: unreadCount =', unreadCount);
+    console.log('🔔 NotificationBell: total notifications =', notifications.length);
+    console.log('🔔 NotificationBell: unread notifications =', notifications.filter(n => !n.read).length);
+  }, [unreadCount, notifications]);
 
   const handlePress = () => {
     navigation.navigate('Notifications');

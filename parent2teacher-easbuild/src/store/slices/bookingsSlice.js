@@ -190,11 +190,12 @@ export const updateBookingStatus = createAsyncThunk(
       console.log('[updateBookingStatus] Booking data:', { isRecurring: bookingData?.isRecurring, recurringBookingId: bookingData?.recurringBookingId });
       const isRecurringBooking = bookingData?.isRecurring && bookingData?.recurringBookingId;
       
-      // When accepting, attach a meeting link (Jitsi) if not present
+      // When accepting, create a Jitsi Meet link (free, no API needed)
       const update = { status };
       if (status === 'accepted') {
-        // Simple deterministic room name based on bookingId; can be hardened later
-        const meetingUrl = `https://meet.jit.si/PTA-${bookingId}`;
+        // Generate unique room name from bookingId for privacy
+        const roomName = `Lesson-${bookingId}`;
+        const meetingUrl = `https://meet.jit.si/${roomName}`;
         update.meetingProvider = 'jitsi';
         update.meetingUrl = meetingUrl;
       }
@@ -292,10 +293,9 @@ export const updateBookingStatus = createAsyncThunk(
         };
 
         if (status === 'accepted') {
-          const meetingUrl = `https://meet.jit.si/PTA-${bookingId}`;
           notificationData.type = 'booking_accepted';
-          notificationData.title = 'Varaus hyväksytty! 🎉';
-          notificationData.message = `${teacherName || 'Opettaja'} hyväksyi varauksesi ${date ? new Date(date).toLocaleString('fi-FI') : ''}\n\n📹 Video-linkki:\n${meetingUrl}\n\nLiity Dashboard → Upcoming Lessons kautta`;
+          notificationData.title = 'Booking Confirmed! 🎉';
+          notificationData.message = `${teacherName || 'Teacher'} accepted your booking${date ? ' for ' + new Date(date).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}\n\n📹 Video meeting link available in Dashboard → Upcoming Lessons`;
           
           console.log('[updateBookingStatus] 🔔 Creating notification FOR PARENT:', parentId, '(current user:', auth.currentUser.uid, ')');
           
@@ -319,7 +319,7 @@ export const updateBookingStatus = createAsyncThunk(
                   token,
                   '✅ Booking confirmed!',
                   `${teacherName || 'Teacher'} accepted your booking${date ? ' for ' + new Date(date).toLocaleDateString() : ''}`,
-                  { bookingId, type: 'booking_accepted', meetingUrl }
+                  { bookingId, type: 'booking_accepted', meetingUrl: update.meetingUrl }
                 );
                 console.log('[push] ✅ Push notification sent to parent:', result);
               } else {

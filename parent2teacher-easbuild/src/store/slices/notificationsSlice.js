@@ -256,19 +256,21 @@ const notificationsSlice = createSlice({
       .addCase(fetchNotifications.fulfilled, (state, action) => {
         state.loading = false;
         state.notifications = action.payload;
-        state.unreadCount = action.payload.filter(n => !n.read).length;
+        const unreadCount = action.payload.filter(n => !n.read).length;
+        state.unreadCount = unreadCount;
+        console.log('[notificationsSlice] ✅ Fetched', action.payload.length, 'notifications, unread:', unreadCount);
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message;
       })
       
-      // Create notification
+      // Create notification - NOTE: Don't add to state here!
+      // The notification is created for ANOTHER user (recipient), not the sender.
+      // The recipient will get it via fetchNotifications.
       .addCase(createNotification.fulfilled, (state, action) => {
-        state.notifications.unshift(action.payload);
-        if (!action.payload.read) {
-          state.unreadCount += 1;
-        }
+        // Do nothing - notification was created in Firestore for another user
+        console.log('[notificationsSlice] ✅ Notification created for userId:', action.payload.userId);
       })
       
       // Mark as read

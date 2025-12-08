@@ -25,28 +25,27 @@ import RoleSignupScreen from './src/screens/auth/RoleSignupScreen';
 
 // Screens - Shared (Role-based)
 import RoleDashboard from './src/screens/shared/RoleDashboard';
+import BookingsScreen from './src/screens/shared/BookingsScreen';
+import ProfileScreen from './src/screens/shared/ProfileScreen';
+import AvailabilityScreen from './src/screens/shared/AvailabilityScreen';
 
-// Screens - Teacher
-import TeacherSignupScreen from './src/screens/teacher/TeacherSignupScreen';
-import TeacherDashboard from './src/screens/teacher/TeacherDashboard';
-import TeacherStudentsScreen from './src/screens/teacher/TeacherStudentsScreen';
-import TeacherMyProfileScreen from './src/screens/teacher/TeacherMyProfileScreen';
-import TeacherBookingsScreen from './src/screens/teacher/TeacherBookingsScreen';
-import TeacherAvailabilityScreen from './src/screens/teacher/TeacherAvailabilityScreen';
+// Screens - Provider (Legacy)
+import ProviderSignupScreen from './src/screens/provider/ProviderSignupScreen';
+import ClientsScreen from './src/screens/shared/ClientsScreen';
+import ProviderBookingsScreen from './src/screens/provider/ProviderBookingsScreen';
+import ProviderAvailabilityScreen from './src/screens/provider/ProviderAvailabilityScreen';
 
-// Screens - Parent
-import ParentSignupScreen from './src/screens/parent/ParentSignupScreen';
-import ParentDashboard from './src/screens/parent/ParentDashboard';
-import ParentProfileScreen from './src/screens/parent/ParentProfileScreen';
-import ParentMyProfileScreen from './src/screens/parent/ParentMyProfileScreen';
-import FavoritesScreen from './src/screens/parent/FavoritesScreen';
-import ParentBookingsScreen from './src/screens/parent/ParentBookingsScreen';
-import TeacherAvailableSlotsScreen from './src/screens/parent/TeacherAvailableSlotsScreen';
-import TeacherWeeklyAvailabilityScreen from './src/screens/parent/TeacherWeeklyAvailabilityScreen';
-import TeacherProfileViewScreen from './src/screens/parent/TeacherProfileViewScreen';
+// Screens - Client (Legacy)
+import ClientSignupScreen from './src/screens/client/ClientSignupScreen';
+import FavoriteProvidersScreen from './src/screens/shared/FavoriteProvidersScreen';
+import ClientBookingsScreen from './src/screens/client/ClientBookingsScreen';
+import ProviderAvailableSlotsScreen from './src/screens/shared/ProviderAvailableSlotsScreen';
+import ProviderWeeklyAvailabilityScreen from './src/screens/shared/ProviderWeeklyAvailabilityScreen';
+import ProviderAvailabilityCalendarScreen from './src/screens/shared/ProviderAvailabilityCalendarScreen';
+import TeacherCalendarScreen from './src/screens/shared/TeacherCalendarScreen';
 
 // Screens - Shared
-import FindTeachersScreen from './src/screens/shared/FindTeachersScreen';
+import FindProvidersScreen from './src/screens/shared/FindProvidersScreen';
 import NotificationsScreen from './src/screens/shared/NotificationsScreen';
 import CalendarScreen from './src/screens/shared/CalendarScreen';
 import ConversationsScreen from './src/screens/shared/ConversationsScreen';
@@ -262,8 +261,8 @@ const AppNavigator = () => {
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="RoleSignup" component={RoleSignupScreen} />
-            <Stack.Screen name="TeacherSignup" component={TeacherSignupScreen} />
-            <Stack.Screen name="ParentSignup" component={ParentSignupScreen} />
+            <Stack.Screen name="TeacherSignup" component={ProviderSignupScreen} />
+            <Stack.Screen name="ParentSignup" component={ClientSignupScreen} />
             <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
           </>
         ) : !user?.emailVerified ? (
@@ -272,66 +271,46 @@ const AppNavigator = () => {
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
           </>
         ) : (
-          // Main app screens based on user type (only after email verified)
+          // Main app screens - now role-based (only after email verified)
           <>
-            {user?.type === 'teacher' || user?.userType === 'teacher' ? (
-              <>
-                <Stack.Screen 
-                  name="TeacherDashboard" 
-                  component={TeacherDashboard}
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen name="TeacherMyProfile" component={TeacherMyProfileScreen} />
-                <Stack.Screen name="TeacherBookings" component={TeacherBookingsScreen} />
-                <Stack.Screen name="TeacherAvailability" component={TeacherAvailabilityScreen} />
-                <Stack.Screen name="TeacherStudents" component={TeacherStudentsScreen} />
-                {/* Allow teachers to open a parent's profile from Students list */}
-                <Stack.Screen name="ParentProfile" component={ParentProfileScreen} />
-                <Stack.Screen name="Calendar" component={CalendarScreen} />
-                <Stack.Screen name="FindTeachers" component={FindTeachersScreen} />
-                <Stack.Screen name="Notifications" component={NotificationsScreen} />
-                <Stack.Screen name="Conversations" component={ConversationsScreen} />
-                <Stack.Screen name="ConversationThread" component={ConversationThreadScreen} />
-                <Stack.Screen 
-                  name="Settings" 
-                  component={SettingsScreen}
-                  options={{ title: 'Settings' }}
-                />
-                <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
-                <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
-                <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-                <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
-              </>
-            ) : (
-              <>
-                <Stack.Screen 
-                  name="ParentDashboard" 
-                  component={ParentDashboard}
-                  options={{ headerShown: false }}
-                />
-                <Stack.Screen name="ParentMyProfile" component={ParentMyProfileScreen} />
-                <Stack.Screen name="ParentProfile" component={ParentProfileScreen} />
-                <Stack.Screen name="ParentFavorites" component={FavoritesScreen} />
-                <Stack.Screen name="FindTeachers" component={FindTeachersScreen} />
-                <Stack.Screen name="TeacherProfileView" component={TeacherProfileViewScreen} />
-                <Stack.Screen name="ParentBookings" component={ParentBookingsScreen} />
-                <Stack.Screen name="TeacherAvailableSlots" component={TeacherAvailableSlotsScreen} />
-                <Stack.Screen name="TeacherWeeklyAvailability" component={TeacherWeeklyAvailabilityScreen} />
-                <Stack.Screen name="Calendar" component={CalendarScreen} />
-                <Stack.Screen name="Notifications" component={NotificationsScreen} />
-                <Stack.Screen name="Conversations" component={ConversationsScreen} />
-                <Stack.Screen name="ConversationThread" component={ConversationThreadScreen} />
-                <Stack.Screen 
-                  name="Settings" 
-                  component={SettingsScreen}
-                  options={{ title: 'Settings' }}
-                />
-                <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
-                <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
-                <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
-                <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
-              </>
-            )}
+            {/* Universal Role-based Screens */}
+            <Stack.Screen 
+              name="Dashboard" 
+              component={RoleDashboard}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen name="Bookings" component={BookingsScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Availability" component={AvailabilityScreen} />
+
+            {/* Legacy Provider (Teacher/Coach) specific screens */}
+            <Stack.Screen name="TeacherBookings" component={ProviderBookingsScreen} />
+            <Stack.Screen name="TeacherAvailability" component={ProviderAvailabilityScreen} />
+            <Stack.Screen name="Clients" component={ClientsScreen} />
+            
+            {/* Legacy Client (Parent/Athlete) specific screens */}
+            <Stack.Screen name="FavoriteProviders" component={FavoriteProvidersScreen} />
+            <Stack.Screen name="ParentBookings" component={ClientBookingsScreen} />
+            <Stack.Screen name="ProviderAvailableSlots" component={ProviderAvailableSlotsScreen} />
+            <Stack.Screen name="ProviderWeeklyAvailability" component={ProviderWeeklyAvailabilityScreen} />
+            <Stack.Screen name="ProviderAvailabilityCalendar" component={ProviderAvailabilityCalendarScreen} />
+            <Stack.Screen name="TeacherCalendar" component={TeacherCalendarScreen} />
+            
+            {/* Shared screens - available to all roles */}
+            <Stack.Screen name="Calendar" component={CalendarScreen} />
+            <Stack.Screen name="FindProviders" component={FindProvidersScreen} />
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="Conversations" component={ConversationsScreen} />
+            <Stack.Screen name="ConversationThread" component={ConversationThreadScreen} />
+            <Stack.Screen 
+              name="Settings" 
+              component={SettingsScreen}
+              options={{ title: 'Settings' }}
+            />
+            <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
+            <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
+            <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+            <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
           </>
         )}
       </Stack.Navigator>

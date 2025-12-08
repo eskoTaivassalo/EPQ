@@ -9,12 +9,12 @@ import { useAuth } from '../../hooks/useAuth';
 import { listAvailableSlots, bookSlot } from '../../services/availabilityService';
 
 /**
- * Calendar-based view for a teacher's availability.
+ * Calendar-based view for a provider's availability.
  * - Shows the next 30 days.
  * - Each day lists available slots; tapping a slot books it.
  */
-export default function TeacherAvailabilityCalendarScreen({ route, navigation }) {
-  const { teacherId, teacherName } = route.params || {};
+export default function ProviderAvailabilityCalendarScreen({ route, navigation }) {
+  const { teacherId, teacherName } = route.params || {}; // TODO: rename to providerId, providerName
   const { user } = useAuth();
   const [items, setItems] = useState({});
   const [hasAnySlots, setHasAnySlots] = useState(true);

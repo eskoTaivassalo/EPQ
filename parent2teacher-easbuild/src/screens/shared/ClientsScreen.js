@@ -9,23 +9,23 @@ import { listStudentsForTeacher } from '../../services/availabilityService';
 import FeedbackModal from '../../components/FeedbackModal';
 
 /**
- * TeacherStudentsScreen - Lists parents (students) who have bookings with this teacher.
- * MVP logic: parent list is derived from bookings; later we can add search, caching, and more profile data.
+ * ClientsScreen - Lists clients (students/parents) who have bookings with this provider.
+ * MVP logic: client list is derived from bookings; later we can add search, caching, and more profile data.
  */
-export default function TeacherStudentsScreen({ navigation }) {
+export default function ClientsScreen({ navigation }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [students, setStudents] = useState([]);
+  const [students, setStudents] = useState([]); // TODO: rename to "clients"
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [selectedStudent, setSelectedStudent] = useState(null); // TODO: rename to "selectedClient"
 
   const load = useCallback(async () => {
     if (!user?.uid) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await listStudentsForTeacher(user.uid);
+      const data = await listStudentsForTeacher(user.uid); // TODO: rename service function
       setStudents(data);
     } catch (e) {
       setError(e.message || 'Failed to load students');
@@ -50,7 +50,7 @@ export default function TeacherStudentsScreen({ navigation }) {
     <View style={styles.card}>
       <TouchableOpacity 
         style={styles.cardMain}
-        onPress={() => navigation.navigate('ParentProfile', { parentId: item.id })}
+        onPress={() => alert('Parent/Student profile view coming soon!')}
       >
         <View style={styles.avatar}> 
           <Ionicons name="person" size={30} color={colors.white} />

@@ -96,6 +96,13 @@ export const loginUser = createAsyncThunk(
 
       if (userDoc && userDoc.exists()) {
         const firestoreData = userDoc.data();
+        
+        // 🚫 CHECK IF ACCOUNT IS DELETED
+        if (firestoreData.deleted === true) {
+          console.error('❌ Redux: Account is deleted, preventing login');
+          throw new Error('This account has been deleted. Please contact support if this is an error.');
+        }
+        
         userData = { ...userData, ...firestoreData };
         console.log(`✅ Redux: User data found in ${userCollection} collection`);
         

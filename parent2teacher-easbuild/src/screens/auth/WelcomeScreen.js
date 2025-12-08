@@ -7,7 +7,8 @@ import {
   Image,
   ScrollView,
   Dimensions,
-  Animated
+  Animated,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,7 @@ import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { collection, getDocs, query, limit } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
+import { ROLE_CONFIG, ROLE_TYPES, ROLE_CATEGORIES } from '../../config/roleConfig';
 
 const { width, height } = Dimensions.get('window');
 
@@ -67,7 +69,14 @@ const WelcomeScreen = ({ navigation }) => {
   };
 
   const handleSignupSelection = (role) => {
-    navigation.navigate('RoleSignup', { roleType: role });
+    // Route to legacy signup screens that have full functionality
+    if (role === ROLE_TYPES.SERVICE_PROVIDER || role === ROLE_TYPES.COACH) {
+      navigation.navigate('TeacherSignup');
+    } else if (role === ROLE_TYPES.CLIENT || role === ROLE_TYPES.ATHLETE) {
+      navigation.navigate('ParentSignup');
+    } else {
+      Alert.alert('Error', 'Invalid role type');
+    }
   };
 
   const renderRoleCard = (roleConfig) => {
@@ -273,50 +282,36 @@ const WelcomeScreen = ({ navigation }) => {
         </>
 
         <View style={styles.mainSelection}>
-          {/* Main Choice: Teacher or Student */}
+          {/* Dynamic Role Selection from roleConfig */}
           <Text style={styles.selectionPrompt}>Ready to Get Started?</Text>
           
-          <TouchableOpacity
-                style={styles.mainChoiceCard}
-                onPress={() => navigation.navigate('TeacherSignup')}
+          {Object.values(ROLE_CONFIG).map((roleConfig, index) => (
+            <TouchableOpacity
+              key={roleConfig.id}
+              style={styles.mainChoiceCard}
+              onPress={() => handleSignupSelection(roleConfig.id)}
+            >
+              <LinearGradient
+                colors={[roleConfig.colors.primary, roleConfig.colors.secondary]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.mainChoiceGradient}
               >
-                <LinearGradient
-                  colors={['#667eea', '#764ba2']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.mainChoiceGradient}
-                >
-                  <View style={styles.mainChoiceIconGradient}>
-                    <Ionicons name="school" size={26} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.mainChoiceTitleGradient}>I'm a Teacher</Text>
-                  <Text style={styles.mainChoiceDescriptionGradient}>
-                    Share your knowledge and connect with students seeking to learn
-                  </Text>
-                  <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={styles.mainChoiceArrow} />
-                </LinearGradient>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.mainChoiceCard}
-                onPress={() => navigation.navigate('ParentSignup')}
-              >
-                <LinearGradient
-                  colors={['#4facfe', '#00f2fe']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.mainChoiceGradient}
-                >
-                  <View style={styles.mainChoiceIconGradient}>
-                    <Ionicons name="book" size={26} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.mainChoiceTitleGradient}>I'm a Student</Text>
-                  <Text style={styles.mainChoiceDescriptionGradient}>
-                    Find qualified teachers and start learning new skills today
-                  </Text>
-                  <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={styles.mainChoiceArrow} />
-                </LinearGradient>
-              </TouchableOpacity>
+                <View style={styles.mainChoiceIconGradient}>
+                  <Ionicons name={roleConfig.icon} size={26} color="#FFFFFF" />
+                </View>
+                <Text style={styles.mainChoiceTitleGradient}>
+                  I'm {roleConfig.category === ROLE_CATEGORIES.PROVIDER ? 'a' : 'a'} {roleConfig.name}
+                </Text>
+                <Text style={styles.mainChoiceDescriptionGradient}>
+                  {roleConfig.category === ROLE_CATEGORIES.PROVIDER
+                    ? `Share your expertise and connect with clients`
+                    : `Find qualified ${roleConfig.serviceProviderLabel?.toLowerCase() || 'professionals'} and start today`}
+                </Text>
+                <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={styles.mainChoiceArrow} />
+              </LinearGradient>
+            </TouchableOpacity>
+          ))}
         </View>
 
         <View style={styles.footer}>

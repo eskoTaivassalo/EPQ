@@ -68,8 +68,11 @@ export default function SimpleDrawer({ visible, onClose, navigation, menuItems, 
             </View>
 
             {/* Menu items */}
-            <ScrollView style={styles.menuContainer}>
-              {menuItems.map((item, index) => (
+            <ScrollView 
+              style={styles.menuContainer}
+              contentContainerStyle={styles.menuContentContainer}
+            >
+              {(menuItems || []).map((item, index) => (
                 <TouchableOpacity
                   key={index}
                   style={styles.menuItem}
@@ -141,7 +144,7 @@ const styles = StyleSheet.create({
   },
   drawer: {
     flex: 1,
-  },
+  }, 
   header: {
     backgroundColor: colors.primary,
     padding: 24,
@@ -163,8 +166,12 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     flex: 1,
-    paddingVertical: 16,
+    paddingTop: 16,
     paddingHorizontal: 12,
+  },
+  menuContentContainer: {
+    paddingBottom: 16,
+    flexGrow: 1,
   },
   menuItem: {
     flexDirection: 'row',

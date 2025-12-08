@@ -7,19 +7,19 @@ import { useAppData } from '../../hooks/useAppData';
 import { colors } from '../../styles/commonStyles';
 import { SUBJECTS, LOCATIONS, TEACHING_METHODS, getTagLabels } from '../../constants/tags';
 
-const FavoritesScreen = ({ navigation }) => {
+const FavoriteProvidersScreen = ({ navigation }) => {
   const { 
-    getFavoriteTeachers, 
+    getFavoriteTeachers, // TODO: rename to getFavoriteProviders
     removeFromFavorites, 
     loadFavorites, 
     favoritesLoading,
     isFavorite,
-    getTeachers,
+    getTeachers, // TODO: rename to getProviders
   } = useAppData();
   const favorites = getFavoriteTeachers();
 
   useEffect(() => {
-    // Ensure teachers are loaded so favorites can map to full objects
+    // Ensure providers are loaded so favorites can map to full objects
     (async () => {
       await getTeachers().catch(() => {});
       await loadFavorites().catch(() => {});
@@ -155,7 +155,7 @@ const FavoritesScreen = ({ navigation }) => {
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.contactButton, { flex: 1, backgroundColor: colors.primary }]}
-          onPress={() => navigation.navigate('TeacherWeeklyAvailability', { 
+          onPress={() => navigation.navigate('ProviderWeeklyAvailability', { 
             teacherId: item.id,
             teacherName: item.name || item.fullName || item.displayName || 'Teacher'
           })}
@@ -264,4 +264,4 @@ const styles = StyleSheet.create({
   emptyText: { marginTop: 6, fontSize: 13, color: colors.textSecondary },
 });
 
-export default FavoritesScreen;
+export default FavoriteProvidersScreen;

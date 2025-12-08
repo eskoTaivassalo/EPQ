@@ -40,10 +40,10 @@ import { calculatePriceRange } from '../../utils/tagUtils';
 import { useSelector } from 'react-redux';
 import { selectUserCoords } from '../../store/slices/locationSlice';
 
-const FindTeachersScreen = ({ navigation }) => {
+const FindProvidersScreen = ({ navigation }) => {
   const { user } = useAuth();
   const { 
-    teachers,          // Redux selector - suoraan array
+    teachers,          // Redux selector - suoraan array (now "providers")
     teachersLoading,   // Redux loading state
     getTeachers, 
     searchTeachers, 
@@ -114,7 +114,8 @@ const FindTeachersScreen = ({ navigation }) => {
         {
           text: 'View Profile',
           onPress: () => {
-            navigation.navigate('TeacherProfileView', { teacherId: teacher.id });
+            // TODO: Navigate to teacher profile view
+            alert('Teacher profile view coming soon!');
           }
         },
         {
@@ -499,14 +500,14 @@ const FindTeachersScreen = ({ navigation }) => {
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.contactButton, { flex: 1, backgroundColor: '#4CAF50' }]}
-          onPress={() => navigation.navigate('TeacherProfileView', { teacherId: item.id })}
+          onPress={() => alert('Teacher profile view coming soon!')}
         >
           <Ionicons name="person" size={16} color={colors.white} />
           <Text style={styles.contactButtonText}>Profile</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.contactButton, { flex: 1, backgroundColor: '#3F51B5' }]}
-          onPress={() => navigation.navigate('TeacherWeeklyAvailability', { 
+          onPress={() => navigation.navigate('ProviderWeeklyAvailability', { 
             teacherId: item.id,
             teacherName: item.name || item.fullName || item.displayName || 'Teacher'
           })}
@@ -1019,4 +1020,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FindTeachersScreen;
+export default FindProvidersScreen;

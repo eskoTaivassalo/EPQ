@@ -64,9 +64,9 @@ export const ROLE_CONFIG = {
   [ROLE_TYPES.SERVICE_PROVIDER]: {
     id: ROLE_TYPES.SERVICE_PROVIDER,
     name: 'Teacher',
-    nameLocalized: 'Opettaja',
+    nameLocalized: 'Teacher',
     namePlural: 'Teachers',
-    namePluralLocalized: 'Opettajat',
+    namePluralLocalized: 'Teachers',
     category: ROLE_CATEGORIES.PROVIDER,
     tags: ['education', 'tutoring', 'teaching'],
     
@@ -112,32 +112,37 @@ export const ROLE_CONFIG = {
       dashboard: {
         name: 'Dashboard',
         icon: 'home',
-        screen: 'TeacherDashboard', // Legacy screen name
+        screen: 'Dashboard',
+      },
+      calendar: {
+        name: 'My Calendar',
+        icon: 'calendar',
+        screen: 'TeacherCalendar',
       },
       availability: {
         name: 'Availability',
-        icon: 'calendar',
-        screen: 'TeacherAvailability',
+        icon: 'time',
+        screen: 'Availability',
       },
       bookings: {
         name: 'Bookings',
-        icon: 'time',
-        screen: 'TeacherBookings',
+        icon: 'list',
+        screen: 'Bookings',
       },
       clients: {
         name: 'Clients',
         icon: 'people',
-        screen: 'TeacherClients',
+        screen: 'Clients',
       },
       messages: {
         name: 'Messages',
         icon: 'chatbubbles',
-        screen: 'Messages',
+        screen: 'Conversations',
       },
       profile: {
         name: 'Profile',
         icon: 'person',
-        screen: 'TeacherMyProfile',
+        screen: 'Profile',
       },
     },
     
@@ -164,12 +169,16 @@ export const ROLE_CONFIG = {
   
   [ROLE_TYPES.CLIENT]: {
     id: ROLE_TYPES.CLIENT,
-    name: 'Parent',
-    nameLocalized: 'Vanhempi',
-    namePlural: 'Parents',
-    namePluralLocalized: 'Vanhemmat',
+    name: 'Parent/Student',
+    nameLocalized: 'Parent/Student',
+    namePlural: 'Parents/Students',
+    namePluralLocalized: 'Parents/Students',
     category: ROLE_CATEGORIES.CUSTOMER,
     tags: ['education', 'parenting', 'student'],
+    
+    // Label for the service providers this client seeks
+    serviceProviderLabel: 'Teachers',
+    serviceProviderLabelSingular: 'Teacher',
     
     // Legacy name for backward compatibility
     legacyName: 'parent',
@@ -216,40 +225,40 @@ export const ROLE_CONFIG = {
       dashboard: {
         name: 'Dashboard',
         icon: 'home',
-        screen: 'ParentDashboard', // Legacy screen name
+        screen: 'Dashboard',
       },
       findProviders: {
-        name: 'Find Services',
+        name: 'Find Teachers',
         icon: 'search',
-        screen: 'FindTeachers',
+        screen: 'FindProviders',
       },
       bookings: {
         name: 'My Bookings',
         icon: 'calendar',
-        screen: 'ParentBookings',
+        screen: 'Bookings',
       },
       messages: {
         name: 'Messages',
         icon: 'chatbubbles',
-        screen: 'Messages',
+        screen: 'Conversations',
       },
       favorites: {
-        name: 'Favorites',
+        name: 'Favorite Teachers',
         icon: 'heart',
-        screen: 'Favorites',
+        screen: 'FavoriteProviders',
       },
       profile: {
         name: 'Profile',
         icon: 'person',
-        screen: 'ParentMyProfile',
+        screen: 'Profile',
       },
     },
     
-    // Dashboard widgets/stats
+    // Signup form fields
     dashboardStats: [
       { key: 'upcomingBookings', label: 'Upcoming Bookings', icon: 'calendar' },
       { key: 'totalBookings', label: 'Total Bookings', icon: 'time' },
-      { key: 'favoriteProviders', label: 'Favorite Providers', icon: 'heart' },
+      { key: 'favoriteProviders', label: 'Favorite Teachers', icon: 'heart' },
       { key: 'unreadMessages', label: 'Unread Messages', icon: 'mail' },
     ],
     
@@ -308,32 +317,37 @@ export const ROLE_CONFIG = {
       dashboard: {
         name: 'Dashboard',
         icon: 'home',
-        screen: 'TeacherDashboard',
+        screen: 'Dashboard',
+      },
+      calendar: {
+        name: 'My Calendar',
+        icon: 'calendar',
+        screen: 'TeacherCalendar',
       },
       availability: {
         name: 'Availability',
-        icon: 'calendar',
-        screen: 'TeacherAvailability',
+        icon: 'time',
+        screen: 'Availability',
       },
       bookings: {
         name: 'Sessions',
-        icon: 'time',
-        screen: 'TeacherBookings',
+        icon: 'list',
+        screen: 'Bookings',
       },
       clients: {
         name: 'Athletes',
         icon: 'people',
-        screen: 'TeacherClients',
+        screen: 'Clients',
       },
       messages: {
         name: 'Messages',
         icon: 'chatbubbles',
-        screen: 'Messages',
+        screen: 'Conversations',
       },
       profile: {
         name: 'Profile',
         icon: 'person',
-        screen: 'TeacherMyProfile',
+        screen: 'Profile',
       },
     },
     
@@ -403,32 +417,32 @@ export const ROLE_CONFIG = {
       dashboard: {
         name: 'Dashboard',
         icon: 'home',
-        screen: 'ParentDashboard',
+        screen: 'Dashboard',
       },
       findProviders: {
         name: 'Find Coaches',
         icon: 'search',
-        screen: 'FindTeachers',
+        screen: 'FindProviders',
       },
       bookings: {
         name: 'My Sessions',
         icon: 'calendar',
-        screen: 'ParentBookings',
+        screen: 'Bookings',
       },
       messages: {
         name: 'Messages',
         icon: 'chatbubbles',
-        screen: 'Messages',
+        screen: 'Conversations',
       },
       favorites: {
-        name: 'Favorites',
+        name: 'Favorite Coaches',
         icon: 'heart',
-        screen: 'Favorites',
+        screen: 'FavoriteProviders',
       },
       profile: {
         name: 'Profile',
         icon: 'person',
-        screen: 'ParentMyProfile',
+        screen: 'Profile',
       },
     },
     

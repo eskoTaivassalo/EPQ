@@ -33,3 +33,28 @@ export async function ensurePermissionAndCoords() {
   const coords = await getCurrentCoords();
   return { perm, coords };
 }
+
+// Alias for getCurrentCoords to match signup screen imports
+export async function getCurrentLocation(options = {}) {
+  return await getCurrentCoords(options);
+}
+
+// Reverse geocode coordinates to get city name
+export async function reverseGeocode(latitude, longitude) {
+  try {
+    const results = await Location.reverseGeocodeAsync({
+      latitude,
+      longitude
+    });
+    
+    if (results && results.length > 0) {
+      const location = results[0];
+      // Return city, or region, or country as fallback
+      return location.city || location.region || location.country || null;
+    }
+    return null;
+  } catch (e) {
+    console.warn('Reverse geocoding failed:', e);
+    return null;
+  }
+}

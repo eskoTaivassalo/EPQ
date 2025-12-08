@@ -19,6 +19,7 @@ import NotificationBell from '../../components/NotificationBell';
 import SimpleDrawer from '../../components/SimpleDrawer';
 import AppLogo from '../../components/AppLogo';
 import WatercolorBackground from '../../components/WatercolorBackground';
+import BookingsScreen from '../shared/BookingsScreen';
 import { colors, commonStyles } from '../../styles/commonStyles';
 
 const TeacherDashboard = ({ navigation }) => {
@@ -203,7 +204,7 @@ const TeacherDashboard = ({ navigation }) => {
 
   const drawerMenuItems = [
     { label: 'Dashboard', screen: 'TeacherDashboard', icon: 'home' },
-    { label: 'My Profile', screen: 'TeacherMyProfile', icon: 'person' },
+    { label: 'My Profile', screen: 'Profile', icon: 'person' },
     { label: 'Students', screen: 'TeacherStudents', icon: 'people' },
     { label: 'Availability', screen: 'TeacherAvailability', icon: 'time' },
     { label: 'Messages', screen: 'Conversations', icon: 'chatbubbles' },
@@ -258,7 +259,7 @@ const TeacherDashboard = ({ navigation }) => {
       subtitle: 'Your teacher profile',
       icon: 'person-circle',
       color: '#607D8B',
-      screen: 'TeacherMyProfile'
+      screen: 'Profile'
     }
   ];
 
@@ -370,59 +371,89 @@ const TeacherDashboard = ({ navigation }) => {
           />
         }
       >
-        {/* Upcoming Lessons (from accepted/confirmed bookings) */}
+        {/* Upcoming Lessons */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Upcoming Lessons</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Calendar')}>
-              <Text style={styles.seeAllText}>See All</Text>
+            <Text style={styles.sectionTitle}>Varaukset</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('TeacherBookings')}>
+              <Text style={styles.seeAllText}>Näytä kaikki</Text>
             </TouchableOpacity>
           </View>
           {(() => {
             const now = Date.now();
             const isUpcoming = (b) => (b.status === 'accepted' || b.status === 'confirmed') && new Date(b.date).getTime() >= now;
-            const upcoming = bookings.filter(isUpcoming).sort((a,b)=> new Date(a.date) - new Date(b.date)).slice(0,3);
+            const isJoinable = (b) => {
+              if (!b.date || !b.meetingUrl) return false;
+              if (b.status !== 'approved' && b.status !== 'accepted' && b.status !== 'confirmed') return false;
+              const bookingDate = new Date(b.date);
+              const diffInMinutes = (bookingDate - now) / (1000 * 60);
+              return diffInMinutes <= 60 && diffInMinutes >= -30;
+            };
             
-            console.log('📋 Upcoming Lessons:', {
-              totalBookings: bookings.length,
-              upcomingCount: upcoming.length,
-              upcomingWithMeetingUrl: upcoming.filter(b => b?.meetingUrl).length,
-              sample: upcoming[0] ? {
-                id: upcoming[0].id,
-                status: upcoming[0].status,
-                date: upcoming[0].date,
-                hasMeetingUrl: !!upcoming[0]?.meetingUrl,
-                meetingUrl: upcoming[0]?.meetingUrl
-              } : 'none'
-            });
+            const joinableBookings = bookings.filter(isJoinable);
+            const upcomingBookings = bookings.filter(isUpcoming).sort((a,b)=> new Date(a.date) - new Date(b.date));
+            const upcoming = upcomingBookings.slice(0,3);
             
-            if (upcoming.length === 0) {
+            // Show joinable bookings first
+            const displayBookings = joinableBookings.length > 0 
+              ? [...joinableBookings.slice(0, 2), ...upcoming.slice(0, 3 - joinableBookings.length)]
+              : upcoming;
+            
+            if (displayBookings.length === 0) {
               return (
                 <View style={styles.emptyRequestsCard}>
                   <Ionicons name="calendar-outline" size={40} color={colors.textSecondary} />
-                  <Text style={styles.emptyRequestsText}>No upcoming lessons</Text>
+                  <Text style={styles.emptyRequestsText}>Ei tulevia tunteja</Text>
+                  <TouchableOpacity 
+                    style={styles.viewAllBookingsButton}
+                    onPress={() => navigation.navigate('TeacherBookings')}
+                  >
+                    <Text style={styles.viewAllBookingsText}>Näytä kaikki varaukset</Text>
+                  </TouchableOpacity>
                 </View>
               );
             }
-            return upcoming.map(b => {
+            
+            return (
+              <>
+                {joinableBookings.length > 0 && (
+                  <View style={styles.joinableBanner}>
+                    <Ionicons name="videocam" size={20} color="#FFFFFF" />
+                    <Text style={styles.joinableBannerText}>
+                      {joinableBookings.length} {joinableBookings.length === 1 ? 'tapaaminen' : 'tapaamista'} johon voit liittyä nyt
+                    </Text>
+                  </View>
+                )}
+                {displayBookings.map(b => {
               // Use b.start for the full timestamp, fallback to date if start is not available
               const d = new Date(b.start || b.date);
               const parent = getParentById(b.parentId);
               const dayLabel = new Date().toDateString() === d.toDateString() ? 'Today' : d.toLocaleDateString('en-US', { weekday:'short' });
               const timeLabel = d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+              const canJoin = isJoinable(b);
               return (
-                <View key={b.id} style={styles.lessonCard}>
+                <View key={b.id} style={[styles.lessonCard, canJoin && styles.joinableLessonCard]}>
+                  {canJoin && (
+                    <View style={styles.joinableBadge}>
+                      <Ionicons name="time" size={12} color="#FFFFFF" />
+                      <Text style={styles.joinableBadgeText}>Liity nyt</Text>
+                    </View>
+                  )}
                   <View style={styles.lessonTimeContainer}>
                     <Text style={styles.lessonTime}>{timeLabel}</Text>
                     <Text style={styles.lessonDate}>{dayLabel}</Text>
                   </View>
                   <View style={styles.lessonDetails}>
-                    <Text style={styles.lessonStudent}>{parent?.name || parent?.fullName || parent?.displayName || 'Parent'}</Text>
+                    <Text style={styles.lessonStudent}>{parent?.name || parent?.fullName || parent?.displayName || 'Oppilas'}</Text>
                     {b.notes ? (
                       <Text style={styles.lessonSubject} numberOfLines={1}>{b.notes}</Text>
                     ) : null}
                   </View>
-                  {b.meetingUrl ? (
+                  {canJoin && b.meetingUrl ? (
+                    <TouchableOpacity style={[styles.lessonAction, styles.joinButton]} onPress={() => Linking.openURL(b.meetingUrl)}>
+                      <Ionicons name="videocam" size={24} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  ) : b.meetingUrl ? (
                     <TouchableOpacity style={styles.lessonAction} onPress={() => Linking.openURL(b.meetingUrl)}>
                       <Ionicons name="videocam" size={24} color={colors.primary} />
                     </TouchableOpacity>
@@ -433,7 +464,9 @@ const TeacherDashboard = ({ navigation }) => {
                   )}
                 </View>
               );
-            });
+            })}
+              </>
+            );
           })()}
         </View>
 
@@ -787,6 +820,60 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 3,
+  },
+  joinableBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  joinableBannerText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  joinableLessonCard: {
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: '#F0F4FF',
+  },
+  joinableBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.primary,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 10,
+  },
+  joinableBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  joinButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    padding: 8,
+  },
+  viewAllBookingsButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+  },
+  viewAllBookingsText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
   statNumber: {
     fontSize: 24,

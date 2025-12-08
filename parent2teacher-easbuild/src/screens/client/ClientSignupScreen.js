@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
   ScrollView,
   Alert,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  ActivityIndicator
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
@@ -30,6 +31,7 @@ import {
   TEACHING_STYLES,
   SPECIAL_NEEDS
 } from '../../constants/tags';
+import { getCurrentLocation, reverseGeocode, requestForegroundPermissions } from '../../services/locationService';
 
 const ParentSignupScreen = ({ navigation, route }) => {
   const { register } = useAuth();
@@ -76,7 +78,57 @@ const ParentSignupScreen = ({ navigation, route }) => {
   // 💪 PASSWORD STRENGTH INDICATORS
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [passwordValidation, setPasswordValidation] = useState({ isValid: true, message: '' });
-  const [profileImageUri, setProfileImageUri] = useState(googleUser?.photoURL || null);
+  const [profileImageUri, setProfileImageUri] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [autoLocationFetched, setAutoLocationFetched] = useState(false);
+
+  // Auto-fetch location on mount
+  useEffect(() => {
+    fetchUserLocation();
+  }, []);
+
+  const fetchUserLocation = async () => {
+    try {
+      setLocationLoading(true);
+      
+      // Request permission
+      const { granted } = await requestForegroundPermissions();
+      if (!granted) {
+        Alert.alert(
+          'Location Permission',
+          'Location permission is needed to auto-detect your city. You can also enter it manually.',
+          [{ text: 'OK' }]
+        );
+        setLocationLoading(false);
+        return;
+      }
+
+      // Get current location
+      const coords = await getCurrentLocation();
+      if (!coords) {
+        throw new Error('Could not get location');
+      }
+
+      // Reverse geocode to get city
+      const cityName = await reverseGeocode(coords.latitude, coords.longitude);
+      if (cityName) {
+        setFormData(prev => ({
+          ...prev,
+          location: [cityName]
+        }));
+        setAutoLocationFetched(true);
+      }
+    } catch (error) {
+      console.log('Location fetch error:', error);
+      Alert.alert(
+        'Location Error',
+        'Could not auto-detect your location. Please enter your city manually.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLocationLoading(false);
+    }
+  };
 
   // 💪 Enhanced handleInputChange with real-time password validation
   const handleInputChange = (field, value) => {
@@ -113,6 +165,18 @@ const ParentSignupScreen = ({ navigation, route }) => {
 
   const validateForm = () => {
     // 🔐 ENHANCED CLIENT-SIDE VALIDATION
+    
+    // Validate profile image (required)
+    if (!profileImageUri) {
+      Alert.alert('Virhe', 'Profiilikuva vaaditaan. Valitse kuva jatkaaksesi.');
+      return false;
+    }
+
+    // Validate location (required)
+    if (!formData.location || formData.location.length === 0) {
+      Alert.alert('Virhe', 'Sijainti vaaditaan. Anna kaupunkisi jatkaaksesi.');
+      return false;
+    }
     
     // Validoi nimi
     if (!formData.fullName.trim()) {
@@ -353,13 +417,36 @@ const ParentSignupScreen = ({ navigation, route }) => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Location (City) *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Helsinki"
-              value={formData.location}
-              onChangeText={(text) => handleInputChange('location', text)}
-            />
+            <Text style={[styles.label, styles.required]}>Location (City) * (Required)</Text>
+            {locationLoading ? (
+              <View style={styles.locationLoadingContainer}>
+                <ActivityIndicator size="small" color={colors.primary} />
+                <Text style={styles.locationLoadingText}>Detecting your location...</Text>
+              </View>
+            ) : (
+              <>
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. Helsinki"
+                  value={formData.location[0] || ''}
+                  onChangeText={(text) => setFormData({...formData, location: text ? [text] : []})}
+                />
+                {autoLocationFetched && (
+                  <Text style={styles.autoLocationText}>
+                    ✓ Auto-detected from your GPS location
+                  </Text>
+                )}
+                {!locationLoading && (
+                  <TouchableOpacity 
+                    style={styles.refreshLocationButton}
+                    onPress={fetchUserLocation}
+                  >
+                    <Ionicons name="refresh" size={16} color={colors.primary} />
+                    <Text style={styles.refreshLocationText}>Refresh Location</Text>
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
           </View>
 
           <TagSelector
@@ -772,6 +859,47 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#2E7D32',
     lineHeight: 20,
+  },
+  required: {
+    color: colors.error || '#EF4444',
+    fontWeight: '600',
+  },
+  helperText: {
+    fontSize: 12,
+    color: colors.textLight,
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  locationLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  locationLoadingText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: colors.textLight,
+  },
+  autoLocationText: {
+    fontSize: 12,
+    color: '#10B981',
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  refreshLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingVertical: 6,
+  },
+  refreshLocationText: {
+    fontSize: 14,
+    color: colors.primary,
+    marginLeft: 6,
+    fontWeight: '500',
   },
 });
 
