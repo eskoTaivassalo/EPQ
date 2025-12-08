@@ -11,6 +11,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '../../config/firebaseConfig';
 import AuthService from '../../services/authService';
 import SessionManager from '../../utils/sessionManager';
+import { isAdmin } from '../../middleware/adminAuth';
 
 /**
  * 🔐 Auth Slice - Käyttäjän autentikointi ja sessio
@@ -131,6 +132,18 @@ export const loginUser = createAsyncThunk(
         }
       } else {
         console.warn('⚠️ Redux: User authenticated but no profile data found in teachers or parents collections');
+      }
+
+      // 🛡️ CHECK ADMIN STATUS
+      console.log('🛡️ Redux: Checking admin status for:', email);
+      const adminStatus = await isAdmin(email);
+      if (adminStatus) {
+        console.log('✅ Redux: User is ADMIN');
+        userData.isAdmin = true;
+        userData.role = 'admin';
+      } else {
+        console.log('ℹ️ Redux: User is not admin');
+        userData.isAdmin = false;
       }
 
       // Tallenna AsyncStorage:een

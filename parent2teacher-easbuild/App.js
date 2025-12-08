@@ -54,6 +54,15 @@ import SettingsScreen from './src/screens/shared/SettingsScreen';
 import LegalDocumentScreen from './src/screens/shared/LegalDocumentScreen';
 import ChangeEmailScreen from './src/screens/shared/ChangeEmailScreen';
 import ChangePasswordScreen from './src/screens/shared/ChangePasswordScreen';
+import HelpCenterScreen from './src/screens/shared/HelpCenterScreen';
+import ContactUsScreen from './src/screens/shared/ContactUsScreen';
+
+// Screens - Admin
+import AdminDashboard from './src/screens/admin/AdminDashboard';
+import UserManagement from './src/screens/admin/UserManagement';
+import AdminStatistics from './src/screens/admin/AdminStatistics';
+import AdminBookings from './src/screens/admin/AdminBookings';
+import AdminReports from './src/screens/admin/AdminReports';
 
 // Screens - Dev
 import SecurityTestScreen from './src/screens/dev/SecurityTestScreen';
@@ -92,6 +101,7 @@ const AppNavigator = () => {
   const dispatch = useDispatch();
   const { user, loading, isAuthenticated, loadStoredAuth } = useAuth();
   const [emailVerifiedDelay, setEmailVerifiedDelay] = useState(false);
+  const [cachedEmailVerified, setCachedEmailVerified] = useState(null);
 
   // Initialize global error logger once
   useEffect(() => {
@@ -100,7 +110,46 @@ const AppNavigator = () => {
 
   // Load stored auth on app start & Configure Google Sign-In & Request notification permissions
   useEffect(() => {
+    // Load cached emailVerified status immediately from AsyncStorage
+    (async () => {
+      try {
+        const cachedUser = await require('@react-native-async-storage/async-storage').default.getItem('user');
+        if (cachedUser) {
+          const userData = JSON.parse(cachedUser);
+          console.log('📦 Loaded cached emailVerified status:', userData.emailVerified);
+          setCachedEmailVerified(userData.emailVerified);
+        }
+      } catch (e) {
+        console.warn('Failed to load cached emailVerified:', e);
+      }
+    })();
+    
     loadStoredAuth();
+    
+    // Listen to Firebase Auth state changes (handles token refresh automatically)
+    const { auth } = require('./src/config/firebaseConfig');
+    const { onAuthStateChanged } = require('firebase/auth');
+    
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        console.log('🔄 Auth state changed - user logged in:', firebaseUser.uid, 'emailVerified:', firebaseUser.emailVerified);
+        // Firebase automatically refreshes the token
+        try {
+          const token = await firebaseUser.getIdToken(true); // Force refresh
+          console.log('✅ Token refreshed successfully');
+          
+          // Update Redux state with fresh email verification status
+          if (firebaseUser.emailVerified && user && !user.emailVerified) {
+            console.log('📧 Email verification status updated in Firebase, refreshing user data');
+            await loadStoredAuth(); // Reload user data from Firebase
+          }
+        } catch (error) {
+          console.error('❌ Token refresh failed:', error);
+        }
+      } else {
+        console.log('🔄 Auth state changed - user logged out');
+      }
+    });
     
     // Konfiguroi Google Sign-In
     try {
@@ -122,6 +171,9 @@ const AppNavigator = () => {
         console.warn('📍 Failed to request location permission on startup:', e);
       }
     })();
+
+    // Cleanup listener on unmount
+    return () => unsubscribe();
   }, []);
 
   // Load notifications when user is authenticated
@@ -154,7 +206,7 @@ const AppNavigator = () => {
 
   // Viivästetään email verification -näkymän näyttöä päivityksen jälkeen
   useEffect(() => {
-    if (isAuthenticated && user && !user.emailVerified) {
+    if (isAuthenticated && user && user.emailVerified === false && cachedEmailVerified !== true) {
       setEmailVerifiedDelay(true);
       const timer = setTimeout(() => setEmailVerifiedDelay(false), 1500); // 1.5s viive
       return () => clearTimeout(timer);
@@ -242,9 +294,16 @@ const AppNavigator = () => {
     };
   }, []);
 
-  if (loading || emailVerifiedDelay) {
+  // Show loading only for initial auth loading
+  if (loading) {
     return <Loading />;
   }
+
+  // Determine if email verification is needed
+  // IMPORTANT: Only show email verification if EXPLICITLY false
+  // Default to verified (true) if undefined to prevent blocking on app refresh
+  const emailVerifiedStatus = user?.emailVerified ?? cachedEmailVerified ?? true;
+  const needsEmailVerification = isAuthenticated && emailVerifiedStatus === false;
 
   return (
     <NavigationContainer>
@@ -265,7 +324,7 @@ const AppNavigator = () => {
             <Stack.Screen name="ParentSignup" component={ClientSignupScreen} />
             <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
           </>
-        ) : !user?.emailVerified ? (
+        ) : needsEmailVerification ? (
           // 📧 Email verification required screen
           <>
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
@@ -310,6 +369,36 @@ const AppNavigator = () => {
             <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
             <Stack.Screen name="ChangeEmail" component={ChangeEmailScreen} />
             <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
+            <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+            <Stack.Screen name="ContactUs" component={ContactUsScreen} />
+            
+            {/* Admin Screens */}
+            <Stack.Screen 
+              name="AdminDashboard" 
+              component={AdminDashboard}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="UserManagement" 
+              component={UserManagement}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="AdminStatistics" 
+              component={AdminStatistics}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="AdminBookings" 
+              component={AdminBookings}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen 
+              name="AdminReports" 
+              component={AdminReports}
+              options={{ headerShown: false }}
+            />
+            
             <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
           </>
         )}

@@ -16,6 +16,7 @@ export const ROLE_TYPES = {
   CLIENT: 'client',
   COACH: 'coach',
   ATHLETE: 'athlete',
+  ADMIN: 'admin',
   // Legacy support
   TEACHER: 'teacher',
   PARENT: 'parent',
@@ -130,7 +131,7 @@ export const ROLE_CONFIG = {
         screen: 'Bookings',
       },
       clients: {
-        name: 'Clients',
+        name: 'Students',
         icon: 'people',
         screen: 'Clients',
       },
@@ -271,6 +272,99 @@ export const ROLE_CONFIG = {
       { key: 'needs', type: 'tags', label: 'Services Needed', required: false },
       { key: 'preferences', type: 'textarea', label: 'Preferences', required: false },
     ],
+  },
+
+  [ROLE_TYPES.ADMIN]: {
+    id: ROLE_TYPES.ADMIN,
+    name: 'Administrator',
+    nameLocalized: 'Ylläpitäjä',
+    namePlural: 'Administrators',
+    namePluralLocalized: 'Ylläpitäjät',
+    category: 'admin',
+    tags: ['admin', 'management', 'moderation'],
+    
+    legacyName: 'admin',
+    collectionName: 'admins',
+    
+    colors: {
+      primary: '#6366F1',
+      secondary: '#4F46E5',
+      accent: '#818CF8',
+      background: '#F5F5FF',
+      card: '#FFFFFF',
+      text: '#1E293B',
+      textSecondary: '#64748B',
+      success: '#10B981',
+      warning: '#F59E0B',
+      error: '#EF4444',
+    },
+    
+    icon: 'shield-checkmark',
+    iconOutline: 'shield-checkmark-outline',
+    
+    features: {
+      canProvideServices: false,
+      canSetAvailability: false,
+      canReceiveBookings: false,
+      canSendMessages: true,
+      canReceiveMessages: true,
+      canManageProfile: true,
+      canViewAnalytics: true,
+      canSetPricing: false,
+      canManageCalendar: false,
+      canBookServices: false,
+      canSearchProviders: true,
+      canWriteReviews: false,
+      // Admin-specific features
+      canManageUsers: true,
+      canViewAllBookings: true,
+      canViewSystemStats: true,
+      canModerateContent: true,
+      canAccessReports: true,
+    },
+    
+    navigation: {
+      dashboard: {
+        name: 'Admin Dashboard',
+        icon: 'speedometer',
+        screen: 'AdminDashboard',
+      },
+      users: {
+        name: 'User Management',
+        icon: 'people',
+        screen: 'UserManagement',
+      },
+      bookings: {
+        name: 'All Bookings',
+        icon: 'calendar',
+        screen: 'AdminBookings',
+      },
+      statistics: {
+        name: 'Statistics',
+        icon: 'stats-chart',
+        screen: 'AdminStatistics',
+      },
+      reports: {
+        name: 'Reports',
+        icon: 'document-text',
+        screen: 'AdminReports',
+      },
+      settings: {
+        name: 'System Settings',
+        icon: 'settings',
+        screen: 'AdminSettings',
+      },
+    },
+    
+    dashboardStats: [
+      { key: 'totalUsers', label: 'Total Users', icon: 'people' },
+      { key: 'activeBookings', label: 'Active Bookings', icon: 'calendar' },
+      { key: 'totalRevenue', label: 'Total Revenue', icon: 'cash' },
+      { key: 'pendingReports', label: 'Pending Reports', icon: 'alert-circle' },
+    ],
+    
+    serviceProviderLabel: 'Teachers',
+    customerLabel: 'Parents',
   },
 
   [ROLE_TYPES.COACH]: {

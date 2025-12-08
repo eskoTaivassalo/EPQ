@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -9,8 +9,7 @@ import {
   ScrollView,
   Alert,
   KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator
+  Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
@@ -21,7 +20,6 @@ import TagSelector from '../../components/TagSelector';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { SUBJECTS } from '../../constants/tags';
-import { getCurrentLocation, reverseGeocode, requestForegroundPermissions } from '../../services/locationService';
 
 const TeacherSignupScreen = ({ navigation, route }) => {
   const { register } = useAuth();
@@ -80,52 +78,7 @@ const TeacherSignupScreen = ({ navigation, route }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [passwordValidation, setPasswordValidation] = useState({ isValid: false, message: '' });
-  const [profileImageUri, setProfileImageUri] = useState(null);
-  const [locationLoading, setLocationLoading] = useState(false);
-  const [autoLocationFetched, setAutoLocationFetched] = useState(false);
-
-  // Auto-fetch location on mount
-  useEffect(() => {
-    fetchUserLocation();
-  }, []);
-
-  const fetchUserLocation = async () => {
-    try {
-      setLocationLoading(true);
-      
-      // Request permission
-      const { granted } = await requestForegroundPermissions();
-      if (!granted) {
-        Alert.alert(
-          'Location Permission',
-          'Location permission is required to automatically fill your city. You can grant it in Settings or enter your city manually.'
-        );
-        return;
-      }
-
-      // Get coordinates
-      const coords = await getCurrentLocation();
-      if (!coords) {
-        console.log('📍 Could not get coordinates');
-        return;
-      }
-
-      // Reverse geocode to get city
-      const address = await reverseGeocode(coords.latitude, coords.longitude);
-      if (address?.city) {
-        setFormData(prev => ({
-          ...prev,
-          location: [address.city]
-        }));
-        setAutoLocationFetched(true);
-        console.log('✅ Auto-filled location:', address.city);
-      }
-    } catch (error) {
-      console.error('❌ Error fetching location:', error);
-    } finally {
-      setLocationLoading(false);
-    }
-  };
+  const [profileImageUri, setProfileImageUri] = useState(googleUser?.photoURL || null);
 
   const specializations = [
     'Child Development Expert',
@@ -180,18 +133,6 @@ const TeacherSignupScreen = ({ navigation, route }) => {
   };
 
   const validateForm = () => {
-      // REQUIRED: Profile image
-      if (!profileImageUri) {
-        Alert.alert('Profile Photo Required', 'Please upload a profile photo. This helps parents recognize you and builds trust.');
-        return false;
-      }
-
-      // REQUIRED: Location
-      if (!formData.location || formData.location.length === 0) {
-        Alert.alert('Location Required', 'Please allow location access or enter your city manually. This helps parents find teachers in their area.');
-        return false;
-      }
-
       // At least one subject
       if (!formData.subjects.length) {
         Alert.alert('Virhe', 'Valitse vähintään yksi opetettava aihe (Subjects)');
@@ -293,7 +234,7 @@ const TeacherSignupScreen = ({ navigation, route }) => {
         return false;
       }
 
-      // Validoi sijainti (location on array)
+      // Validoi sijainti
       if (!formData.location || formData.location.length === 0 || !formData.location[0]?.trim()) {
         Alert.alert('Virhe', 'Anna sijaintisi');
         return false;
@@ -588,19 +529,13 @@ const TeacherSignupScreen = ({ navigation, route }) => {
         <View style={styles.form}>
           <Text style={styles.sectionTitle}>Create Your Teacher Profile</Text>
           
-          {/* 📸 Profiilikuva - REQUIRED */}
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              Profile Photo <Text style={styles.required}>* (Required)</Text>
-            </Text>
-            <Text style={styles.helperText}>Upload a clear photo of yourself. This helps parents recognize you.</Text>
-            <ProfileImagePicker
-              imageUri={profileImageUri}
-              onImageSelected={setProfileImageUri}
-              size={120}
-              editable={true}
-            />
-          </View>
+          {/* 📸 Profiilikuva */}
+          <ProfileImagePicker
+            imageUri={profileImageUri}
+            onImageSelected={setProfileImageUri}
+            size={120}
+            editable={true}
+          />
           
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Full Name *</Text>
@@ -627,37 +562,13 @@ const TeacherSignupScreen = ({ navigation, route }) => {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>
-              Location (City) <Text style={styles.required}>* (Required)</Text>
-            </Text>
-            {locationLoading && (
-              <View style={styles.locationLoadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
-                <Text style={styles.locationLoadingText}>Detecting your location...</Text>
-              </View>
-            )}
-            {autoLocationFetched && !locationLoading && (
-              <Text style={styles.autoLocationText}>
-                ✅ Auto-detected: {formData.location[0] || 'Unknown'}
-              </Text>
-            )}
+            <Text style={styles.label}>Location (City) *</Text>
             <TextInput
               style={styles.input}
-              placeholder={locationLoading ? "Detecting..." : "e.g. Helsinki"}
-              value={Array.isArray(formData.location) ? formData.location[0] || '' : formData.location}
-              onChangeText={(text) => handleInputChange('location', [text])}
-              editable={!locationLoading}
+              placeholder="e.g. Helsinki"
+              value={formData.location}
+              onChangeText={(text) => handleInputChange('location', text)}
             />
-            <TouchableOpacity 
-              style={styles.refreshLocationButton} 
-              onPress={fetchUserLocation}
-              disabled={locationLoading}
-            >
-              <Ionicons name="location" size={16} color={colors.primary} />
-              <Text style={styles.refreshLocationText}>
-                {locationLoading ? 'Detecting...' : 'Refresh Location'}
-              </Text>
-            </TouchableOpacity>
           </View>
 
           <TagSelector
@@ -1087,45 +998,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#FF6B6B',
     fontStyle: 'italic',
-  },
-  required: {
-    color: colors.error,
-    fontWeight: '600',
-  },
-  helperText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 8,
-    marginTop: -4,
-  },
-  locationLoadingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  locationLoadingText: {
-    marginLeft: 8,
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  autoLocationText: {
-    fontSize: 13,
-    color: colors.success,
-    marginBottom: 8,
-    fontWeight: '500',
-  },
-  refreshLocationButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-    padding: 8,
-  },
-  refreshLocationText: {
-    marginLeft: 6,
-    fontSize: 14,
-    color: colors.primary,
-    fontWeight: '500',
   },
 });
 

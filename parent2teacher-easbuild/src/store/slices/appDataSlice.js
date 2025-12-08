@@ -142,10 +142,19 @@ export const fetchTeachers = createAsyncThunk(
       
       const teachersCollection = collection(db, 'teachers');
       const teachersSnapshot = await getDocs(teachersCollection);
-      let rawTeachers = teachersSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      let rawTeachers = teachersSnapshot.docs.map(doc => {
+        const data = doc.data();
+        // Convert Firestore Timestamps to ISO strings for Redux serialization
+        const serializedData = { ...data };
+        if (data.createdAt?.toDate) serializedData.createdAt = data.createdAt.toDate().toISOString();
+        if (data.updatedAt?.toDate) serializedData.updatedAt = data.updatedAt.toDate().toISOString();
+        if (data.deletedAt?.toDate) serializedData.deletedAt = data.deletedAt.toDate().toISOString();
+        
+        return {
+          id: doc.id,
+          ...serializedData
+        };
+      });
 
       // Filter out current user's teacher profile (by email and uid)
       const currentUserEmail = auth.currentUser?.email?.toLowerCase();
@@ -229,10 +238,19 @@ export const fetchParents = createAsyncThunk(
       
       const parentsCollection = collection(db, 'parents');
       const parentsSnapshot = await getDocs(parentsCollection);
-      const parentsData = parentsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const parentsData = parentsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        // Convert Firestore Timestamps to ISO strings for Redux serialization
+        const serializedData = { ...data };
+        if (data.createdAt?.toDate) serializedData.createdAt = data.createdAt.toDate().toISOString();
+        if (data.updatedAt?.toDate) serializedData.updatedAt = data.updatedAt.toDate().toISOString();
+        if (data.deletedAt?.toDate) serializedData.deletedAt = data.deletedAt.toDate().toISOString();
+        
+        return {
+          id: doc.id,
+          ...serializedData
+        };
+      });
       
       console.log(`📊 Redux: Fetched ${parentsData.length} parents from Firestore`);
       return parentsData;

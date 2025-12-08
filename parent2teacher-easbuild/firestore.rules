@@ -39,6 +39,14 @@ service cloud.firestore {
       return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
     }
     
+    // Tarkista onko käyttäjä admin
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/admins/$(request.auth.token.email)) &&
+             get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.role == 'admin' &&
+             get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.isActive == true;
+    }
+    
     // ========================================
     // USERS COLLECTION
     // ========================================
@@ -75,12 +83,12 @@ service cloud.firestore {
                       request.resource.data.userType == 'teacher' &&
                       hasField('createdAt');
       
-      allow update: if isOwner(teacherId) &&
-                      // Estä userType:n muuttaminen
-                      request.resource.data.userType == resource.data.userType;
+      allow update: if (isOwner(teacherId) || isAdmin()) &&
+                      // Estä userType:n muuttaminen (paitsi jos kenttää ei ole)
+                      (!hasField('userType') || request.resource.data.userType == resource.data.userType);
       
-      // Poisto: Vain omistaja voi poistaa
-      allow delete: if isOwner(teacherId);
+      // Poisto: Vain omistaja tai admin voi poistaa
+      allow delete: if isOwner(teacherId) || isAdmin();
     }
     
     // ========================================
@@ -100,37 +108,46 @@ service cloud.firestore {
                       request.resource.data.userType == 'parent' &&
                       hasField('createdAt');
       
-      allow update: if isOwner(parentId) &&
-                      // Estä userType:n muuttaminen
-                      request.resource.data.userType == resource.data.userType;
+      allow update: if (isOwner(parentId) || isAdmin()) &&
+                      // Estä userType:n muuttaminen (paitsi jos kenttää ei ole)
+                      (!hasField('userType') || request.resource.data.userType == resource.data.userType);
       
-      // Poisto: Vain omistaja voi poistaa
-      allow delete: if isOwner(parentId);
+      // Poisto: Vain omistaja tai admin voi poistaa
+      allow delete: if isOwner(parentId) || isAdmin();
     }
     
     // ========================================
     // MESSAGES COLLECTION
     // ========================================
     match /messages/{messageId} {
-      // Luku: Opettaja tai vanhempi voivat lukea viestit
+      // Luku: Lähettäjä tai vastaanottaja voivat lukea viestit
+      // Tukee sekä teacher<->parent että support-viestejä (senderId/recipientId)
       allow read: if isAuthenticated() && 
                     (request.auth.uid == resource.data.teacherId || 
-                     request.auth.uid == resource.data.parentId);
+                     request.auth.uid == resource.data.parentId ||
+                     request.auth.uid == resource.data.senderId ||
+                     request.auth.uid == resource.data.recipientId);
       
-      // Kirjoitus: Opettaja tai vanhempi voivat luoda viestejä
+      // Kirjoitus: Lähettäjä voi luoda viestejä
+      // Tukee teacher<->parent, support-viestit (type='support')
       allow create: if isAuthenticated() && 
                       (request.auth.uid == request.resource.data.teacherId ||
-                       request.auth.uid == request.resource.data.parentId);
+                       request.auth.uid == request.resource.data.parentId ||
+                       request.auth.uid == request.resource.data.senderId);
       
-      // Päivitys: Opettaja tai vanhempi voivat päivittää (esim. merkitä luetuksi)
+      // Päivitys: Lähettäjä tai vastaanottaja voivat päivittää (esim. merkitä luetuksi)
       allow update: if isAuthenticated() && 
                       (request.auth.uid == resource.data.teacherId || 
-                       request.auth.uid == resource.data.parentId);
+                       request.auth.uid == resource.data.parentId ||
+                       request.auth.uid == resource.data.senderId ||
+                       request.auth.uid == resource.data.recipientId);
       
-      // Poisto: Molemmat voivat poistaa
+      // Poisto: Lähettäjä tai vastaanottaja voivat poistaa
       allow delete: if isAuthenticated() && 
                       (request.auth.uid == resource.data.teacherId ||
-                       request.auth.uid == resource.data.parentId);
+                       request.auth.uid == resource.data.parentId ||
+                       request.auth.uid == resource.data.senderId ||
+                       request.auth.uid == resource.data.recipientId);
     }
     
     // ========================================
@@ -300,6 +317,39 @@ service cloud.firestore {
       // Poisto: Vain lähettäjä voi poistaa oman palautteensa
       allow delete: if isAuthenticated() && 
                       request.auth.uid == resource.data.fromUserId;
+    }
+    
+    // ========================================
+    // ADMINS COLLECTION
+    // ========================================
+    match /admins/{adminEmail} {
+      // Luku: Kaikki kirjautuneet voivat lukea admin-statuksen
+      // Tämä tarvitaan jotta authSlice voi tarkistaa admin-oikeudet loginissa
+      allow read: if isAuthenticated();
+      
+      // Kirjoitus: EI kenelläkään (vain server-side/manuaalisesti)
+      allow write: if false;
+    }
+    
+    // ========================================
+    // CONTACT MESSAGES COLLECTION
+    // ========================================
+    match /contactMessages/{messageId} {
+      // Luku: Vain adminit voivat lukea yhteydenottoja
+      allow read: if isAdmin();
+      
+      // Kirjoitus: Kaikki kirjautuneet voivat lähettää viestin
+      allow create: if isAuthenticated() &&
+                      isValidString('name') &&
+                      isValidString('email') &&
+                      isValidEmail(request.resource.data.email) &&
+                      isValidString('subject') &&
+                      isValidString('message') &&
+                      hasField('category') &&
+                      hasField('createdAt');
+      
+      // Päivitys ja poisto: Vain adminit
+      allow update, delete: if isAdmin();
     }
     
     // ========================================

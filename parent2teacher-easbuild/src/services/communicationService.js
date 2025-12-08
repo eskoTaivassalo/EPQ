@@ -189,3 +189,138 @@ export async function listConversationsForUser(userId, role) {
   return Array.from(map.values());
 }
 
+/**
+ * sendSupportMessage - send support/contact message to all admins
+ * @param {Object} params
+ * @param {string} params.userId - Sender's user ID
+ * @param {string} params.senderName - Sender's name
+ * @param {string} params.senderEmail - Sender's email
+ * @param {string} params.senderRole - Sender's role ('teacher' | 'parent')
+ * @param {string} params.category - Message category (General, Technical, Billing, etc.)
+ * @param {string} params.subject - Message subject
+ * @param {string} params.text - Message content
+ */
+export async function sendSupportMessage({ userId, senderName, senderEmail, senderRole, category, subject, text }) {
+  if (!db) throw new Error('Firestore not initialized');
+  if (!userId || !text?.trim()) throw new Error('userId and text required');
+
+  // Get all admins
+  const { collection: fsCollection, getDocs: fsGetDocs } = await import('firebase/firestore');
+  const adminsRef = fsCollection(db, 'admins');
+  const adminsSnap = await fsGetDocs(adminsRef);
+  
+  if (adminsSnap.empty) {
+    throw new Error('No admins found in system');
+  }
+
+  const adminEmails = [];
+  adminsSnap.forEach(doc => {
+    const adminData = doc.data();
+    if (adminData.role === 'admin' && adminData.isActive !== false) {
+      adminEmails.push(adminData.email);
+    }
+  });
+
+  if (adminEmails.length === 0) {
+    throw new Error('No active admins found');
+  }
+
+  // Find admin user documents (need UIDs for messages)
+  const adminUserIds = [];
+  for (const email of adminEmails) {
+    // Check teachers collection
+    const teachersRef = fsCollection(db, 'teachers');
+    const teachersQuery = query(teachersRef, where('email', '==', email));
+    const teachersSnap = await fsGetDocs(teachersQuery);
+    
+    if (!teachersSnap.empty) {
+      teachersSnap.forEach(doc => adminUserIds.push({ uid: doc.id, email }));
+      continue;
+    }
+
+    // Check parents collection
+    const parentsRef = fsCollection(db, 'parents');
+    const parentsQuery = query(parentsRef, where('email', '==', email));
+    const parentsSnap = await fsGetDocs(parentsQuery);
+    
+    if (!parentsSnap.empty) {
+      parentsSnap.forEach(doc => adminUserIds.push({ uid: doc.id, email }));
+    }
+  }
+
+  if (adminUserIds.length === 0) {
+    throw new Error('Admin user accounts not found');
+  }
+
+  // Create message for each admin
+  const messageText = `📩 Support Request [${category}]\n📧 From: ${senderName} (${senderEmail})\n📝 Subject: ${subject}\n\n${text.trim()}`;
+  
+  const messages = [];
+  for (const admin of adminUserIds) {
+    const messagePayload = {
+      senderId: userId,
+      senderName,
+      senderEmail,
+      senderRole,
+      recipientId: admin.uid,
+      recipientEmail: admin.email,
+      recipientRole: 'admin',
+      category,
+      subject,
+      text: messageText,
+      type: 'support',
+      read: false,
+      createdAt: serverTimestamp(),
+    };
+
+    const messagesRef = fsCollection(db, 'messages');
+    const messageDoc = await addDoc(messagesRef, messagePayload);
+    messages.push({ id: messageDoc.id, ...messagePayload });
+
+    // Check if admin is active (lastActive within last 5 minutes)
+    const { doc: fsDoc, getDoc: fsGetDoc } = await import('firebase/firestore');
+    const adminCollection = senderRole === 'teacher' ? 'teachers' : 'parents';
+    const adminDocRef = fsDoc(db, adminCollection, admin.uid);
+    const adminDocSnap = await fsGetDoc(adminDocRef);
+    
+    let isAdminActive = false;
+    if (adminDocSnap.exists()) {
+      const adminData = adminDocSnap.data();
+      const lastActive = adminData.lastActive?.toMillis ? adminData.lastActive.toMillis() : null;
+      if (lastActive) {
+        const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
+        isAdminActive = lastActive > fiveMinutesAgo;
+      }
+    }
+
+    // Send push notification only if admin is NOT active
+    if (!isAdminActive) {
+      try {
+        const { sendExpoPushNotification } = await import('./pushService');
+        const token = adminDocSnap.exists() ? adminDocSnap.data()?.pushToken : null;
+        
+        if (token) {
+          await sendExpoPushNotification(
+            token,
+            `📩 Support: ${category}`,
+            `${senderName}: ${subject}`,
+            { 
+              type: 'support_message',
+              messageId: messageDoc.id,
+              senderId: userId,
+              category
+            }
+          );
+          console.log(`✅ Push notification sent to admin: ${admin.email}`);
+        }
+      } catch (pushError) {
+        console.warn(`⚠️ Failed to send push to admin ${admin.email}:`, pushError);
+      }
+    } else {
+      console.log(`ℹ️ Admin ${admin.email} is active, skipping push notification`);
+    }
+  }
+
+  return messages;
+}
+

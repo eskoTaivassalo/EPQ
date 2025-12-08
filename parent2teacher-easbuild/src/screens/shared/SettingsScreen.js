@@ -429,14 +429,14 @@ EmailVerified: ${user?.emailVerified ? 'Yes' : 'No'}
               icon="help-circle-outline"
               title="Help Center"
               subtitle="Get help and support"
-              onPress={() => Alert.alert('Info', 'Help center coming soon.')}
+              onPress={() => navigation.navigate('HelpCenter')}
             />
             <View style={styles.divider} />
             <SettingItem
               icon="chatbubble-outline"
               title="Contact Us"
               subtitle="Send us a message"
-              onPress={() => Alert.alert('Info', 'Contact form coming soon.')}
+              onPress={() => navigation.navigate('ContactUs')}
             />
             <View style={styles.divider} />
             <SettingItem
