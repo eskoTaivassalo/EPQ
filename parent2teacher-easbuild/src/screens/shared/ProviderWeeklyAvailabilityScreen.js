@@ -14,7 +14,10 @@ import { createRecurringBooking } from '../../store/slices/bookingsSlice';
 function startOfWeek(date) {
   const d = new Date(date);
   const day = d.getDay(); // 0=Sun..6=Sat
-  const diff = day === 0 ? -6 : 1 - day; // Monday as first day
+  // Week starts on Monday (ISO 8601 standard)
+  // If Sunday (0), go back 6 days to previous Monday
+  // Otherwise, go back (day - 1) days to get Monday
+  const diff = day === 0 ? -6 : 1 - day;
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
   return d;
@@ -23,7 +26,8 @@ function startOfWeek(date) {
 function endOfWeek(date) {
   const s = startOfWeek(date);
   const e = new Date(s);
-  e.setDate(s.getDate() + 6);
+  // Week is Monday to Sunday (7 days)
+  e.setDate(s.getDate() + 6); // Monday + 6 days = Sunday
   e.setHours(23, 59, 59, 999);
   return e;
 }
@@ -47,7 +51,23 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
   const load = useCallback(async () => {
     try {
       setLoading(true);
+      console.log('🔍 Weekly view loading:', {
+        weekStart: weekStart.toLocaleString(),
+        weekEnd: weekEnd.toLocaleString(),
+        weekStartDay: weekStart.getDay(),
+        weekEndDay: weekEnd.getDay()
+      });
+      
       const data = await listAvailableSlots(teacherId, weekStart, weekEnd);
+      
+      console.log(`📦 Loaded ${data.length} slots from Firestore`);
+      if (data.length > 0) {
+        console.log('Sample slots:', data.slice(0, 3).map(s => ({
+          date: s.date,
+          start: s.start,
+          dayOfWeek: new Date(s.start).getDay()
+        })));
+      }
       
       // Filter out past slots and slots less than 2 hours from now
       const now = new Date();
@@ -55,23 +75,54 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       
       const validSlots = data.filter(s => {
         const slotStart = new Date(s.start);
-        return slotStart > twoHoursFromNow;
+        const isValid = slotStart > twoHoursFromNow;
+        if (!isValid && slotStart.getDay() === 0) {
+          console.log('⚠️ Filtering out Sunday slot (too soon):', {
+            start: slotStart.toLocaleString(),
+            now: now.toLocaleString(),
+            twoHoursFromNow: twoHoursFromNow.toLocaleString()
+          });
+        }
+        return isValid;
       });
       
-      const mapped = validSlots.map(s => ({
-        id: s.id,
-        title: 'Available',
-        start: new Date(s.start),
-        end: new Date(s.end),
-        slot: s,
-      }));
+      console.log(`✅ After time filter: ${validSlots.length} slots (removed ${data.length - validSlots.length})`);
+      
+      const mapped = validSlots.map(s => {
+        const startDate = new Date(s.start);
+        const endDate = new Date(s.end);
+        
+        // CRITICAL FIX: react-native-big-calendar filters events by comparing Date objects
+        // Ensure Sunday events are within the week bounds by logging what we're creating
+        if (startDate.getDay() === 0) {
+          console.log('📅 Creating Sunday event for calendar:', {
+            id: s.id,
+            start: startDate.toLocaleString(),
+            end: endDate.toLocaleString(),
+            startDay: startDate.getDay(),
+            withinWeek: startDate >= weekStart && startDate <= weekEnd
+          });
+        }
+        
+        return {
+          id: s.id,
+          title: 'Available',
+          start: startDate,
+          end: endDate,
+          slot: s,
+        };
+      });
+      
       setEvents(mapped);
+      
+      // Count how many Sunday events we're setting
+      const sundayEvents = mapped.filter(e => e.start.getDay() === 0);
+      console.log(`📅 Weekly view: Set ${mapped.length} events (${sundayEvents.length} on Sunday)`);
+      
       // Reset next-available hint when current week has events
       if (mapped.length > 0) {
         setNextAvailable(null);
       }
-      
-      console.log(`📅 Weekly view: Filtered ${data.length} slots to ${validSlots.length} valid slots (>2h from now)`);
     } catch (e) {
       console.error('Load weekly slots error', e);
       Alert.alert('Error', e.message || 'Failed to load weekly availability');
@@ -308,6 +359,7 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
         onPressEvent={onPressEvent}
         swipeEnabled={false}
         showTime={true}
+        weekStartsOn={1}
         theme={{
           palette: {
             primary: { main: colors.secondary },

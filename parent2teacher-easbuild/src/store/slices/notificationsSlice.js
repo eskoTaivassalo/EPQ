@@ -20,11 +20,7 @@ export const fetchNotifications = createAsyncThunk(
   'notifications/fetch',
   async (userId) => {
     try {
-      console.log('[fetchNotifications] 🔍 Fetching notifications for userId:', userId);
-      console.log('[fetchNotifications] Current auth user:', auth?.currentUser?.uid);
-      
       if (!userId) {
-        console.error('[fetchNotifications] ❌ No userId provided!');
         return [];
       }
       
@@ -46,11 +42,8 @@ export const fetchNotifications = createAsyncThunk(
         where('userId', '==', userId)
       );
       const snapshot = await getDocs(q);
-      console.log('[fetchNotifications] 📊 Found', snapshot.docs.length, 'notifications');
-      
       const notifications = snapshot.docs.map(doc => {
         const data = doc.data();
-        console.log('[fetchNotifications] 📝 Notification:', { id: doc.id, type: data.type, userId: data.userId });
         return {
           id: doc.id,
           ...data,
@@ -60,7 +53,6 @@ export const fetchNotifications = createAsyncThunk(
       
       // Sort newest first
       notifications.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-      console.log('[fetchNotifications] ✅ Returning', notifications.length, 'notifications for user:', userId);
       return notifications;
     } catch (error) {
       console.error('[fetchNotifications] ❌ Error fetching notifications:', error);
@@ -74,9 +66,6 @@ export const createNotification = createAsyncThunk(
   'notifications/create',
   async (notificationData) => {
     try {
-      console.log('[createNotification] 🔔 Creating notification FOR USER:', notificationData.userId);
-      console.log('[createNotification] Current auth user (sender):', auth?.currentUser?.uid);
-      console.log('[createNotification] Notification type:', notificationData.type);
       
       if (!notificationData.userId) {
         console.error('[createNotification] ❌ ERROR: No userId specified in notification data!');
@@ -92,8 +81,6 @@ export const createNotification = createAsyncThunk(
         read: false,
         createdAt: serverTimestamp()
       });
-
-      console.log('[createNotification] ✅ Notification created with ID:', docRef.id, 'for user:', notificationData.userId);
       
       // Do NOT read back here: sender isn't allowed to read receiver's notifications by rules.
       // Return a serializable client timestamp for immediate UI update; the server timestamp remains in Firestore.
@@ -116,8 +103,6 @@ export const markAsRead = createAsyncThunk(
   'notifications/markAsRead',
   async (notificationId) => {
     try {
-      console.log('[markAsRead] Starting for notificationId:', notificationId);
-      console.log('[markAsRead] Current user:', auth?.currentUser?.uid);
       
       const ref = doc(db, 'notifications', notificationId);
       const snap = await getDoc(ref);
@@ -126,11 +111,6 @@ export const markAsRead = createAsyncThunk(
         return notificationId; // Graceful: return so reducer can ignore if needed
       }
       const data = snap.data();
-      console.log('[markAsRead] Notification data:', {
-        userId: data.userId,
-        type: data.type,
-        read: data.read
-      });
       
       if (!data || typeof data.userId !== 'string') {
         console.warn('[notifications] markAsRead skipped: missing userId field (legacy malformed doc?)', notificationId);
@@ -270,7 +250,6 @@ const notificationsSlice = createSlice({
         state.notifications = action.payload;
         const unreadCount = action.payload.filter(n => !n.read).length;
         state.unreadCount = unreadCount;
-        console.log('[notificationsSlice] ✅ Fetched', action.payload.length, 'notifications, unread:', unreadCount);
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.loading = false;
@@ -282,7 +261,6 @@ const notificationsSlice = createSlice({
       // The recipient will get it via fetchNotifications.
       .addCase(createNotification.fulfilled, (state, action) => {
         // Do nothing - notification was created in Firestore for another user
-        console.log('[notificationsSlice] ✅ Notification created for userId:', action.payload.userId);
       })
       
       // Mark as read

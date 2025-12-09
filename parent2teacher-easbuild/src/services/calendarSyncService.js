@@ -16,6 +16,7 @@ import { collection, doc, setDoc, getDocs, query, where, serverTimestamp } from 
 import { db } from '../config/firebaseConfig';
 import * as Calendar from 'expo-calendar';
 import { Platform, Alert } from 'react-native';
+import { toISODate } from '../utils/dateUtils';
 
 /**
  * Request calendar permissions
@@ -130,11 +131,12 @@ export async function importCalendarEvents(userId, calendarId, fromDate, toDate)
     );
 
     // Get teacher's availability slots
+    // IMPORTANT: Use toISODate() to match the format used when creating slots (local timezone)
     const slotsQuery = query(
       collection(db, 'availabilitySlots'),
       where('teacherId', '==', userId),
-      where('date', '>=', fromDate.toISOString().split('T')[0]),
-      where('date', '<=', toDate.toISOString().split('T')[0])
+      where('date', '>=', toISODate(fromDate)),
+      where('date', '<=', toISODate(toDate))
     );
     const slotsSnapshot = await getDocs(slotsQuery);
     const availabilitySlots = slotsSnapshot.docs.map(d => ({
@@ -242,11 +244,12 @@ export async function syncAllBookingsToCalendar(userId, calendarId) {
     if (!hasPermission) return { synced: 0, errors: 0 };
 
     // Get all future bookings
+    // IMPORTANT: Use toISODate() to match the format used when creating bookings (local timezone)
     const now = new Date();
     const bookingsQuery = query(
       collection(db, 'bookings'),
       where('teacherId', '==', userId),
-      where('date', '>=', now.toISOString().split('T')[0]),
+      where('date', '>=', toISODate(now)),
       where('status', 'in', ['confirmed', 'booked'])
     );
     const bookingsSnapshot = await getDocs(bookingsQuery);

@@ -7,6 +7,7 @@ import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { listAvailableSlots, bookSlot } from '../../services/availabilityService';
+import { toISODate } from '../../utils/dateUtils';
 
 /**
  * Calendar-based view for a provider's availability.
@@ -25,19 +26,37 @@ export default function ProviderAvailabilityCalendarScreen({ route, navigation }
       const from = new Date();
       const to = new Date();
       to.setDate(to.getDate() + 30);
+      
+      console.log('🔍 Calendar view loading:', {
+        from: from.toLocaleString(),
+        to: to.toLocaleString()
+      });
+      
       const data = await listAvailableSlots(teacherId, from, to);
+      console.log(`📦 Loaded ${data.length} slots from Firestore`);
+      
+      const sundaySlots = data.filter(s => new Date(s.start).getDay() === 0);
+      if (sundaySlots.length > 0) {
+        console.log(`📅 Found ${sundaySlots.length} Sunday slots:`, sundaySlots.map(s => ({
+          date: s.date,
+          start: s.start,
+          id: s.id
+        })));
+      }
 
       // Create base map with empty days (Agenda shows renderEmptyDate for these)
+      // IMPORTANT: Use toISODate to ensure Sunday dates are handled correctly (local timezone)
       const base = {};
       const cursor = new Date(from);
       while (cursor <= to) {
-        const iso = cursor.toISOString().slice(0,10);
+        const iso = toISODate(cursor);
         base[iso] = [];
         cursor.setDate(cursor.getDate() + 1);
       }
 
       // Group slots by ISO date (YYYY-MM-DD)
       const grouped = { ...base };
+      let sundayGrouped = 0;
       for (const s of data) {
         // Validate slot dates
         if (!s.start || !s.end) {
@@ -54,17 +73,29 @@ export default function ProviderAvailabilityCalendarScreen({ route, navigation }
             continue;
           }
           
-          const d = (s.date || startDate.toISOString().slice(0,10));
+          // IMPORTANT: Use toISODate to ensure Sunday slots appear on correct day (use local timezone, not UTC)
+          const d = (s.date || toISODate(startDate));
           if (!grouped[d]) grouped[d] = [];
           grouped[d].push({
             name: `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
             slot: s,
             height: 60,
           });
+          
+          if (startDate.getDay() === 0) {
+            sundayGrouped++;
+            console.log(`📅 Grouped Sunday slot under date: ${d}`, {
+              slotDate: s.date,
+              computedDate: d,
+              startTime: startDate.toLocaleString()
+            });
+          }
         } catch (error) {
           console.warn('Error processing slot:', s.id, error);
         }
       }
+      
+      console.log(`✅ Calendar grouped ${sundayGrouped} Sunday slots`);
       setItems(grouped);
       setHasAnySlots((data || []).length > 0);
     } catch (e) {
@@ -136,7 +167,8 @@ export default function ProviderAvailabilityCalendarScreen({ route, navigation }
     <View style={styles.emptyDate}><Text style={styles.emptyDateText}>No available times</Text></View>
   );
 
-  const today = useMemo(() => new Date().toISOString().slice(0,10), []);
+  // IMPORTANT: Use toISODate to ensure today's date is in local timezone (Sunday fix)
+  const today = useMemo(() => toISODate(new Date()), []);
 
   return (
     <SafeAreaView style={styles.container}>

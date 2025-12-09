@@ -13,7 +13,7 @@ import { Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchTeacherBookings, selectBookings, updateBookingStatus } from '../../store/slices/bookingsSlice';
+import { fetchTeacherBookings, selectBookings, updateBookingStatus, approveAllRecurringBookings } from '../../store/slices/bookingsSlice';
 import { useAppData } from '../../hooks/useAppData';
 import NotificationBell from '../../components/NotificationBell';
 import SimpleDrawer from '../../components/SimpleDrawer';
@@ -46,7 +46,34 @@ const TeacherDashboard = ({ navigation }) => {
 
   // Treat legacy 'booked' as pending as well
   const isPendingLike = (status) => status === 'pending' || status === 'booked';
-  const pendingRequests = bookings.filter(b => isPendingLike(b.status)).slice(0, 3);
+  
+  // Group pending bookings by recurringBookingId
+  const pendingBookings = bookings.filter(b => isPendingLike(b.status));
+  const recurringGroups = {};
+  const standalonePending = [];
+  
+  pendingBookings.forEach(booking => {
+    if (booking.recurringBookingId) {
+      if (!recurringGroups[booking.recurringBookingId]) {
+        recurringGroups[booking.recurringBookingId] = [];
+      }
+      recurringGroups[booking.recurringBookingId].push(booking);
+    } else {
+      standalonePending.push(booking);
+    }
+  });
+  
+  // Convert recurring groups to array of group objects
+  const recurringRequests = Object.entries(recurringGroups).map(([id, bookings]) => ({
+    type: 'recurring',
+    recurringBookingId: id,
+    bookings: bookings.sort((a, b) => new Date(a.date) - new Date(b.date)),
+    parentId: bookings[0].parentId,
+    notes: bookings[0].notes
+  }));
+  
+  // Combine: recurring groups first, then standalone (limit total to 3)
+  const pendingRequests = [...recurringRequests, ...standalonePending.map(b => ({ type: 'single', booking: b }))].slice(0, 3);
 
   // Calculate This Week stats from real bookings
   const getWeekBounds = () => {
@@ -200,6 +227,17 @@ const TeacherDashboard = ({ navigation }) => {
       teacherName: user?.displayName || user?.name || 'Opettaja',
       date: booking.date
     }));
+  };
+
+  const handleAcceptAll = async (recurringBookingId) => {
+    try {
+      await dispatch(approveAllRecurringBookings({ recurringBookingId })).unwrap();
+      alert('✅ All recurring bookings accepted!');
+      // Refresh bookings
+      dispatch(fetchTeacherBookings());
+    } catch (error) {
+      alert('❌ Failed to accept recurring bookings: ' + error);
+    }
   };
 
   const drawerMenuItems = [
@@ -485,49 +523,99 @@ const TeacherDashboard = ({ navigation }) => {
               <Text style={styles.emptyRequestsText}>No pending requests</Text>
             </View>
           ) : (
-            pendingRequests.map((booking) => {
-              const parent = getParentById(booking.parentId);
-              const bookingDate = new Date(booking.date);
-              return (
-                <View key={booking.id} style={styles.requestCard}>
-                  <View style={styles.requestHeader}>
-                    <Text style={styles.requestStudent}>
-                      {parent?.name || parent?.fullName || parent?.displayName || 'Parent'}
+            pendingRequests.map((request, idx) => {
+              if (request.type === 'recurring') {
+                // Recurring booking group
+                const parent = getParentById(request.parentId);
+                const firstDate = new Date(request.bookings[0].date);
+                const lastDate = new Date(request.bookings[request.bookings.length - 1].date);
+                
+                return (
+                  <View key={`recurring-${request.recurringBookingId}`} style={styles.requestCard}>
+                    <View style={styles.requestHeader}>
+                      <View style={styles.recurringHeaderLeft}>
+                        <Ionicons name="repeat" size={20} color={colors.primary} />
+                        <Text style={styles.requestStudent}>
+                          {parent?.name || parent?.fullName || parent?.displayName || 'Parent'}
+                        </Text>
+                      </View>
+                      <View style={[styles.requestBadge, { backgroundColor: colors.primary }]}>
+                        <Text style={styles.requestBadgeText}>{request.bookings.length}x</Text>
+                      </View>
+                    </View>
+                    {request.notes && (
+                      <Text style={styles.requestSubject} numberOfLines={1}>{request.notes}</Text>
+                    )}
+                    <Text style={styles.requestTime}>
+                      {firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </Text>
-                    <View style={styles.requestBadge}>
-                      <Text style={styles.requestBadgeText}>New</Text>
+                    <Text style={styles.recurringDates}>
+                      {request.bookings.length} lessons • Every week
+                    </Text>
+                    <View style={styles.requestActions}>
+                      <TouchableOpacity 
+                        style={styles.acceptButton}
+                        onPress={() => handleAcceptAll(request.recurringBookingId)}
+                      >
+                        <Ionicons name="checkmark-done" size={18} color={colors.white} />
+                        <Text style={styles.acceptButtonText}>Accept All</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.declineButton}
+                        onPress={() => navigation.navigate('ProviderBookings', { filterRecurring: request.recurringBookingId })}
+                      >
+                        <Ionicons name="list" size={18} color={colors.primary} />
+                        <Text style={[styles.declineButtonText, { color: colors.primary }]}>View Details</Text>
+                      </TouchableOpacity>
                     </View>
                   </View>
-                  {booking.notes && (
-                    <Text style={styles.requestSubject} numberOfLines={1}>{booking.notes}</Text>
-                  )}
-                  <Text style={styles.requestTime}>
-                    Requested: {bookingDate.toLocaleDateString('en-US', { 
-                      weekday: 'short', 
-                      month: 'short', 
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </Text>
-                  <View style={styles.requestActions}>
-                    <TouchableOpacity 
-                      style={styles.acceptButton}
-                      onPress={() => handleAccept(booking)}
-                    >
-                      <Ionicons name="checkmark" size={18} color={colors.white} />
-                      <Text style={styles.acceptButtonText}>Accept</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={styles.declineButton}
-                      onPress={() => handleDecline(booking)}
-                    >
-                      <Ionicons name="close" size={18} color={colors.error} />
-                      <Text style={styles.declineButtonText}>Decline</Text>
-                    </TouchableOpacity>
+                );
+              } else {
+                // Single booking
+                const booking = request.booking;
+                const parent = getParentById(booking.parentId);
+                const bookingDate = new Date(booking.date);
+                return (
+                  <View key={booking.id} style={styles.requestCard}>
+                    <View style={styles.requestHeader}>
+                      <Text style={styles.requestStudent}>
+                        {parent?.name || parent?.fullName || parent?.displayName || 'Parent'}
+                      </Text>
+                      <View style={styles.requestBadge}>
+                        <Text style={styles.requestBadgeText}>New</Text>
+                      </View>
+                    </View>
+                    {booking.notes && (
+                      <Text style={styles.requestSubject} numberOfLines={1}>{booking.notes}</Text>
+                    )}
+                    <Text style={styles.requestTime}>
+                      Requested: {bookingDate.toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </Text>
+                    <View style={styles.requestActions}>
+                      <TouchableOpacity 
+                        style={styles.acceptButton}
+                        onPress={() => handleAccept(booking)}
+                      >
+                        <Ionicons name="checkmark" size={18} color={colors.white} />
+                        <Text style={styles.acceptButtonText}>Accept</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.declineButton}
+                        onPress={() => handleDecline(booking)}
+                      >
+                        <Ionicons name="close" size={18} color={colors.error} />
+                        <Text style={styles.declineButtonText}>Decline</Text>
+                      </TouchableOpacity>
+                    </View>
                   </View>
-                </View>
-              );
+                );
+              }
             })
           )}
         </View>
@@ -742,10 +830,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 6,
   },
+  recurringHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
   requestStudent: {
     fontSize: 15,
     fontWeight: '600',
     color: colors.text,
+  },
+  recurringDates: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginTop: 4,
+    marginBottom: 8,
   },
   requestBadge: {
     backgroundColor: colors.primary,

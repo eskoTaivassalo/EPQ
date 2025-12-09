@@ -47,14 +47,36 @@ export default function CalendarScreen({ navigation }) {
     const grouped = {};
     bookings.forEach(booking => {
       try {
+        // Use local date to avoid timezone issues
         const date = new Date(booking.date);
-        const key = date.toISOString().split('T')[0];
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        const dayOfWeek = date.getDay(); // 0 = Sunday
+        const key = `${year}-${month}-${day}`;
+        
+        if (__DEV__ && dayOfWeek === 0) {
+          console.log('📅 Sunday booking:', {
+            id: booking.id,
+            originalDate: booking.date,
+            parsedDate: date.toISOString(),
+            localDate: date.toLocaleDateString(),
+            key,
+            dayOfWeek
+          });
+        }
+        
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push(booking);
       } catch (e) {
-        console.warn('Error grouping booking:', booking.id);
+        console.warn('Error grouping booking:', booking.id, e);
       }
     });
+    
+    if (__DEV__) {
+      console.log('📅 BookingsByDate keys:', Object.keys(grouped));
+    }
+    
     return grouped;
   }, [bookings]);
 
@@ -82,8 +104,18 @@ export default function CalendarScreen({ navigation }) {
     // Days of the month
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
-      const dateKey = date.toISOString().split('T')[0];
+      // Use local date format to match bookingsByDate
+      const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayBookings = bookingsByDate[dateKey] || [];
+      
+      if (__DEV__ && date.getDay() === 0 && dayBookings.length > 0) {
+        console.log('📅 Sunday in calendar with bookings:', {
+          dateKey,
+          dayOfWeek: date.getDay(),
+          bookingsCount: dayBookings.length,
+          bookings: dayBookings.map(b => ({ id: b.id, date: b.date }))
+        });
+      }
       
       days.push({
         day,
@@ -98,7 +130,8 @@ export default function CalendarScreen({ navigation }) {
   }, [currentDate, bookingsByDate]);
 
   const monthYear = currentDate.toLocaleDateString('fi-FI', { month: 'long', year: 'numeric' });
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
   const goToPreviousMonth = () => {
     setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));

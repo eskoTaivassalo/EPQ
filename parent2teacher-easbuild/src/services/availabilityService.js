@@ -29,9 +29,21 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
   // Iterate days
   await runTransaction(db, async (tx) => {
     eachDay(fromDate, toDate, (day) => {
-      const dow = day.getDay();
+      const dow = day.getDay(); // 0=Sunday, 1=Monday, ..., 6=Saturday
       // Accept both 0..6 or 1..7 specification
+      // Note: If user selects Sunday in UI, it comes as 0 (already normalized)
       const normalizedDows = dows.map(v => (v === 7 ? 0 : v));
+      
+      if (__DEV__) {
+        console.log(`📅 Processing ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dow]}:`, {
+          dateLocal: toISODate(day),
+          dow,
+          requestedDows: dows,
+          normalizedDows,
+          willCreate: normalizedDows.includes(dow)
+        });
+      }
+      
       if (!normalizedDows.includes(dow)) return;
 
       const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), sh, sm, 0, 0);
@@ -46,7 +58,7 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
         const slotKey = `${teacherId}#${slotStart.toISOString()}`; // unique key
         const slotId = slotKey; // deterministic id to avoid duplicates
         const slotRef = doc(db, SLOTS_COL, slotId);
-        tx.set(slotRef, {
+        const slotData = {
           teacherId,
           date: toISODate(slotStart),
           start: slotStart.toISOString(),
@@ -58,7 +70,18 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
           subjects: Array.isArray(subjects) ? subjects : [],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-        }, { merge: true });
+        };
+        
+        if (__DEV__ && slotStart.getDay() === 0) {
+          console.log('📅 Creating Sunday slot:', {
+            slotId,
+            date: slotData.date,
+            start: slotData.start,
+            dayOfWeek: slotStart.getDay()
+          });
+        }
+        
+        tx.set(slotRef, slotData, { merge: true });
         created.push(slotId);
 
         cursor = slotEnd;
@@ -77,6 +100,14 @@ export async function listAvailableSlots(teacherId, fromDate, toDate) {
   const fromISO = toISODate(fromDate);
   const toISO = toISODate(toDate);
 
+  console.log('🔍 Querying availability slots:', {
+    teacherId,
+    fromISO,
+    toISO,
+    fromDate: fromDate.toLocaleString(),
+    toDate: toDate.toLocaleString()
+  });
+
   const q = query(
     collection(db, SLOTS_COL),
     where('teacherId', '==', teacherId),
@@ -86,7 +117,20 @@ export async function listAvailableSlots(teacherId, fromDate, toDate) {
     orderBy('date', 'asc')
   );
   const snap = await getDocs(q);
-  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  
+  const sundayResults = results.filter(s => new Date(s.start).getDay() === 0);
+  console.log(`📦 Query returned ${results.length} slots (${sundayResults.length} on Sunday)`);
+  
+  if (sundayResults.length > 0) {
+    console.log('Sunday slots from query:', sundayResults.map(s => ({
+      id: s.id,
+      date: s.date,
+      start: s.start
+    })));
+  }
+  
+  return results;
 }
 
 /**
