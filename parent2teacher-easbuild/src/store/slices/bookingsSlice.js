@@ -488,14 +488,28 @@ export const cancelBooking = createAsyncThunk(
         let title = 'Varaus peruutettu';
         let message = `Varaus ${date ? new Date(date).toLocaleString('fi-FI') : ''} on peruutettu.`;
         if (reason) message += ` Syynä: ${reason}`;
-        dispatch(createNotification({
-          userId: otherUserId,
+        
+        // If teacher cancelled, offer rebooking option
+        if (uid === teacherId) {
+          message += ` Haluatko varata uuden ajan?`;
+          dispatch(createNotification({
+            userId: otherUserId,
             type: 'booking_cancelled',
             title,
             message,
-            navigationTarget: uid === teacherId ? 'ParentBookings' : 'TeacherBookings',
+            navigationTarget: 'FindProviders',
+            navigationParams: { teacherId }
+          }));
+        } else {
+          dispatch(createNotification({
+            userId: otherUserId,
+            type: 'booking_cancelled',
+            title,
+            message,
+            navigationTarget: 'TeacherBookings',
             navigationParams: { bookingId }
-        }));
+          }));
+        }
       }
       return { bookingId, status: cancelledStatus, cancelReason: reason || null };
     } catch (err) {

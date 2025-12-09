@@ -1,0 +1,28 @@
+moodle: salasana: OFE-lgf-796
+
+wordpress:
+Käyttäjänimi: esko_featsyapp
+salasana: XQNblt_lt28ben3_
+
+esko_featsyapp
+XQNblt_lt28ben3_
+
+
+domainkeskus: 
+s-posti:
+featsyapp@gmail.com
+ admin@featsyapp.fi
+ salasana: Al4UCgXfb5NP. quota: 666
+
+
+wordpress.org tunnuksia
+
+salasana: fjNHdJR#!UT^J02T
+
+
+hallintapaneelin asetuksista uudet käyttikset:
+
+sähköposti: featsyapp@gmail.com
+käyttäjätunnus: esko_featsyapp
+salasana vDs7V9wSHi%8(WyPL7#aiaSC
+

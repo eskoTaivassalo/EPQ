@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, FlatList, TextInput, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector, useDispatch } from 'react-redux';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
-import { fetchParentBookings, fetchTeacherBookings, selectBookings } from '../../store/slices/bookingsSlice';
+import { fetchParentBookings, fetchTeacherBookings, selectBookings, cancelBooking } from '../../store/slices/bookingsSlice';
 
 export default function CalendarScreen({ navigation }) {
   const dispatch = useDispatch();
@@ -16,6 +16,9 @@ export default function CalendarScreen({ navigation }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [selectedBookings, setSelectedBookings] = useState([]);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [bookingToCancel, setBookingToCancel] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
 
   // Fetch bookings on mount
   useEffect(() => {
@@ -153,6 +156,41 @@ export default function CalendarScreen({ navigation }) {
     }
   };
 
+  const openCancelModal = (booking) => {
+    setBookingToCancel(booking);
+    setCancelReason('');
+    setCancelModalVisible(true);
+  };
+
+  const handleCancelBooking = async () => {
+    if (!cancelReason.trim()) {
+      Alert.alert('Virhe', 'Syötä peruutuksen syy');
+      return;
+    }
+
+    try {
+      await dispatch(cancelBooking({ 
+        bookingId: bookingToCancel.id, 
+        reason: cancelReason 
+      })).unwrap();
+      
+      setCancelModalVisible(false);
+      setBookingToCancel(null);
+      setCancelReason('');
+      
+      // Refresh bookings
+      if (role === 'teacher') {
+        dispatch(fetchTeacherBookings());
+      } else {
+        dispatch(fetchParentBookings());
+      }
+      
+      Alert.alert('Onnistui', 'Varaus peruutettu');
+    } catch (error) {
+      Alert.alert('Virhe', error.message || 'Varauksen peruutus epäonnistui');
+    }
+  };
+
   const renderBookingItem = ({ item }) => {
     const date = new Date(item.date);
     const timeStr = date.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
@@ -179,6 +217,16 @@ export default function CalendarScreen({ navigation }) {
         
         {item.notes && (
           <Text style={styles.bookingNotes}>{item.notes}</Text>
+        )}
+        
+        {role === 'teacher' && (item.status === 'accepted' || item.status === 'confirmed') && (
+          <TouchableOpacity 
+            style={styles.cancelButton}
+            onPress={() => openCancelModal(item)}
+          >
+            <Ionicons name="close-circle" size={20} color={colors.error} />
+            <Text style={styles.cancelButtonText}>Peruuta varaus</Text>
+          </TouchableOpacity>
         )}
       </View>
     );
@@ -316,6 +364,56 @@ export default function CalendarScreen({ navigation }) {
                 contentContainerStyle={styles.bookingsList}
               />
             )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Cancel Booking Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Peruuta varaus</Text>
+              <TouchableOpacity onPress={() => setCancelModalVisible(false)} style={styles.closeButton}>
+                <Ionicons name="close" size={24} color={colors.textDark} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.cancelModalBody}>
+              <Text style={styles.cancelLabel}>Peruutuksen syy *</Text>
+              <TextInput
+                style={styles.cancelTextArea}
+                placeholder="Kerro miksi peruutat varauksen..."
+                value={cancelReason}
+                onChangeText={setCancelReason}
+                multiline
+                numberOfLines={4}
+                maxLength={300}
+              />
+              <Text style={styles.cancelHelpText}>
+                Oppilaa informoidaan peruutuksesta ja syystä
+              </Text>
+            </View>
+
+            <View style={styles.cancelModalFooter}>
+              <TouchableOpacity 
+                style={styles.cancelModalBackButton}
+                onPress={() => setCancelModalVisible(false)}
+              >
+                <Text style={styles.cancelModalBackButtonText}>Takaisin</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.cancelModalConfirmButton}
+                onPress={handleCancelBooking}
+              >
+                <Text style={styles.cancelModalConfirmButtonText}>Peruuta varaus</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -511,6 +609,81 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.textLight,
     marginTop: 12,
+  },
+  cancelButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#ffebee',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  cancelButtonText: {
+    color: colors.error,
+    fontSize: 14,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  cancelModalBody: {
+    padding: 20,
+  },
+  cancelLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.textDark,
+    marginBottom: 8,
+  },
+  cancelTextArea: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    color: colors.textDark,
+    minHeight: 100,
+    textAlignVertical: 'top',
+  },
+  cancelHelpText: {
+    fontSize: 13,
+    color: colors.textLight,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  cancelModalFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  cancelModalBackButton: {
+    flex: 1,
+    paddingVertical: 12,
+    marginRight: 8,
+    backgroundColor: colors.lightGray,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelModalBackButtonText: {
+    color: colors.textDark,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelModalConfirmButton: {
+    flex: 1,
+    paddingVertical: 12,
+    marginLeft: 8,
+    backgroundColor: colors.error,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelModalConfirmButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
   bookingsList: {
     padding: 20,

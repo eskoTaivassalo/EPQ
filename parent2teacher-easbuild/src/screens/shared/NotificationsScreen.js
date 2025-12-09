@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   SafeAreaView,
   Alert,
-  Animated
+  Animated,
+  Modal
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
@@ -33,6 +34,8 @@ const NotificationsScreen = ({ navigation }) => {
   const { notifications, loading } = useSelector(state => state.notifications);
   const currentUser = useSelector(state => state.auth.user);
   const [showMenu, setShowMenu] = useState(false);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [selectedCancellation, setSelectedCancellation] = useState(null);
 
   useEffect(() => {
     if (currentUser?.uid) {
@@ -233,7 +236,11 @@ const NotificationsScreen = ({ navigation }) => {
             if (!item.read) {
               handleMarkAsRead(item.id);
             }
-            if (item.navigationTarget) {
+            // Handle booking cancellation notifications specially
+            if (item.type === 'booking_cancelled') {
+              setSelectedCancellation(item);
+              setCancelModalVisible(true);
+            } else if (item.navigationTarget) {
               const state = navigation.getState?.();
               const routeNames = state?.routeNames || [];
               let target = item.navigationTarget;
@@ -368,6 +375,62 @@ const NotificationsScreen = ({ navigation }) => {
         refreshing={loading}
         onRefresh={() => currentUser?.uid && dispatch(fetchNotifications(currentUser.uid))}
       />
+
+      {/* Cancellation Details Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="close-circle" size={32} color={colors.error} />
+              <Text style={styles.modalTitle}>Varaus peruutettu</Text>
+              <TouchableOpacity 
+                onPress={() => setCancelModalVisible(false)} 
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color={colors.textDark} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.modalLabel}>Peruutuksen syy:</Text>
+              <Text style={styles.modalReason}>
+                {selectedCancellation?.message?.split('Syynä: ')[1] || 'Ei määritelty'}
+              </Text>
+              
+              <Text style={styles.modalInfo}>
+                Haluatko varata uuden ajan samalta opettajalta?
+              </Text>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton}
+                onPress={() => setCancelModalVisible(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Sulje</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalBookButton}
+                onPress={() => {
+                  setCancelModalVisible(false);
+                  const teacherId = selectedCancellation?.navigationParams?.teacherId;
+                  if (teacherId) {
+                    navigation.navigate('ProviderAvailableSlots', { teacherId });
+                  }
+                }}
+              >
+                <Ionicons name="calendar" size={20} color={colors.white} />
+                <Text style={styles.modalBookButtonText}>Varaa uusi aika</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -534,7 +597,98 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5
-  }
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.textDark,
+    flex: 1,
+    marginLeft: 12,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textLight,
+    marginBottom: 8,
+  },
+  modalReason: {
+    fontSize: 16,
+    color: colors.textDark,
+    backgroundColor: colors.lightGray,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  modalInfo: {
+    fontSize: 15,
+    color: colors.textDark,
+    lineHeight: 22,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 12,
+    backgroundColor: colors.lightGray,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    color: colors.textDark,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalBookButton: {
+    flex: 2,
+    flexDirection: 'row',
+    paddingVertical: 12,
+    backgroundColor: colors.primary,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  modalBookButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
 
 export default NotificationsScreen;
