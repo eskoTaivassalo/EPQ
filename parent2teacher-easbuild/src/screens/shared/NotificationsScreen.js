@@ -236,8 +236,8 @@ const NotificationsScreen = ({ navigation }) => {
             if (!item.read) {
               handleMarkAsRead(item.id);
             }
-            // Handle booking cancellation notifications specially
-            if (item.type === 'booking_cancelled') {
+            // Handle booking cancellation and declined notifications specially with modal
+            if (item.type === 'booking_cancelled' || item.type === 'booking_declined') {
               setSelectedCancellation(item);
               setCancelModalVisible(true);
             } else if (item.navigationTarget) {
@@ -381,8 +381,14 @@ const NotificationsScreen = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Ionicons name="close-circle" size={32} color={colors.error} />
-              <Text style={styles.modalTitle}>Varaus peruutettu</Text>
+              <Ionicons 
+                name={selectedCancellation?.type === 'booking_declined' ? "alert-circle" : "close-circle"} 
+                size={32} 
+                color={colors.error} 
+              />
+              <Text style={styles.modalTitle}>
+                {selectedCancellation?.type === 'booking_declined' ? 'Varaus hylätty' : 'Varaus peruutettu'}
+              </Text>
               <TouchableOpacity 
                 onPress={() => setCancelModalVisible(false)} 
                 style={styles.modalCloseButton}
@@ -392,14 +398,46 @@ const NotificationsScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.modalBody}>
-              <Text style={styles.modalLabel}>Peruutuksen syy:</Text>
-              <Text style={styles.modalReason}>
-                {selectedCancellation?.message?.split('Syynä: ')[1] || 'Ei määritelty'}
-              </Text>
-              
-              <Text style={styles.modalInfo}>
-                Haluatko varata uuden ajan samalta opettajalta?
-              </Text>
+              {selectedCancellation?.type === 'booking_declined' ? (
+                <>
+                  <Text style={styles.modalLabel}>Opettaja hylkäsi varauksesi</Text>
+                  <Text style={styles.modalReason}>
+                    {(() => {
+                      const msg = selectedCancellation?.message || '';
+                      // Extract decline reason from message
+                      const reasonMatch = msg.match(/Syy: (.+?)(?:\n|$)/i);
+                      if (reasonMatch) {
+                        return reasonMatch[1].trim();
+                      }
+                      // Fallback: show the whole message if no specific reason found
+                      return msg.includes('Syy:') ? msg : 'Ei määritelty';
+                    })()}
+                  </Text>
+                  <Text style={styles.modalInfo}>
+                    💡 Voit varata uuden ajan opettajan kalenterista
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.modalLabel}>Peruutuksen syy:</Text>
+                  <Text style={styles.modalReason}>
+                    {(() => {
+                      const msg = selectedCancellation?.message || '';
+                      // Try both Finnish and English formats for cancellation
+                      const reasonMatch = msg.match(/Reason: (.+?)(?:\. Would you like|$)/i) || 
+                                         msg.match(/Syynä: (.+)$/i);
+                      return reasonMatch ? reasonMatch[1].trim() : 'Ei määritelty';
+                    })()}
+                  </Text>
+                  
+                  {/* Only show rebooking option if teacherId is provided (meaning parent is viewing) */}
+                  {selectedCancellation?.navigationParams?.teacherId && (
+                    <Text style={styles.modalInfo}>
+                      Haluatko varata uuden ajan samalta opettajalta?
+                    </Text>
+                  )}
+                </>
+              )}
             </View>
 
             <View style={styles.modalFooter}>
@@ -409,19 +447,33 @@ const NotificationsScreen = ({ navigation }) => {
               >
                 <Text style={styles.modalCancelButtonText}>Sulje</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.modalBookButton}
-                onPress={() => {
-                  setCancelModalVisible(false);
-                  const teacherId = selectedCancellation?.navigationParams?.teacherId;
-                  if (teacherId) {
-                    navigation.navigate('ProviderAvailableSlots', { teacherId });
-                  }
-                }}
-              >
-                <Ionicons name="calendar" size={20} color={colors.white} />
-                <Text style={styles.modalBookButtonText}>Varaa uusi aika</Text>
-              </TouchableOpacity>
+              {/* Show rebooking button for declined bookings (always for parents) or cancellations with teacherId */}
+              {(selectedCancellation?.type === 'booking_declined' || selectedCancellation?.navigationParams?.teacherId) && (
+                <TouchableOpacity 
+                  style={styles.modalBookButton}
+                  onPress={() => {
+                    setCancelModalVisible(false);
+                    // For declined bookings, try to get teacherId from navigationParams or data
+                    const teacherId = selectedCancellation?.navigationParams?.teacherId || 
+                                    selectedCancellation?.data?.teacherId;
+                    if (teacherId) {
+                      // Navigate to weekly calendar view (same as Schedule button in FindProviders)
+                      navigation.navigate('ProviderWeeklyAvailability', { 
+                        teacherId,
+                        teacherName: selectedCancellation?.title?.includes('hylkäsi') 
+                          ? selectedCancellation.title.split(' ')[0] 
+                          : 'Opettaja'
+                      });
+                    } else {
+                      // Fallback: navigate to find providers
+                      navigation.navigate('FindProviders');
+                    }
+                  }}
+                >
+                  <Ionicons name="calendar" size={20} color={colors.white} />
+                  <Text style={styles.modalBookButtonText}>Varaa uusi aika</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -431,6 +483,7 @@ const NotificationsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
     backgroundColor: colors.background

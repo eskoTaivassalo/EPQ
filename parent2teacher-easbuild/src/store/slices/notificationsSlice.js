@@ -247,8 +247,11 @@ export const startNotificationListener = (userId, dispatch) => {
 
   activeNotificationListener = onSnapshot(q, 
     (snapshot) => {
+      console.log('🔔 [Listener] Snapshot received, docs:', snapshot.size);
+      
       const notifications = snapshot.docs.map(doc => {
         const data = doc.data();
+        console.log('🔔 [Listener] Notification:', doc.id, 'type:', data.type, 'title:', data.title);
         return {
           id: doc.id,
           ...data,
@@ -258,6 +261,8 @@ export const startNotificationListener = (userId, dispatch) => {
 
       // Sort newest first
       notifications.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      
+      console.log('🔔 [Listener] Dispatching', notifications.length, 'notifications to Redux');
       
       // Update store directly
       dispatch(notificationsSlice.actions.setNotifications(notifications));

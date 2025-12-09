@@ -6,7 +6,10 @@ import {
   StyleSheet,
   ScrollView,
   RefreshControl,
-  Animated
+  Animated,
+  Modal,
+  TextInput,
+  Alert
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Linking } from 'react-native';
@@ -31,6 +34,9 @@ const TeacherDashboard = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const scrollY = new Animated.Value(0);
   const menuButtonScale = new Animated.Value(1);
+  const [declineModalVisible, setDeclineModalVisible] = useState(false);
+  const [bookingToDecline, setBookingToDecline] = useState(null);
+  const [declineReason, setDeclineReason] = useState('');
 
   useEffect(() => {
     // Only fetch if user is authenticated
@@ -220,13 +226,34 @@ const TeacherDashboard = ({ navigation }) => {
   };
 
   const handleDecline = (booking) => {
-    dispatch(updateBookingStatus({ 
-      bookingId: booking.id, 
-      status: 'declined',
-      parentId: booking.parentId,
-      teacherName: user?.displayName || user?.name || 'Opettaja',
-      date: booking.date
-    }));
+    setBookingToDecline(booking);
+    setDeclineModalVisible(true);
+  };
+
+  const confirmDecline = async () => {
+    if (!declineReason.trim()) {
+      Alert.alert('Puuttuva syy', 'Kirjoita lyhyt syy, miksi et voi hyväksyä tätä varausta.');
+      return;
+    }
+
+    try {
+      await dispatch(updateBookingStatus({ 
+        bookingId: bookingToDecline.id, 
+        status: 'declined',
+        parentId: bookingToDecline.parentId,
+        teacherName: user?.displayName || user?.name || 'Opettaja',
+        date: bookingToDecline.date,
+        declineReason: declineReason.trim()
+      })).unwrap();
+      
+      setDeclineModalVisible(false);
+      setBookingToDecline(null);
+      setDeclineReason('');
+      
+      Alert.alert('Hylätty', 'Varaus hylätty. Oppilas saa ilmoituksen.');
+    } catch (error) {
+      Alert.alert('Virhe', 'Varauksen hylkääminen epäonnistui: ' + error);
+    }
   };
 
   const handleAcceptAll = async (recurringBookingId) => {
@@ -620,6 +647,55 @@ const TeacherDashboard = ({ navigation }) => {
           )}
         </View>
 
+        {/* Decline Modal */}
+        <Modal
+          visible={declineModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setDeclineModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Ionicons name="close-circle" size={32} color={colors.error} />
+                <Text style={styles.modalTitle}>Hylkää varaus</Text>
+              </View>
+              
+              <Text style={styles.modalLabel}>Kerro oppilaalle, miksi et voi hyväksyä tätä varausta:</Text>
+              
+              <TextInput
+                style={styles.modalTextInput}
+                placeholder="Esim: En ole saatavilla kyseisenä aikana"
+                placeholderTextColor="#999"
+                value={declineReason}
+                onChangeText={setDeclineReason}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity 
+                  style={styles.modalCancelButton}
+                  onPress={() => {
+                    setDeclineModalVisible(false);
+                    setBookingToDecline(null);
+                    setDeclineReason('');
+                  }}
+                >
+                  <Text style={styles.modalCancelButtonText}>Peruuta</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.modalConfirmButton}
+                  onPress={confirmDecline}
+                >
+                  <Text style={styles.modalConfirmButtonText}>Hylkää varaus</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+
         {/* Quick Stats */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{weekLabel}</Text>
@@ -934,6 +1010,77 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: colors.text,
+  },
+  modalLabel: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginBottom: 12,
+  },
+  modalTextInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: colors.text,
+    minHeight: 100,
+    marginBottom: 20,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    color: colors.textSecondary,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  modalConfirmButton: {
+    flex: 1,
+    backgroundColor: colors.error,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalConfirmButtonText: {
+    color: colors.white,
+    fontWeight: '600',
+    fontSize: 14,
   },
   joinableLessonCard: {
     borderWidth: 2,

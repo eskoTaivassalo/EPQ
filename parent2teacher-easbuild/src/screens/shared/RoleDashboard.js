@@ -13,6 +13,9 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,6 +39,9 @@ const RoleDashboard = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [pendingBookings, setPendingBookings] = useState([]);
+  const [declineModalVisible, setDeclineModalVisible] = useState(false);
+  const [bookingToDecline, setBookingToDecline] = useState(null);
+  const [declineReason, setDeclineReason] = useState('');
   
   const role = getCanonicalRole(user?.role || user?.userType);
   const roleConfig = getRoleConfig(role);
@@ -179,22 +185,43 @@ const RoleDashboard = ({ navigation }) => {
   };
 
   const handleDeclineBooking = async (booking) => {
-    console.log('❌ RoleDashboard: Declining booking:', booking.id);
-    console.log('👤 RoleDashboard: Parent ID:', booking.parentId);
-    
-    await dispatch(updateBookingStatus({ 
-      bookingId: booking.id, 
-      status: 'declined',
-      parentId: booking.parentId,
-      teacherName: user?.displayName || user?.name || roleConfig.name,
-      date: booking.date
-    }));
-    
-    console.log('✅ RoleDashboard: Decline dispatched');
-    
-    // Refresh bookings to update UI
-    if (isProvider) {
-      await dispatch(fetchTeacherBookings());
+    setBookingToDecline(booking);
+    setDeclineModalVisible(true);
+  };
+
+  const confirmDecline = async () => {
+    if (!declineReason.trim()) {
+      Alert.alert('Puuttuva syy', 'Kirjoita lyhyt syy, miksi et voi hyväksyä tätä varausta.');
+      return;
+    }
+
+    try {
+      console.log('❌ RoleDashboard: Declining booking:', bookingToDecline.id);
+      console.log('👤 RoleDashboard: Parent ID:', bookingToDecline.parentId);
+      
+      await dispatch(updateBookingStatus({ 
+        bookingId: bookingToDecline.id, 
+        status: 'declined',
+        parentId: bookingToDecline.parentId,
+        teacherName: user?.displayName || user?.name || roleConfig.name,
+        date: bookingToDecline.date,
+        declineReason: declineReason.trim()
+      })).unwrap();
+      
+      console.log('✅ RoleDashboard: Decline dispatched');
+      
+      setDeclineModalVisible(false);
+      setBookingToDecline(null);
+      setDeclineReason('');
+      
+      // Refresh bookings to update UI
+      if (isProvider) {
+        await dispatch(fetchTeacherBookings());
+      }
+      
+      Alert.alert('Hylätty', 'Varaus hylätty. Oppilas saa ilmoituksen.');
+    } catch (error) {
+      Alert.alert('Virhe', 'Varauksen hylkääminen epäonnistui: ' + error);
     }
   };
 
@@ -510,6 +537,55 @@ const RoleDashboard = ({ navigation }) => {
               .map(nav => renderQuickAction(nav))}
           </View>
         </View>
+
+        {/* Decline Modal */}
+        <Modal
+          visible={declineModalVisible}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setDeclineModalVisible(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Ionicons name="close-circle" size={32} color="#F44336" />
+                <Text style={styles.modalTitle}>Hylkää varaus</Text>
+              </View>
+              
+              <Text style={styles.modalLabel}>Kerro oppilaalle, miksi et voi hyväksyä tätä varausta:</Text>
+              
+              <TextInput
+                style={styles.modalTextInput}
+                placeholder="Esim: En ole saatavilla kyseisen aikana"
+                placeholderTextColor="#999"
+                value={declineReason}
+                onChangeText={setDeclineReason}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+
+              <View style={styles.modalFooter}>
+                <TouchableOpacity 
+                  style={styles.modalCancelButton}
+                  onPress={() => {
+                    setDeclineModalVisible(false);
+                    setBookingToDecline(null);
+                    setDeclineReason('');
+                  }}
+                >
+                  <Text style={styles.modalCancelButtonText}>Peruuta</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.modalConfirmButton}
+                  onPress={confirmDecline}
+                >
+                  <Text style={styles.modalConfirmButtonText}>Hylkää varaus</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* Recent Activity */}
         <View style={styles.section}>
@@ -845,6 +921,77 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '85%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+  },
+  modalLabel: {
+    fontSize: 14,
+    color: '#7F8C8D',
+    marginBottom: 12,
+  },
+  modalTextInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#2C3E50',
+    minHeight: 100,
+    marginBottom: 20,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    color: '#7F8C8D',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  modalConfirmButton: {
+    flex: 1,
+    backgroundColor: '#F44336',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalConfirmButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
 

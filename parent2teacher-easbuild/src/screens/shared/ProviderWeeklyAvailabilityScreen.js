@@ -92,6 +92,14 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
         const startDate = new Date(s.start);
         const endDate = new Date(s.end);
         
+        // Calculate duration in minutes
+        const durationMinutes = (endDate - startDate) / (1000 * 60);
+        
+        // Create compact title showing time range
+        const startTime = startDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+        const endTime = endDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+        const title = durationMinutes <= 30 ? `${startTime}` : `${startTime}-${endTime}`;
+        
         // CRITICAL FIX: react-native-big-calendar filters events by comparing Date objects
         // Ensure Sunday events are within the week bounds by logging what we're creating
         if (startDate.getDay() === 0) {
@@ -106,7 +114,7 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
         
         return {
           id: s.id,
-          title: 'Available',
+          title: title,
           start: startDate,
           end: endDate,
           slot: s,
@@ -354,21 +362,48 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
         events={events}
         date={currentDate}
         mode="week"
-        height={620}
-        eventMinHeight={40}
+        height={650}
+        hourRowHeight={50}
         onPressEvent={onPressEvent}
         swipeEnabled={false}
         showTime={true}
         weekStartsOn={1}
+        ampm={false}
+        scrollOffsetMinutes={480}
+        hourStyle={{
+          color: '#000000',
+          fontSize: 9,
+          fontWeight: '500',
+        }}
         theme={{
           palette: {
             primary: { main: colors.secondary },
-            gray: { 100: '#f5f5f5', 200: '#eee', 300: '#e0e0e0', 500: '#9e9e9e', 800: '#424242' },
+            gray: { 
+              100: '#f5f5f5', 
+              200: '#eee', 
+              300: '#e0e0e0', 
+              500: '#9e9e9e', 
+              800: '#424242' 
+            },
           },
-          event: { color: '#E8F5E9', textColor: colors.text },
-          todayName: { color: colors.secondary },
-          hour: { color: colors.textSecondary },
+          todayName: { 
+            color: colors.secondary, 
+            fontWeight: 'bold', 
+            fontSize: 11 
+          },
+          hour: { 
+            color: '#000000', 
+            fontSize: 10,
+            fontWeight: '600'
+          },
         }}
+        eventCellStyle={(event) => ({
+          backgroundColor: '#4CAF50',
+          borderLeftColor: '#2E7D32',
+          borderLeftWidth: 4,
+          borderRadius: 6,
+          padding: 4,
+        })}
         isRTL={false}
       />
 

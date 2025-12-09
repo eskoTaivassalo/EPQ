@@ -16,6 +16,8 @@ import {
   ActivityIndicator,
   Animated,
   Alert,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,7 +32,8 @@ import {
   fetchTeacherBookings, 
   fetchParentBookings,
   selectBookings,
-  updateBookingStatus 
+  updateBookingStatus,
+  cancelBooking
 } from '../../store/slices/bookingsSlice';
 import WatercolorBackground from '../../components/WatercolorBackground';
 
@@ -40,6 +43,9 @@ const BookingsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const [refreshing, setRefreshing] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState('all');
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [bookingToCancel, setBookingToCancel] = useState(null);
 
   const role = getCanonicalRole(user?.role || user?.userType);
   const roleConfig = getRoleConfig(role);
@@ -98,23 +104,51 @@ const BookingsScreen = ({ navigation }) => {
     }
   };
 
-  const handleBookingAction = async (bookingId, action) => {
+  const handleCancelBooking = async () => {
+    if (!cancelReason.trim()) {
+      Alert.alert('Error', 'Please provide a reason for cancellation');
+      return;
+    }
+
     try {
+      await dispatch(cancelBooking({ 
+        bookingId: bookingToCancel.id, 
+        reason: cancelReason 
+      })).unwrap();
+      
+      setCancelModalVisible(false);
+      setBookingToCancel(null);
+      setCancelReason('');
+      
+      loadBookings();
+      Alert.alert('Success', 'Booking cancelled successfully');
+    } catch (error) {
+      Alert.alert('Error', error?.message || 'Failed to cancel booking');
+    }
+  };
+
+  const openCancelModal = (booking) => {
+    setBookingToCancel(booking);
+    setCancelReason('');
+    setCancelModalVisible(true);
+  };
+
+  const handleBookingAction = async (bookingId, action) => {
+    console.log('[BookingsScreen] 🎬 handleBookingAction called:', { bookingId, action });
+    
+    try {
+      // For other status changes (accept, decline, etc.)
       const updateData = { 
         bookingId, 
         status: action,
         parentId: user?.uid 
       };
-      
-      // Add cancelledBy field when cancelling
-      if (action === 'cancelled') {
-        updateData.cancelledBy = isProvider ? 'teacher' : 'student';
-      }
-      
       await dispatch(updateBookingStatus(updateData)).unwrap();
+      
       loadBookings();
     } catch (error) {
-      console.error('Error updating booking:', error);
+      console.error('[BookingsScreen] ❌ Error updating booking:', error);
+      Alert.alert('Error', error?.message || 'Failed to update booking');
     }
   };
 
@@ -392,20 +426,7 @@ const BookingsScreen = ({ navigation }) => {
             <View style={styles.actionButtons}>
               <TouchableOpacity
                 style={[styles.actionButton, styles.cancelButton]}
-                onPress={() => {
-                  Alert.alert(
-                    'Cancel Booking',
-                    'Are you sure you want to cancel this booking?',
-                    [
-                      { text: 'No', style: 'cancel' },
-                      { 
-                        text: 'Yes, Cancel', 
-                        style: 'destructive',
-                        onPress: () => handleBookingAction(booking.id, 'cancelled')
-                      }
-                    ]
-                  );
-                }}
+                onPress={() => openCancelModal(booking)}
                 activeOpacity={0.8}
               >
                 <Ionicons name="close-circle" size={20} color="#FFFFFF" />
@@ -419,20 +440,21 @@ const BookingsScreen = ({ navigation }) => {
             <View style={styles.actionButtons}>
               <TouchableOpacity
                 style={[styles.actionButton, styles.cancelButton]}
-                onPress={() => {
-                  Alert.alert(
-                    'Cancel Session',
-                    'Are you sure you want to cancel this confirmed session? Your teacher will be notified.',
-                    [
-                      { text: 'No', style: 'cancel' },
-                      { 
-                        text: 'Yes, Cancel', 
-                        style: 'destructive',
-                        onPress: () => handleBookingAction(booking.id, 'cancelled')
-                      }
-                    ]
-                  );
-                }}
+                onPress={() => openCancelModal(booking)}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="close-circle" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Cancel Session</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Cancel Button for Teachers - Approved Bookings */}
+          {isProvider && isApproved && (
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.cancelButton]}
+                onPress={() => openCancelModal(booking)}
                 activeOpacity={0.8}
               >
                 <Ionicons name="close-circle" size={20} color="#FFFFFF" />
@@ -572,6 +594,67 @@ const BookingsScreen = ({ navigation }) => {
             .map(booking => renderBookingCard(booking, false))
         )}
       </ScrollView>
+
+      {/* Cancel Reason Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="close-circle" size={32} color="#E74C3C" />
+              <Text style={styles.modalTitle}>Cancel Booking</Text>
+              <TouchableOpacity 
+                onPress={() => setCancelModalVisible(false)} 
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.modalLabel}>Reason for cancellation *</Text>
+              <TextInput
+                style={styles.modalTextInput}
+                placeholder="E.g., Sick, emergency, scheduling conflict..."
+                value={cancelReason}
+                onChangeText={setCancelReason}
+                multiline
+                numberOfLines={4}
+                maxLength={200}
+                textAlignVertical="top"
+              />
+              <Text style={styles.modalHint}>{cancelReason.length}/200 characters</Text>
+              
+              <Text style={styles.modalInfo}>
+                {isProvider 
+                  ? 'Your student will be notified about the cancellation.'
+                  : 'Your teacher will be notified about the cancellation.'}
+              </Text>
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton}
+                onPress={() => setCancelModalVisible(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalConfirmButton, !cancelReason.trim() && styles.modalConfirmButtonDisabled]}
+                onPress={handleCancelBooking}
+                disabled={!cancelReason.trim()}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+                <Text style={styles.modalConfirmButtonText}>Confirm Cancellation</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -958,6 +1041,114 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  modalTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2C3E50',
+    marginLeft: 12,
+  },
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#2C3E50',
+    marginBottom: 8,
+  },
+  modalTextInput: {
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
+    color: '#2C3E50',
+    minHeight: 100,
+    backgroundColor: '#F8F9FA',
+  },
+  modalHint: {
+    fontSize: 12,
+    color: '#95A5A6',
+    marginTop: 4,
+    textAlign: 'right',
+  },
+  modalInfo: {
+    fontSize: 14,
+    color: '#7F8C8D',
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#EBF5FB',
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#3498DB',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    padding: 20,
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  modalCancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BDC3C7',
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#7F8C8D',
+  },
+  modalConfirmButton: {
+    flex: 1,
+    flexDirection: 'row',
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#E74C3C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  modalConfirmButtonDisabled: {
+    backgroundColor: '#BDC3C7',
+  },
+  modalConfirmButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });
 

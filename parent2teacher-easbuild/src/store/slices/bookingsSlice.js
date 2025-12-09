@@ -407,19 +407,23 @@ export const updateBookingStatus = createAsyncThunk(
           })();
         } else if (status === 'declined') {
           notificationData.type = 'booking_declined';
-          notificationData.title = suggestedDate ? 'Booking - New Time Suggested' : 'Booking Declined';
+          notificationData.title = suggestedDate ? 'Varauksesi hylätty - Uusi aika ehdotettu' : 'Varauksesi hylätty';
           
-          let message = `${teacherName || 'Teacher'} declined your booking${date ? ' for ' + new Date(date).toLocaleDateString() : ''}`;
+          let message = `${teacherName || 'Opettaja'} ei voinut hyväksyä varaustasi${date ? ' ajalle ' + new Date(date).toLocaleDateString('fi-FI', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''}`;
           
           if (declineReason) {
-            message += `\n\nReason: ${declineReason}`;
+            message += `\n\nSyy: ${declineReason}`;
           }
           
           if (suggestedDate) {
-            message += `\n\n📅 Suggested new time:\n${suggestedDateFormatted || new Date(suggestedDate).toLocaleString()}\n\nTap to accept or decline the new time.`;
+            message += `\n\n📅 Opettaja ehdottaa uutta aikaa:\n${suggestedDateFormatted || new Date(suggestedDate).toLocaleString('fi-FI')}\n\nNapauta tästä hyväksyäksesi tai hylätäksesi uuden ajan.`;
+          } else {
+            message += `\n\nVoit varata uuden ajan opettajan kalenterista.`;
           }
           
           notificationData.message = message;
+          // Include teacherId in navigationParams so parent can rebook easily
+          notificationData.navigationParams.teacherId = bookingData.teacherId;
           
           // Send push notification to parent (but not if testing with same user)
           (async () => {
@@ -434,10 +438,14 @@ export const updateBookingStatus = createAsyncThunk(
               const token = userDoc.exists() ? userDoc.data()?.push?.expo?.token : null;
               
               if (token) {
+                const pushMessage = declineReason 
+                  ? `Syy: ${declineReason}`
+                  : (suggestedDate ? `Uusi aika ehdotettu: ${new Date(suggestedDate).toLocaleDateString('fi-FI')}` : 'Varaus hylätty');
+                
                 await sendExpoPushNotification(
                   token,
                   notificationData.title,
-                  suggestedDate ? `New time suggested: ${new Date(suggestedDate).toLocaleDateString()}` : 'Booking declined',
+                  pushMessage,
                   { bookingId, type: 'booking_declined', suggestedDate, declineReason }
                 );
               }
@@ -471,9 +479,17 @@ export const updateBookingStatus = createAsyncThunk(
 export const cancelBooking = createAsyncThunk(
   'bookings/cancelBooking',
   async ({ bookingId, reason }, { rejectWithValue, dispatch }) => {
+    console.log('[cancelBooking] 🎬 FUNCTION CALLED with:', { bookingId, reason });
+    console.log('[cancelBooking] 🎬 Current user:', auth?.currentUser?.uid);
+    
     try {
-      if (!auth?.currentUser) throw new Error('Not authenticated');
+      if (!auth?.currentUser) {
+        console.error('[cancelBooking] ❌ Not authenticated!');
+        throw new Error('Not authenticated');
+      }
+      
       const ref = doc(db, 'bookings', bookingId);
+      console.log('[cancelBooking] 📋 Fetching booking document...');
       const snap = await getDoc(ref);
       if (!snap.exists()) throw new Error('Booking not found');
       const data = snap.data();
@@ -517,19 +533,47 @@ export const cancelBooking = createAsyncThunk(
         if (reason) message += ` Reason: ${reason}`;
         
         try {
-          // If teacher cancelled, offer rebooking option
+          // If teacher cancelled, notify parent with rebooking option
           if (uid === teacherId) {
             console.log('[cancelBooking] 👨‍🏫 Teacher cancelled - notifying parent:', otherUserId);
-            message += ` Would you like to book a new time?`;
+            const parentMessage = message + ` Would you like to book a new time?`;
             await dispatch(createNotification({
               userId: otherUserId,
               type: 'booking_cancelled',
               title,
-              message,
+              message: parentMessage,
               navigationTarget: 'FindProviders',
               navigationParams: { teacherId }
             })).unwrap();
             console.log('[cancelBooking] ✅ Notification sent to parent');
+            
+            // Send push notification to parent
+            (async () => {
+              try {
+                if (auth.currentUser.uid === otherUserId) {
+                  console.log('[cancelBooking] ⏭️ Skipping push - same user testing');
+                  return;
+                }
+                
+                const { sendExpoPushNotification } = await import('../../services/pushService');
+                const userDoc = await getDoc(doc(db, 'users', otherUserId));
+                const token = userDoc.exists() ? userDoc.data()?.push?.expo?.token : null;
+                
+                if (token) {
+                  await sendExpoPushNotification(
+                    token,
+                    '❌ Booking Cancelled',
+                    `Your booking for ${date ? new Date(date).toLocaleDateString() : ''} has been cancelled. ${reason ? 'Reason: ' + reason : ''}`,
+                    { bookingId, type: 'booking_cancelled', teacherId }
+                  );
+                  console.log('[cancelBooking] ✅ Push notification sent to parent');
+                } else {
+                  console.warn('[cancelBooking] ⚠️ No push token found for parent');
+                }
+              } catch (pushErr) {
+                console.error('[cancelBooking] ❌ Failed to send push notification:', pushErr);
+              }
+            })();
           } else {
             // Student/parent cancelled - notify teacher
             console.log('[cancelBooking] 👨‍🎓 Student/parent cancelled - notifying teacher:', otherUserId);
@@ -542,6 +586,34 @@ export const cancelBooking = createAsyncThunk(
               navigationParams: { bookingId }
             })).unwrap();
             console.log('[cancelBooking] ✅ Notification sent to teacher');
+            
+            // Send push notification to teacher
+            (async () => {
+              try {
+                if (auth.currentUser.uid === otherUserId) {
+                  console.log('[cancelBooking] ⏭️ Skipping push - same user testing');
+                  return;
+                }
+                
+                const { sendExpoPushNotification } = await import('../../services/pushService');
+                const userDoc = await getDoc(doc(db, 'users', otherUserId));
+                const token = userDoc.exists() ? userDoc.data()?.push?.expo?.token : null;
+                
+                if (token) {
+                  await sendExpoPushNotification(
+                    token,
+                    '❌ Student Cancelled',
+                    `Booking for ${date ? new Date(date).toLocaleDateString() : ''} was cancelled. ${reason ? 'Reason: ' + reason : ''}`,
+                    { bookingId, type: 'booking_cancelled' }
+                  );
+                  console.log('[cancelBooking] ✅ Push notification sent to teacher');
+                } else {
+                  console.warn('[cancelBooking] ⚠️ No push token found for teacher');
+                }
+              } catch (pushErr) {
+                console.error('[cancelBooking] ❌ Failed to send push notification:', pushErr);
+              }
+            })();
           }
         } catch (notifErr) {
           console.error('[cancelBooking] ❌ Failed to send notification:', notifErr);
