@@ -64,14 +64,8 @@ const ScheduleLessonScreen = ({ navigation, route }) => {
   const submit = async () => {
     try {
       const teacher = getTeacherById(teacherId);
-      await dispatch(createBooking({ 
-        teacherId, 
-        date, 
-        notes,
-        teacherName: teacher?.name || teacher?.displayName || 'Opettaja'
-      })).unwrap();
       
-      // Store booking data for recurring modal
+      // Store booking data for recurring modal - DON'T create booking yet
       setCreatedBookingData({
         teacherId,
         date,
@@ -79,10 +73,10 @@ const ScheduleLessonScreen = ({ navigation, route }) => {
         teacherName: teacher?.name || teacher?.displayName || 'Opettaja'
       });
       
-      // Show recurring booking modal
+      // Show recurring booking modal first
       setShowRecurringModal(true);
     } catch (e) {
-      alert('Failed to create booking: ' + e);
+      alert('Failed to prepare booking: ' + e);
     }
   };
 
@@ -90,7 +84,7 @@ const ScheduleLessonScreen = ({ navigation, route }) => {
     try {
       if (!createdBookingData) return;
       
-      await dispatch(createRecurringBooking({
+      const result = await dispatch(createRecurringBooking({
         ...createdBookingData,
         firstDate: createdBookingData.date,
         frequency,
@@ -98,15 +92,37 @@ const ScheduleLessonScreen = ({ navigation, route }) => {
       })).unwrap();
       
       setShowRecurringModal(false);
+      
+      // Show appropriate message based on results
+      const { bookings, skippedBookings } = result;
+      if (skippedBookings && skippedBookings.length > 0) {
+        alert(`${bookings.length} bookings created successfully.\n${skippedBookings.length} dates were skipped because the teacher has no available slots for those times.`);
+      }
+      
       navigateToBookings();
     } catch (e) {
-      alert('Failed to create recurring booking: ' + e);
+      alert('Failed to create recurring booking: ' + (e.message || e));
     }
   };
 
-  const handleRecurringSkip = () => {
-    setShowRecurringModal(false);
-    navigateToBookings();
+  const handleRecurringSkip = async () => {
+    // User chose to book only single lesson - create it now
+    try {
+      if (!createdBookingData) return;
+      
+      await dispatch(createBooking({ 
+        teacherId: createdBookingData.teacherId, 
+        date: createdBookingData.date, 
+        notes: createdBookingData.notes,
+        teacherName: createdBookingData.teacherName
+      })).unwrap();
+      
+      setShowRecurringModal(false);
+      navigateToBookings();
+    } catch (e) {
+      alert('Failed to create booking: ' + e);
+      setShowRecurringModal(false);
+    }
   };
 
   const navigateToBookings = () => {

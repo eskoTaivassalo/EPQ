@@ -180,18 +180,17 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
     if (!ok) return;
 
     try {
-      await bookSlot(s.id, user.uid, { subject: selectedSubject });
-      
-      // Store booking data for recurring modal
+      // DON'T book yet - store data and show recurring modal first
       setBookedSlotData({
         teacherId,
         teacherName: teacherName || 'Teacher',
         date: new Date(s.start),
         notes: `Subject: ${selectedSubject}`,
         slotStart: new Date(s.start),
+        slotId: s.id, // Store slot ID for single booking
       });
       
-      // Show recurring modal instead of just alert
+      // Show recurring modal first
       setShowRecurringModal(true);
       
       setEvents(prev => prev.filter(e => e.id !== s.id));
@@ -205,7 +204,7 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
     try {
       if (!bookedSlotData) return;
       
-      await dispatch(createRecurringBooking({
+      const result = await dispatch(createRecurringBooking({
         teacherId: bookedSlotData.teacherId,
         firstDate: bookedSlotData.date,
         notes: bookedSlotData.notes,
@@ -215,19 +214,43 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       })).unwrap();
       
       setShowRecurringModal(false);
-      Alert.alert('Success! 🎉', `${numberOfWeeks} ${frequency} bookings created. Your teacher will review them.`);
+      
+      // Show appropriate message based on results
+      const { bookings, skippedBookings } = result;
+      if (skippedBookings && skippedBookings.length > 0) {
+        Alert.alert(
+          'Partially Created 📅', 
+          `${bookings.length} bookings created successfully.\n${skippedBookings.length} dates were skipped because the teacher has no available slots for those times.`
+        );
+      } else {
+        Alert.alert('Success! 🎉', `${bookings.length} ${frequency} bookings created. Your teacher will review them.`);
+      }
       
       // Reload to show updated calendar
       load();
     } catch (e) {
       console.error('Create recurring booking error:', e);
-      Alert.alert('Error', 'Failed to create recurring booking: ' + e);
+      Alert.alert('Error', e.message || 'Failed to create recurring booking');
     }
   };
 
-  const handleRecurringSkip = () => {
-    setShowRecurringModal(false);
-    Alert.alert('Booking Confirmed! ✅', 'Your booking has been created.');
+  const handleRecurringSkip = async () => {
+    // User chose single booking - book it now
+    try {
+      if (!bookedSlotData?.slotId) return;
+      
+      await bookSlot(bookedSlotData.slotId, user.uid, { subject: bookedSlotData.notes || '' });
+      
+      setShowRecurringModal(false);
+      Alert.alert('Booking Confirmed! ✅', 'Your booking has been created.');
+      
+      // Reload to show updated calendar
+      load();
+    } catch (e) {
+      console.error('Book slot error:', e);
+      Alert.alert('Error', e.message || 'Failed to create booking');
+      setShowRecurringModal(false);
+    }
   };
 
   const goPrevWeek = () => {
@@ -317,7 +340,23 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
             </TouchableOpacity>
           )}
           {!nextAvailable && (
-            <Text style={[styles.emptyText, { marginTop: 6 }]}>Try another week.</Text>
+            <View style={{ marginTop: 12, alignItems: 'center' }}>
+              <Text style={[styles.emptyText, { marginBottom: 12 }]}>
+                No upcoming availability found. Contact the teacher directly.
+              </Text>
+              <TouchableOpacity
+                style={styles.contactButton}
+                onPress={() => {
+                  navigation.navigate('ConversationThread', {
+                    recipientId: teacherId,
+                    recipientName: teacherName || 'Teacher'
+                  });
+                }}
+              >
+                <Ionicons name="chatbubble-outline" size={16} color={colors.white} />
+                <Text style={styles.contactButtonText}>Contact Teacher</Text>
+              </TouchableOpacity>
+            </View>
           )}
         </View>
       )}
@@ -349,4 +388,18 @@ const styles = StyleSheet.create({
   emptyText: { marginTop: 6, fontSize: 13, color: colors.textSecondary, textAlign: 'center' },
   jumpButton: { marginTop: 14, flexDirection: 'row', alignItems: 'center', backgroundColor: colors.secondary, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
   jumpButtonText: { color: colors.white, fontSize: 13, fontWeight: '600', marginLeft: 6 },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
+  },
+  contactButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
 });

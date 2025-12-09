@@ -28,6 +28,18 @@ export const fetchNotifications = createAsyncThunk(
         return [];
       }
       
+      // Check if user is actually authenticated in Firebase
+      if (!auth?.currentUser) {
+        console.error('[fetchNotifications] ❌ User not authenticated in Firebase!');
+        return [];
+      }
+      
+      // Verify the userId matches the authenticated user
+      if (auth.currentUser.uid !== userId) {
+        console.error('[fetchNotifications] ❌ userId mismatch! Requested:', userId, 'Authenticated:', auth.currentUser.uid);
+        return [];
+      }
+      
       // Avoid orderBy to prevent missing-index failures on fresh environments; sort on client instead.
       const q = query(
         collection(db, 'notifications'),

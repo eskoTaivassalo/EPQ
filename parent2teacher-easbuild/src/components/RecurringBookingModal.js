@@ -129,6 +129,12 @@ const RecurringBookingModal = ({
               <Text style={styles.hint}>
                 This will create {numberOfWeeks} bookings for your teacher to review
               </Text>
+              <View style={styles.warningBox}>
+                <Ionicons name="information-circle" size={18} color="#FF9800" />
+                <Text style={styles.warningText}>
+                  Note: Only dates where the teacher has available time slots will be booked. If the teacher hasn't generated availability for some future dates, those will be automatically skipped.
+                </Text>
+              </View>
             </View>
 
             <View style={styles.benefitsBox}>
@@ -298,6 +304,23 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 10,
     fontStyle: 'italic',
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#FFF3E0',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF9800',
+  },
+  warningText: {
+    fontSize: 13,
+    color: '#E65100',
+    marginLeft: 8,
+    flex: 1,
+    lineHeight: 18,
   },
   benefitsBox: {
     backgroundColor: '#F1F8F4',

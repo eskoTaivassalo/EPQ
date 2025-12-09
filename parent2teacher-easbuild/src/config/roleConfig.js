@@ -118,12 +118,17 @@ export const ROLE_CONFIG = {
       calendar: {
         name: 'My Calendar',
         icon: 'calendar',
-        screen: 'TeacherCalendar',
+        screen: 'Calendar',
       },
       availability: {
-        name: 'Availability',
+        name: 'Create Time Slots',
         icon: 'time',
         screen: 'Availability',
+      },
+      manageSlots: {
+        name: 'Manage Slots',
+        icon: 'settings',
+        screen: 'ManageSlots',
       },
       bookings: {
         name: 'Bookings',
@@ -150,7 +155,7 @@ export const ROLE_CONFIG = {
     // Dashboard widgets/stats
     dashboardStats: [
       { key: 'activeBookings', label: 'Active Bookings', icon: 'calendar' },
-      { key: 'totalClients', label: 'Total Clients', icon: 'people' },
+      { key: 'totalClients', label: 'Total Students', icon: 'people' },
       { key: 'unreadMessages', label: 'Unread Messages', icon: 'mail' },
       { key: 'upcomingSessions', label: 'Upcoming Sessions', icon: 'time' },
     ],
@@ -421,7 +426,7 @@ export const ROLE_CONFIG = {
       calendar: {
         name: 'My Calendar',
         icon: 'calendar',
-        screen: 'TeacherCalendar',
+        screen: 'Calendar',
       },
       availability: {
         name: 'Availability',

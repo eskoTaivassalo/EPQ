@@ -34,6 +34,21 @@ const TeacherBookingsScreen = ({ navigation }) => {
     })();
   }, [dispatch]);
 
+  // Group bookings by parentId for pending bookings
+  const parentBookingGroups = React.useMemo(() => {
+    const groups = {};
+    bookings.forEach(booking => {
+      if (booking.status === 'pending' && booking.parentId) {
+        if (!groups[booking.parentId]) {
+          groups[booking.parentId] = [];
+        }
+        groups[booking.parentId].push(booking);
+      }
+    });
+    console.log('Parent booking groups:', groups);
+    return groups;
+  }, [bookings]);
+
   // Group recurring bookings
   const recurringGroups = React.useMemo(() => {
     const groups = {};
@@ -45,6 +60,16 @@ const TeacherBookingsScreen = ({ navigation }) => {
         groups[booking.recurringBookingId].push(booking);
       }
     });
+    console.log('=== RECURRING GROUPS DEBUG ===');
+    console.log('Total bookings:', bookings.length);
+    console.log('Bookings with recurringBookingId:', bookings.filter(b => b.recurringBookingId).length);
+    console.log('Pending bookings:', bookings.filter(b => b.status === 'pending').length);
+    console.log('Pending recurring bookings:', bookings.filter(b => b.recurringBookingId && b.status === 'pending').length);
+    console.log('Recurring groups:', Object.keys(groups).length);
+    Object.entries(groups).forEach(([id, group]) => {
+      console.log(`Group ${id}:`, group.length, 'bookings');
+    });
+    console.log('=== END DEBUG ===');
     return groups;
   }, [bookings]);
 
@@ -141,6 +166,21 @@ const TeacherBookingsScreen = ({ navigation }) => {
   const renderItem = ({ item }) => {
     const when = new Date(item.date);
     const parent = getParentById(item.parentId);
+    
+    // Check if this booking is part of a recurring series with multiple pending bookings
+    const recurringGroup = item.recurringBookingId && recurringGroups[item.recurringBookingId];
+    const hasMultipleInSeries = recurringGroup && recurringGroup.length > 1;
+    
+    // Debug logging
+    console.log('Rendering booking:', {
+      id: item.id,
+      recurringBookingId: item.recurringBookingId,
+      isRecurring: item.isRecurring,
+      status: item.status,
+      recurringGroupLength: recurringGroup?.length,
+      hasMultipleInSeries
+    });
+    
     return (
       <View style={styles.card}>
         <View style={styles.headerRow}>
@@ -162,6 +202,17 @@ const TeacherBookingsScreen = ({ navigation }) => {
             </View>
           </View>
         </View>
+        
+        {/* Recurring indicator */}
+        {hasMultipleInSeries && (
+          <View style={styles.recurringBadge}>
+            <Ionicons name="repeat" size={14} color={colors.primary} />
+            <Text style={styles.recurringBadgeText}>
+              Part of {recurringGroup.length} session series
+            </Text>
+          </View>
+        )}
+        
         <View style={styles.row}>
           <View style={styles.badge}><Text style={styles.badgeText}>{item.status}</Text></View>
           <Text style={styles.date}>{when.toLocaleString()}</Text>
@@ -177,6 +228,15 @@ const TeacherBookingsScreen = ({ navigation }) => {
             <TouchableOpacity style={[styles.btn, { backgroundColor: '#F44336' }]} onPress={() => openDeclineModal(item)}>
               <Text style={styles.btnText}>Decline</Text>
             </TouchableOpacity>
+            {hasMultipleInSeries && (
+              <TouchableOpacity 
+                style={[styles.btn, styles.acceptAllBtn, { backgroundColor: colors.primary }]} 
+                onPress={() => handleApproveAllRecurring(item.recurringBookingId)}
+              >
+                <Ionicons name="checkmark-done" size={16} color={colors.white} />
+                <Text style={styles.btnText}>Accept All {recurringGroup.length}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </View>
@@ -413,9 +473,26 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 12, color: colors.text },
   date: { fontSize: 14, fontWeight: '600', color: colors.text },
   notes: { fontSize: 13, color: colors.textSecondary, marginTop: 8, marginBottom: 4, fontStyle: 'italic' },
-  actions: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 10, gap: 10 },
-  btn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6 },
-  btnText: { color: colors.white, fontWeight: '600' },
+  recurringBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '10',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+  },
+  recurringBadgeText: {
+    fontSize: 12,
+    color: colors.primary,
+    fontWeight: '600',
+    marginLeft: 4,
+  },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', marginTop: 10, gap: 10 },
+  btn: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 6, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  acceptAllBtn: { minWidth: 120 },
+  btnText: { color: colors.white, fontWeight: '600', fontSize: 13 },
   empty: { alignItems: 'center', paddingTop: 60 },
   emptyTitle: { marginTop: 12, fontSize: 16, fontWeight: '600', color: colors.text },
   emptyText: { marginTop: 6, fontSize: 13, color: colors.textSecondary },

@@ -116,8 +116,24 @@ export const fetchParentBookings = createAsyncThunk(
       const bookings = snap.docs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
-        return { id: d.id, ...data, createdAt };
-      });
+        
+        // Validate date field
+        let validDate = data.date;
+        if (validDate) {
+          try {
+            const testDate = new Date(validDate);
+            if (isNaN(testDate.getTime())) {
+              console.warn('[fetchParentBookings] Invalid date in booking:', d.id, validDate);
+              validDate = null;
+            }
+          } catch (e) {
+            console.warn('[fetchParentBookings] Error parsing date:', d.id, e);
+            validDate = null;
+          }
+        }
+        
+        return { id: d.id, ...data, createdAt, date: validDate };
+      }).filter(b => b.date); // Only include bookings with valid dates
       
       console.log('[fetchParentBookings] Found bookings:', bookings.length);
       return bookings;
@@ -160,8 +176,24 @@ export const fetchTeacherBookings = createAsyncThunk(
       const bookings = docs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
-        return { id: d.id, ...data, createdAt };
-      });
+        
+        // Validate date field
+        let validDate = data.date;
+        if (validDate) {
+          try {
+            const testDate = new Date(validDate);
+            if (isNaN(testDate.getTime())) {
+              console.warn('[fetchTeacherBookings] Invalid date in booking:', d.id, validDate);
+              validDate = null;
+            }
+          } catch (e) {
+            console.warn('[fetchTeacherBookings] Error parsing date:', d.id, e);
+            validDate = null;
+          }
+        }
+        
+        return { id: d.id, ...data, createdAt, date: validDate };
+      }).filter(b => b.date); // Only include bookings with valid dates
       console.log('[fetchTeacherBookings] Returning', bookings.length, 'bookings');
       return bookings;
     } catch (err) {
@@ -215,6 +247,31 @@ export const updateBookingStatus = createAsyncThunk(
       console.log('[updateBookingStatus] Updating booking with:', update);
       await updateDoc(ref, update);
       console.log('[updateBookingStatus] ✅ Booking updated successfully');
+      
+      // Update corresponding availability slot status
+      if (bookingData.slotId) {
+        try {
+          if (status === 'accepted') {
+            await updateDoc(doc(db, 'availabilitySlots', bookingData.slotId), {
+              status: 'booked',
+              updatedAt: serverTimestamp(),
+            });
+            console.log('[updateBookingStatus] ✅ Updated slot to booked:', bookingData.slotId);
+          } else if (status === 'declined' || status === 'cancelled') {
+            // Free up the slot when booking is declined or cancelled
+            await updateDoc(doc(db, 'availabilitySlots', bookingData.slotId), {
+              status: 'available',
+              parentId: null,
+              bookingId: null,
+              updatedAt: serverTimestamp(),
+            });
+            console.log('[updateBookingStatus] ✅ Freed up slot:', bookingData.slotId);
+          }
+        } catch (slotErr) {
+          console.error('[updateBookingStatus] ⚠️ Failed to update slot:', bookingData.slotId, slotErr);
+          // Continue anyway - booking status is more important
+        }
+      }
       
       // Create notification for parent when status changes
       if (parentId) {
@@ -409,6 +466,22 @@ export const cancelBooking = createAsyncThunk(
       if (reason) updatePayload.cancelReason = reason;
       await updateDoc(ref, updatePayload);
 
+      // Free up the availability slot if it exists
+      if (data.slotId) {
+        try {
+          await updateDoc(doc(db, 'availabilitySlots', data.slotId), {
+            status: 'available',
+            parentId: null,
+            bookingId: null,
+            updatedAt: serverTimestamp(),
+          });
+          console.log('[cancelBooking] ✅ Freed up slot:', data.slotId);
+        } catch (slotErr) {
+          console.error('[cancelBooking] ⚠️ Failed to free slot:', data.slotId, slotErr);
+          // Continue anyway
+        }
+      }
+
       // Notify other party
       const otherUserId = uid === teacherId ? parentId : teacherId;
       if (otherUserId) {
@@ -476,26 +549,73 @@ export const createRecurringBooking = createAsyncThunk(
       
       // Generate individual bookings
       const generatedBookings = [];
+      const skippedBookings = [];
       const interval = frequency === 'weekly' ? 7 : 14; // days
+      
+      // Get teacher's available slots to verify each booking date
+      const availableSlotsQuery = query(
+        collection(db, 'availabilitySlots'),
+        where('teacherId', '==', teacherId),
+        where('status', '==', 'available')
+      );
+      const availableSlotsSnap = await getDocs(availableSlotsQuery);
+      const availableSlots = availableSlotsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
       
       for (let i = 0; i < numberOfWeeks; i++) {
         const bookingDate = new Date(startDate);
         bookingDate.setDate(bookingDate.getDate() + (i * interval));
         
         // Don't create bookings in the past
-        if (bookingDate < new Date()) continue;
+        if (bookingDate < new Date()) {
+          skippedBookings.push({ date: bookingDate.toISOString(), reason: 'past date' });
+          continue;
+        }
         
+        // Check if teacher has an available slot for this specific date and time
+        const bookingDateISO = bookingDate.toISOString();
+        const matchingSlot = availableSlots.find(slot => {
+          const slotStart = new Date(slot.start);
+          // Match same day and approximately same time (within 30 minutes)
+          const timeDiff = Math.abs(slotStart.getTime() - bookingDate.getTime());
+          return timeDiff < 30 * 60 * 1000 && slot.status === 'available';
+        });
+        
+        if (!matchingSlot) {
+          console.log(`[createRecurringBooking] No available slot for ${bookingDateISO}, skipping`);
+          skippedBookings.push({ date: bookingDateISO, reason: 'no available slot' });
+          continue;
+        }
+        
+        // Create booking and update slot status atomically
         const bookingRef = await addDoc(collection(db, 'bookings'), {
           teacherId,
           parentId,
           status: 'pending',
           date: bookingDate.toISOString(),
+          start: matchingSlot.start,
+          end: matchingSlot.end,
+          slotId: matchingSlot.id,
           notes: notes || '',
           recurringBookingId: recurringRef.id, // Link to master record
           isRecurring: true,
           instanceNumber: i + 1,
           createdAt: serverTimestamp(),
         });
+        
+        // Update the slot to mark it as booked (pending approval)
+        const slotRef = doc(db, 'availabilitySlots', matchingSlot.id);
+        await updateDoc(slotRef, {
+          status: 'pending', // Mark as pending (not available for others)
+          parentId: parentId,
+          bookingId: bookingRef.id,
+          updatedAt: serverTimestamp(),
+        });
+        
+        // Remove from available slots array so subsequent iterations don't try to book the same slot
+        const slotIndex = availableSlots.findIndex(s => s.id === matchingSlot.id);
+        if (slotIndex > -1) {
+          availableSlots.splice(slotIndex, 1);
+        }
         
         generatedBookings.push({
           id: bookingRef.id,
@@ -504,14 +624,27 @@ export const createRecurringBooking = createAsyncThunk(
         });
       }
       
+      if (skippedBookings.length > 0) {
+        console.log('[createRecurringBooking] Skipped', skippedBookings.length, 'bookings:', skippedBookings);
+      }
+      
       console.log('[createRecurringBooking] Generated', generatedBookings.length, 'bookings');
       
+      // Throw error if no bookings were created (all were skipped)
+      if (generatedBookings.length === 0) {
+        throw new Error('No available time slots found for the requested dates. Please check teacher\'s availability.');
+      }
+      
       // Create notification for teacher
+      const notificationMessage = skippedBookings.length > 0
+        ? `You have ${generatedBookings.length} new ${frequency} booking requests (${skippedBookings.length} dates skipped due to unavailability)`
+        : `You have ${generatedBookings.length} new ${frequency} booking requests starting ${startDate.toLocaleDateString()}`;
+      
       dispatch(createNotification({
         userId: teacherId,
         type: 'recurring_booking_request',
         title: 'New Recurring Booking Request 🔁',
-        message: `You have ${generatedBookings.length} new ${frequency} booking requests starting ${startDate.toLocaleDateString()}`,
+        message: notificationMessage,
         navigationTarget: 'TeacherBookings',
         navigationParams: { recurringBookingId: recurringRef.id }
       }));
@@ -539,6 +672,7 @@ export const createRecurringBooking = createAsyncThunk(
       return {
         recurringBookingId: recurringRef.id,
         bookings: generatedBookings,
+        skippedBookings,
         frequency,
         numberOfWeeks,
       };
@@ -677,20 +811,44 @@ export const approveAllRecurringBookings = createAsyncThunk(
         const meetingUrl = `https://meet.jit.si/PTA-${bookingId}`;
         
         try {
+          // Update booking status
           await updateDoc(doc(db, 'bookings', bookingId), {
             status: 'accepted',
             meetingProvider: 'jitsi',
             meetingUrl,
           });
           console.log('[approveAllRecurringBookings] ✅ Approved booking:', bookingId);
+          
+          // Update corresponding availability slot to 'booked' status
+          if (bookingData.slotId) {
+            try {
+              await updateDoc(doc(db, 'availabilitySlots', bookingData.slotId), {
+                status: 'booked',
+                updatedAt: serverTimestamp(),
+              });
+              console.log('[approveAllRecurringBookings] ✅ Updated slot:', bookingData.slotId);
+            } catch (slotErr) {
+              console.error('[approveAllRecurringBookings] ⚠️ Failed to update slot:', bookingData.slotId, slotErr);
+              // Continue anyway - booking is more important than slot status
+            }
+          }
         } catch (updateErr) {
           console.error('[approveAllRecurringBookings] ❌ Failed to approve booking:', bookingId, updateErr);
           throw updateErr;
         }
         
+        // Convert Firestore Timestamps to ISO strings for Redux serialization
+        const serializedData = { ...bookingData };
+        if (serializedData.createdAt?.toDate) {
+          serializedData.createdAt = serializedData.createdAt.toDate().toISOString();
+        }
+        if (serializedData.updatedAt?.toDate) {
+          serializedData.updatedAt = serializedData.updatedAt.toDate().toISOString();
+        }
+        
         approvedBookings.push({
           id: bookingId,
-          ...bookingData,
+          ...serializedData,
           status: 'accepted',
           meetingUrl,
         });

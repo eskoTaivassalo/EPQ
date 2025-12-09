@@ -17,21 +17,30 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
     const load = async () => {
       try {
         const from = new Date();
-        const to = new Date();
-        to.setDate(to.getDate() + 30);
-        const data = await listAvailableSlots(teacherId, from, to);
+        // Query a wide range initially to find the teacher's last available date
+        const farFuture = new Date();
+        farFuture.setFullYear(farFuture.getFullYear() + 1); // 1 year ahead
+        
+        const allData = await listAvailableSlots(teacherId, from, farFuture);
         
         // Filter out past slots and slots less than 2 hours from now
         const now = new Date();
         const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000); // 2 hours in milliseconds
         
-        const validSlots = data.filter(slot => {
+        const validSlots = allData.filter(slot => {
           const slotStart = new Date(slot.start);
           // Slot must be in the future AND at least 2 hours from now
           return slotStart > twoHoursFromNow;
         });
         
-        console.log(`📅 Filtered ${data.length} slots to ${validSlots.length} valid slots (>2h from now)`);
+        console.log(`📅 Filtered ${allData.length} slots to ${validSlots.length} valid slots (>2h from now)`);
+        
+        // Find the furthest date available
+        if (validSlots.length > 0) {
+          const furthestDate = new Date(Math.max(...validSlots.map(s => new Date(s.start))));
+          console.log(`📅 Teacher's availability extends to: ${furthestDate.toLocaleDateString()}`);
+        }
+        
         setSlots(validSlots);
       } catch (e) {
         console.error('Load slots error', e);
@@ -128,12 +137,24 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
           ListEmptyComponent={
             <View style={styles.empty}> 
-              <Ionicons name="information-circle-outline" size={40} color={colors.textSecondary} />
-              <Text style={styles.emptyTitle}>No available times</Text>
+              <Ionicons name="calendar-outline" size={60} color={colors.textSecondary} />
+              <Text style={styles.emptyTitle}>{teacherName || 'This teacher'} hasn't set availability yet</Text>
               <Text style={styles.emptyText}>
-                This teacher hasn't published availability yet, or all available times are within the next 2 hours.{'\n\n'}
-                Bookings must be made at least 2 hours in advance.
+                No available time slots have been published yet. Please contact the teacher directly to request lesson times.
               </Text>
+              <TouchableOpacity 
+                style={styles.contactButton}
+                onPress={() => {
+                  // Navigate to conversation with teacher
+                  navigation.navigate('ConversationThread', { 
+                    recipientId: teacherId,
+                    recipientName: teacherName || 'Teacher'
+                  });
+                }}
+              >
+                <Ionicons name="chatbubble-outline" size={18} color={colors.white} />
+                <Text style={styles.contactButtonText}>Contact Teacher</Text>
+              </TouchableOpacity>
             </View>
           }
         />
@@ -152,6 +173,21 @@ const styles = StyleSheet.create({
   slotDate: { fontSize: 14, color: colors.text },
   slotTime: { fontSize: 12, color: colors.textLight },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyTitle: { marginTop: 12, fontSize: 16, fontWeight: '600', color: colors.text },
-  emptyText: { marginTop: 6, fontSize: 13, color: colors.textSecondary, textAlign: 'center' },
+  emptyTitle: { marginTop: 16, fontSize: 18, fontWeight: '700', color: colors.text, textAlign: 'center' },
+  emptyText: { marginTop: 8, fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+  contactButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 25,
+    marginTop: 24,
+    gap: 8,
+  },
+  contactButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });

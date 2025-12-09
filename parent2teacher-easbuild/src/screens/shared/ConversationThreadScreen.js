@@ -8,12 +8,17 @@ import { useAuth } from '../../hooks/useAuth';
 import { subscribeToConversation, subscribeToSupportConversation, sendMessage } from '../../services/communicationService';
 
 export default function ConversationThreadScreen({ navigation, route }) {
-  const { teacherId, parentId, recipientName, isSupportConversation, senderId, recipientId, category, subject } = route.params || {};
+  const { teacherId: teacherIdParam, parentId: parentIdParam, recipientName, isSupportConversation, senderId, recipientId, category, subject } = route.params || {};
   const { user } = useAuth();
   const role = (user?.userType || user?.type) === 'teacher' ? 'teacher' : 'parent';
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const listRef = useRef(null);
+
+  // Handle both old params (teacherId/parentId) and new params (recipientId)
+  // If recipientId is provided, determine teacherId/parentId based on user role
+  const teacherId = teacherIdParam || (role === 'parent' ? recipientId : null) || (role === 'teacher' ? user.uid : null);
+  const parentId = parentIdParam || (role === 'teacher' ? recipientId : null) || (role === 'parent' ? user.uid : null);
 
   useEffect(() => {
     if (isSupportConversation && senderId && recipientId) {

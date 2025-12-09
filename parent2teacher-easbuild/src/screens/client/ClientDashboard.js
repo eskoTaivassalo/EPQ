@@ -503,17 +503,24 @@ const ParentDashboard = ({ navigation }) => {
     const loadSlots = async () => {
       setSlotsLoading(true);
       try {
-        // Listaa kaikki opettajien vapaat slotit seuraavan 7 päivän ajalta
+        // List all teacher available slots for the next 7 days (limited preview)
         const from = new Date();
         const to = new Date();
         to.setDate(to.getDate() + 7);
-        // Voit halutessasi rajata vain suosikkiopettajiin
+        // You can optionally filter to favorite teachers only
         let allSlots = [];
-        for (const teacher of recommendedTeachers) {
-          const slots = await listAvailableSlots(teacher.id, from, to);
-          allSlots = allSlots.concat(slots.map(s => ({ ...s, teacher })));
+        for (const teacher of recommendedTeachers.slice(0, 5)) { // Limit to first 5 to avoid too many queries
+          try {
+            const slots = await listAvailableSlots(teacher.id, from, to);
+            // Filter out slots less than 2 hours from now
+            const twoHoursFromNow = new Date(Date.now() + 2 * 60 * 60 * 1000);
+            const validSlots = slots.filter(s => new Date(s.start) > twoHoursFromNow);
+            allSlots = allSlots.concat(validSlots.map(s => ({ ...s, teacher })));
+          } catch (err) {
+            console.warn('Failed to load slots for teacher', teacher.id, err);
+          }
         }
-        setAvailableSlots(allSlots);
+        setAvailableSlots(allSlots.slice(0, 10)); // Show max 10 slots on dashboard
       } catch (e) {
         console.error('Slot load error', e);
       } finally {

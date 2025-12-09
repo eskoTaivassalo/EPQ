@@ -39,15 +39,23 @@ export default function BookingCalendar({ bookings = [], onSelectDate, onClose }
   const cells = [];
   for (let i = 0; i < leadingEmpty; i++) cells.push({ empty: true, key: 'e'+i });
   for (let day = 1; day <= daysInMonth; day++) {
-    const cellDate = new Date(year, month, day);
-    const keyISO = cellDate.toISOString().substring(0,10);
-    const dayBookings = grouped[keyISO] || [];
-    cells.push({
-      empty: false,
-      day,
-      iso: keyISO,
-      bookings: dayBookings
-    });
+    try {
+      const cellDate = new Date(year, month, day);
+      if (isNaN(cellDate.getTime())) {
+        console.warn('Invalid cell date:', year, month, day);
+        continue;
+      }
+      const keyISO = cellDate.toISOString().substring(0,10);
+      const dayBookings = grouped[keyISO] || [];
+      cells.push({
+        empty: false,
+        day,
+        iso: keyISO,
+        bookings: dayBookings
+      });
+    } catch (e) {
+      console.warn('Error creating cell date:', year, month, day, e);
+    }
   }
 
   const todayISO = new Date().toISOString().substring(0,10);
@@ -87,15 +95,15 @@ export default function BookingCalendar({ bookings = [], onSelectDate, onClose }
           <View key={c.key} style={styles.cellEmpty} />
         ) : (
           <TouchableOpacity
-            key={c.iso}
+            key={c.iso || `cell-${idx}`}
             style={[styles.cell, c.iso === todayISO && styles.cellToday]}
             onPress={() => onSelectDate && onSelectDate(c.iso, c.bookings)}
           >
             <Text style={styles.dayNumber}>{c.day}</Text>
             {c.bookings.length > 0 && (
               <View style={styles.dotsRow}>
-                {c.bookings.slice(0,3).map(b => (
-                  <View key={b.id} style={[styles.dot, dotColorByStatus(b.status)]} />
+                {c.bookings.slice(0,3).map((b, bidx) => (
+                  <View key={b.id || `dot-${idx}-${bidx}`} style={[styles.dot, dotColorByStatus(b.status)]} />
                 ))}
                 {c.bookings.length > 3 && (
                   <Text style={styles.moreText}>+{c.bookings.length-3}</Text>

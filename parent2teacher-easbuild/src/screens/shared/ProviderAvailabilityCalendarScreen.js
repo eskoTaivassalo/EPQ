@@ -39,13 +39,31 @@ export default function ProviderAvailabilityCalendarScreen({ route, navigation }
       // Group slots by ISO date (YYYY-MM-DD)
       const grouped = { ...base };
       for (const s of data) {
-        const d = (s.date || new Date(s.start).toISOString().slice(0,10));
-        if (!grouped[d]) grouped[d] = [];
-        grouped[d].push({
-          name: `${new Date(s.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${new Date(s.end).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
-          slot: s,
-          height: 60,
-        });
+        // Validate slot dates
+        if (!s.start || !s.end) {
+          console.warn('Slot missing start/end:', s.id);
+          continue;
+        }
+        
+        try {
+          const startDate = new Date(s.start);
+          const endDate = new Date(s.end);
+          
+          if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            console.warn('Invalid slot dates:', s.id, s.start, s.end);
+            continue;
+          }
+          
+          const d = (s.date || startDate.toISOString().slice(0,10));
+          if (!grouped[d]) grouped[d] = [];
+          grouped[d].push({
+            name: `${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+            slot: s,
+            height: 60,
+          });
+        } catch (error) {
+          console.warn('Error processing slot:', s.id, error);
+        }
       }
       setItems(grouped);
       setHasAnySlots((data || []).length > 0);
@@ -63,17 +81,34 @@ export default function ProviderAvailabilityCalendarScreen({ route, navigation }
     const s = it.slot;
     if (!user?.uid) return Alert.alert('Error', 'Not authenticated');
 
-    const ok = await new Promise(resolve => {
-      Alert.alert(
-        'Confirm booking',
-        `${new Date(s.start).toLocaleString()} - ${new Date(s.end).toLocaleTimeString()}`,
-        [
-          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-          { text: 'Book', onPress: () => resolve(true) },
-        ]
-      );
-    });
-    if (!ok) return;
+    // Validate dates before showing alert
+    if (!s.start || !s.end) {
+      return Alert.alert('Error', 'Invalid slot data');
+    }
+    
+    try {
+      const startDate = new Date(s.start);
+      const endDate = new Date(s.end);
+      
+      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+        return Alert.alert('Error', 'Invalid slot dates');
+      }
+
+      const ok = await new Promise(resolve => {
+        Alert.alert(
+          'Confirm booking',
+          `${startDate.toLocaleString()} - ${endDate.toLocaleTimeString()}`,
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Book', onPress: () => resolve(true) },
+          ]
+        );
+      });
+      if (!ok) return;
+    } catch (error) {
+      console.error('Error formatting slot dates:', error);
+      return Alert.alert('Error', 'Invalid slot data');
+    }
 
     try {
       await bookSlot(s.id, user.uid, {});

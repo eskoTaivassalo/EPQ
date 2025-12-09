@@ -20,6 +20,36 @@ import { isAdmin } from '../../middleware/adminAuth';
  * Sisältää async thunk:it Firebase-operaatioille
  */
 
+/**
+ * Serialize Firestore data to be Redux-compatible
+ * Converts Firestore Timestamps to ISO strings
+ */
+const serializeFirestoreData = (data) => {
+  if (!data) return data;
+  
+  const serialized = { ...data };
+  
+  // Convert Firestore Timestamps to ISO strings
+  Object.keys(serialized).forEach(key => {
+    const value = serialized[key];
+    
+    // Check if it's a Firestore Timestamp
+    if (value && typeof value === 'object' && value.toDate) {
+      serialized[key] = value.toDate().toISOString();
+    }
+    // Check if it's a nested object with Timestamp type marker
+    else if (value && typeof value === 'object' && value.type === 'firestore/timestamp/1.0') {
+      // This is a Firestore Timestamp that's been partially serialized
+      if (value.seconds !== undefined) {
+        const date = new Date(value.seconds * 1000 + (value.nanoseconds || 0) / 1000000);
+        serialized[key] = date.toISOString();
+      }
+    }
+  });
+  
+  return serialized;
+};
+
 // Initial state
 const initialState = {
   user: null,
@@ -96,7 +126,7 @@ export const loginUser = createAsyncThunk(
       };
 
       if (userDoc && userDoc.exists()) {
-        const firestoreData = userDoc.data();
+        const firestoreData = serializeFirestoreData(userDoc.data());
         
         // 🚫 CHECK IF ACCOUNT IS DELETED
         if (firestoreData.deleted === true) {
@@ -146,11 +176,11 @@ export const loginUser = createAsyncThunk(
         userData.isAdmin = false;
       }
 
-      // Tallenna AsyncStorage:een
+      // Tallenna AsyncStorage:een (already serialized)
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       
       console.log('✅ Redux: Login successful for:', email);
-      return userData;
+      return serializeFirestoreData(userData);
       
     } catch (error) {
       console.error('❌ Redux: Login error:', error);
@@ -341,11 +371,11 @@ export const refreshUser = createAsyncThunk(
         await auth.currentUser.reload();
         const refreshedUser = auth.currentUser;
         
-        const updatedUserData = {
+        const updatedUserData = serializeFirestoreData({
           ...currentUser,
           emailVerified: refreshedUser.emailVerified,
           timestamp: Date.now()
-        };
+        });
         
         console.log('✅ Redux: User refreshed from Firebase, emailVerified:', refreshedUser.emailVerified);
         return updatedUserData;
@@ -359,14 +389,14 @@ export const refreshUser = createAsyncThunk(
       
       // Päivitä vain jos data on yli 5 minuuttia vanhaa
       if (timeSinceUpdate < 5 * 60 * 1000) {
-        return currentUser; // Palauta ilman loggausta jos data on tuoretta
+        return serializeFirestoreData(currentUser); // Palauta ilman loggausta jos data on tuoretta
       }
       
       console.log('🔄 Redux: Firebase not available, data older than 5 minutes, updating timestamp');
-      return {
+      return serializeFirestoreData({
         ...currentUser,
         timestamp: now
-      };
+      });
       
     } catch (error) {
       console.error('❌ Redux: Refresh error:', error);
@@ -384,7 +414,7 @@ export const loadStoredAuth = createAsyncThunk(
       
       if (storedUser) {
         console.log('💾 Redux: Found stored user data');
-        const userData = JSON.parse(storedUser);
+        const userData = serializeFirestoreData(JSON.parse(storedUser));
         
         // Wait a moment for Firebase to initialize
         await new Promise(resolve => setTimeout(resolve, 1000));

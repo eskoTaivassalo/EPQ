@@ -478,11 +478,11 @@ const RoleDashboard = ({ navigation }) => {
             Quick Actions
           </Text>
           <View style={styles.quickActionsGrid}>
-            {/* Palkkaaminen button for parents/service providers */}
-            {(roleConfig.id === 'parent' || roleConfig.id === 'service_provider') && (
+            {/* Palkkaaminen button for parents only */}
+            {roleConfig.id === 'parent' && (
               <TouchableOpacity
                 style={[styles.quickActionCard, { backgroundColor: roleColors.card }]}
-                onPress={() => navigation.navigate('FindTeachers')}
+                onPress={() => navigation.navigate('FindProviders')}
               >
                 <View style={[styles.quickActionIcon, { backgroundColor: '#10B981' + '20' }]}>
                   <Ionicons name="search" size={24} color="#10B981" />

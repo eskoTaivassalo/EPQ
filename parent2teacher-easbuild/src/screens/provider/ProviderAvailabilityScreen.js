@@ -125,10 +125,20 @@ export default function TeacherAvailabilityScreen({ navigation }) {
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Availability</Text>
-        <View style={{ width: 24 }} />
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate('ManageSlots')}>
+          <Ionicons name="list" size={24} color={colors.white} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Info banner */}
+        <View style={styles.infoBanner}>
+          <Ionicons name="information-circle" size={24} color="#2196F3" />
+          <Text style={styles.infoBannerText}>
+            Create time slots that students can book. Select your available days, times, and subjects below.
+          </Text>
+        </View>
+
         <Text style={styles.sectionTitle}>Select Days</Text>
         <View style={styles.daysRow}>
           {DAYS.map(d => (
@@ -317,6 +327,23 @@ const styles = StyleSheet.create({
   backButton: { padding: 5 },
   headerTitle: { color: colors.white, fontSize: 18, fontWeight: 'bold' },
   content: { padding: 20 },
+  infoBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E3F2FD',
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196F3',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 24,
+    gap: 12,
+  },
+  infoBannerText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1976D2',
+    lineHeight: 20,
+  },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: colors.text, marginBottom: 12 },
   daysRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
   dayChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white },
