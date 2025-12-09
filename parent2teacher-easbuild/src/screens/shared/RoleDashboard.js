@@ -20,8 +20,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import { getRoleConfig, getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 import { useAuth } from '../../hooks/useAuth';
 import SimpleDrawer from '../../components/SimpleDrawer';
-import { fetchTeacherBookings, fetchParentBookings, selectBookings, updateBookingStatus } from '../../store/slices/bookingsSlice';
-import { fetchNotifications } from '../../store/slices/notificationsSlice';
+import { fetchTeacherBookings, fetchParentBookings, selectBookings, updateBookingStatus, startBookingsListener, stopBookingsListener } from '../../store/slices/bookingsSlice';
+import { fetchNotifications, startNotificationListener, stopNotificationListener } from '../../store/slices/notificationsSlice';
 import { useAppData } from '../../hooks/useAppData';
 
 const RoleDashboard = ({ navigation }) => {
@@ -58,35 +58,36 @@ const RoleDashboard = ({ navigation }) => {
     );
   }
 
-  // Fetch bookings and notifications when component mounts
+  // Real-time bookings listener (auto-updates when new bookings arrive)
   useEffect(() => {
-    if (user?.uid) {
-      if (isProvider) {
-        dispatch(fetchTeacherBookings());
-      } else {
-        dispatch(fetchParentBookings());
-      }
-      // Fetch notifications to update badge
-      dispatch(fetchNotifications(user.uid));
-    }
+    if (!user?.uid) return;
+    
+    console.log('📦 Setting up real-time bookings listener');
+    const unsubscribe = startBookingsListener(user.uid, isProvider, dispatch);
+    
+    return () => {
+      console.log('🔕 Cleaning up bookings listener');
+      stopBookingsListener();
+    };
   }, [dispatch, user?.uid, isProvider]);
+
+  // Real-time notification listener (replaces 10-second polling to save battery)
+  useEffect(() => {
+    if (!user?.uid) return;
+    
+    console.log('🔔 Setting up real-time notification listener');
+    const unsubscribe = startNotificationListener(user.uid, dispatch);
+    
+    return () => {
+      console.log('🔕 Cleaning up notification listener');
+      stopNotificationListener();
+    };
+  }, [dispatch, user?.uid]);
 
   // Calculate stats from real booking data
   useEffect(() => {
     loadDashboardData();
   }, [bookings, user?.uid]);
-
-  // Poll for new notifications every 10 seconds
-  useEffect(() => {
-    if (!user?.uid) return;
-    
-    const interval = setInterval(() => {
-      console.log('🔄 RoleDashboard: Auto-refreshing notifications');
-      dispatch(fetchNotifications(user.uid));
-    }, 10000); // 10 seconds
-    
-    return () => clearInterval(interval);
-  }, [dispatch, user?.uid]);
 
   const loadDashboardData = async () => {
     try {
@@ -98,6 +99,9 @@ const RoleDashboard = ({ navigation }) => {
       }
       
       // Calculate real stats from bookings
+      console.log('📊 [Dashboard] Total bookings:', bookings.length);
+      console.log('📊 [Dashboard] Bookings data:', bookings.map(b => ({ id: b.id, status: b.status, date: b.date })));
+      
       const now = new Date();
       const confirmedBookings = bookings.filter(b => 
         b.status === 'accepted' || b.status === 'confirmed'
@@ -109,6 +113,9 @@ const RoleDashboard = ({ navigation }) => {
       const calculatedPendingBookings = bookings.filter(b => 
         b.status === 'pending' || b.status === 'booked'
       );
+      
+      console.log('⏳ [Dashboard] Pending bookings count:', calculatedPendingBookings.length);
+      console.log('⏳ [Dashboard] Pending bookings:', calculatedPendingBookings.map(b => ({ id: b.id, status: b.status })));
       
       // Update pending bookings state
       setPendingBookings(calculatedPendingBookings);
@@ -168,7 +175,7 @@ const RoleDashboard = ({ navigation }) => {
     }
     
     // Show confirmation
-    alert(`✅ Booking accepted!\n\nVideo meeting link will be available in Upcoming Lessons`);
+    alert(`✅ Booking accepted!\n\nVideo meeting link will be available in Upcoming Sessions`);
   };
 
   const handleDeclineBooking = async (booking) => {
@@ -330,7 +337,9 @@ const RoleDashboard = ({ navigation }) => {
             ) : (
               pendingBookings.slice(0, 3).map((booking) => {
                 const parent = getParentById(booking.parentId);
+                console.log('[RoleDashboard] 📅 Booking date string:', booking.date);
                 const bookingDate = new Date(booking.date);
+                console.log('[RoleDashboard] 📅 Parsed date object:', bookingDate.toString());
                 return (
                   <View key={booking.id} style={[styles.requestCard, { backgroundColor: roleColors.card }]}>
                     <View style={styles.requestHeader}>
@@ -347,7 +356,7 @@ const RoleDashboard = ({ navigation }) => {
                       </Text>
                     )}
                     <Text style={[styles.requestTime, { color: roleColors.textSecondary }]}>
-                      Requested: {bookingDate.toLocaleDateString('en-US', { 
+                      Requested: {bookingDate.toLocaleString('en-US', { 
                         weekday: 'short', 
                         month: 'short', 
                         day: 'numeric',
@@ -378,12 +387,12 @@ const RoleDashboard = ({ navigation }) => {
           </View>
         )}
 
-        {/* Upcoming Lessons (Provider only) */}
+        {/* Upcoming Sessions (Provider only) */}
         {roleConfig.id === 'service_provider' && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={[styles.sectionTitle, { color: roleColors.text }]}>
-                Upcoming Lessons
+                Upcoming Sessions
               </Text>
               <TouchableOpacity onPress={() => navigation.navigate('Calendar')}>
                 <Text style={[styles.seeAll, { color: roleColors.primary }]}>
@@ -394,41 +403,41 @@ const RoleDashboard = ({ navigation }) => {
             
             {(() => {
               const now = new Date();
-              const upcomingLessons = bookings
+              const upcomingSessions = bookings
                 .filter(b => (b.status === 'accepted' || b.status === 'confirmed') && new Date(b.date || b.start) >= now)
                 .sort((a, b) => new Date(a.date || a.start) - new Date(b.date || b.start))
                 .slice(0, 3);
               
-              if (upcomingLessons.length === 0) {
+              if (upcomingSessions.length === 0) {
                 return (
                   <View style={[styles.emptyRequestsCard, { backgroundColor: roleColors.card }]}>
                     <Ionicons name="calendar-outline" size={40} color={roleColors.textSecondary} />
                     <Text style={[styles.emptyRequestsText, { color: roleColors.textSecondary }]}>
-                      No upcoming lessons
+                      No upcoming sessions
                     </Text>
                   </View>
                 );
               }
               
-              return upcomingLessons.map((lesson) => {
-                const parent = getParentById(lesson.parentId);
-                const lessonDate = new Date(lesson.date || lesson.start);
-                const hasStarted = lessonDate <= new Date();
+              return upcomingSessions.map((session) => {
+                const parent = getParentById(session.parentId);
+                const sessionDate = new Date(session.date || session.start);
+                const hasStarted = sessionDate <= new Date();
                 
                 return (
-                  <View key={lesson.id} style={[styles.lessonCard, { backgroundColor: roleColors.card }]}>
+                  <View key={session.id} style={[styles.lessonCard, { backgroundColor: roleColors.card }]}>
                     <View style={styles.lessonHeader}>
                       <View style={styles.lessonInfo}>
                         <Text style={[styles.lessonStudent, { color: roleColors.text }]}>
                           {parent?.name || parent?.fullName || parent?.displayName || 'Student'}
                         </Text>
-                        {lesson.notes && (
+                        {session.notes && (
                           <Text style={[styles.lessonSubject, { color: roleColors.textSecondary }]} numberOfLines={1}>
-                            {lesson.notes}
+                            {session.notes}
                           </Text>
                         )}
                         <Text style={[styles.lessonTime, { color: roleColors.textSecondary }]}>
-                          {lessonDate.toLocaleString('en-US', { 
+                          {sessionDate.toLocaleString('en-US', { 
                             weekday: 'short', 
                             month: 'short', 
                             day: 'numeric',
@@ -437,15 +446,15 @@ const RoleDashboard = ({ navigation }) => {
                           })}
                         </Text>
                       </View>
-                      {lesson.meetingUrl && (
+                      {session.meetingUrl && (
                         <TouchableOpacity 
                           style={[styles.videoButton, { 
                             backgroundColor: hasStarted ? roleColors.primary : roleColors.primary + '40'
                           }]}
                           onPress={() => {
-                            if (lesson.meetingUrl) {
+                            if (session.meetingUrl) {
                               const { Linking } = require('react-native');
-                              Linking.openURL(lesson.meetingUrl);
+                              Linking.openURL(session.meetingUrl);
                             }
                           }}
                         >
@@ -457,7 +466,7 @@ const RoleDashboard = ({ navigation }) => {
                         </TouchableOpacity>
                       )}
                     </View>
-                    {lesson.meetingUrl && (
+                    {session.meetingUrl && (
                       <View style={[styles.meetingInfo, { backgroundColor: roleColors.primary + '10' }]}>
                         <Ionicons name="videocam" size={14} color={roleColors.primary} />
                         <Text style={[styles.meetingPassword, { color: roleColors.primary }]}>

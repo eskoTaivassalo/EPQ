@@ -137,6 +137,8 @@ export async function listAvailableSlots(teacherId, fromDate, toDate) {
  * Book a slot atomically
  */
 export async function bookSlot(slotId, parentId, metadata = {}) {
+  console.log('[bookSlot] 📅 Starting booking process:', { slotId, parentId });
+  
   if (!db) throw new Error('Firestore not initialized');
   if (!slotId || !parentId) throw new Error('slotId and parentId required');
 
@@ -149,9 +151,17 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
 
   await runTransaction(db, async (tx) => {
     const slotSnap = await tx.get(slotRef);
-    if (!slotSnap.exists()) throw new Error('Slot not found');
+    if (!slotSnap.exists()) {
+      console.error('[bookSlot] ❌ Slot not found:', slotId);
+      throw new Error('Slot not found');
+    }
     const slot = slotSnap.data();
-    if (slot.status !== 'available') throw new Error('Slot not available');
+    console.log('[bookSlot] 📋 Slot status:', slot.status, 'teacherId:', slot.teacherId);
+    
+    if (slot.status !== 'available') {
+      console.error('[bookSlot] ❌ Slot not available! Current status:', slot.status, 'parentId:', slot.parentId);
+      throw new Error('Slot not available');
+    }
     // Check if slot is in the future
     const slotStart = new Date(slot.start);
     const now = new Date();
@@ -176,7 +186,7 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
       slotId,
       teacherId: slot.teacherId,
       parentId,
-      date: slot.date,
+      date: slot.start, // Use slot.start (has full datetime) instead of slot.date (date only)
       start: slot.start,
       end: slot.end,
       status: 'booked',
@@ -184,8 +194,12 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
       createdAt: serverTimestamp(),
       ...metadata,
     });
+    
+    console.log('[bookSlot] ✅ Transaction committed - slot booked:', bookingRef.id);
   });
 
+  console.log('[bookSlot] ✅ Booking successful! Creating notification...');
+  
   // Fire-and-forget: create an in-app notification for the teacher
   try {
     if (teacherIdForNotify) {
@@ -194,7 +208,7 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
         userId: teacherIdForNotify,
         type: 'booking',
         title: 'New booking',
-        message: `A parent booked a lesson for ${startStr}${bookedSubject ? ` (Subject: ${bookedSubject})` : ''}.`,
+        message: `A parent booked a session for ${startStr}${bookedSubject ? ` (Subject: ${bookedSubject})` : ''}.`,
         read: false,
         createdAt: serverTimestamp(),
         data: {

@@ -92,7 +92,7 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
       });
       if (!ok) return;
       const res = await bookSlot(slot.id, user.uid, selectedSubject ? { subject: selectedSubject } : {});
-      Alert.alert('Booked', 'Your lesson has been booked');
+      Alert.alert('Booked', 'Your session has been booked');
       setSlots(prev => prev.filter(s => s.id !== slot.id));
     } catch (e) {
       console.error('Book slot error', e);
@@ -140,7 +140,7 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
               <Ionicons name="calendar-outline" size={60} color={colors.textSecondary} />
               <Text style={styles.emptyTitle}>{teacherName || 'This teacher'} hasn't set availability yet</Text>
               <Text style={styles.emptyText}>
-                No available time slots have been published yet. Please contact the teacher directly to request lesson times.
+                No available time slots have been published yet. Please contact the teacher directly to request session times.
               </Text>
               <TouchableOpacity 
                 style={styles.contactButton}

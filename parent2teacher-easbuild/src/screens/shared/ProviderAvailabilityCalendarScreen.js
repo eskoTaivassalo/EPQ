@@ -143,7 +143,7 @@ export default function ProviderAvailabilityCalendarScreen({ route, navigation }
 
     try {
       await bookSlot(s.id, user.uid, {});
-      Alert.alert('Booked', 'Your lesson has been booked');
+      Alert.alert('Booked', 'Your session has been booked');
       // Remove from calendar
       setItems(prev => {
         const d = s.date;

@@ -241,16 +241,11 @@ const NotificationsScreen = ({ navigation }) => {
               setSelectedCancellation(item);
               setCancelModalVisible(true);
             } else if (item.navigationTarget) {
-              const state = navigation.getState?.();
-              const routeNames = state?.routeNames || [];
-              let target = item.navigationTarget;
-              if (!routeNames.includes(target)) {
-                // Fallback logic: choose a bookings/calendar route that exists
-                if (routeNames.includes('ParentBookings')) target = 'ParentBookings';
-                else if (routeNames.includes('TeacherBookings')) target = 'TeacherBookings';
-                else if (routeNames.includes('Calendar')) target = 'Calendar';
-                else target = null;
-              }
+              // Always use unified Bookings screen
+              const target = item.navigationTarget === 'ParentBookings' || item.navigationTarget === 'TeacherBookings' 
+                ? 'Bookings' 
+                : item.navigationTarget;
+              
               if (target) {
                 navigation.navigate(target, item.navigationParams);
               }

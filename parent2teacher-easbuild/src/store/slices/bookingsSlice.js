@@ -9,10 +9,12 @@ import {
   updateDoc,
   deleteDoc,
   serverTimestamp,
-  getDoc
+  getDoc,
+  onSnapshot
 } from 'firebase/firestore';
 import { db, auth } from '../../config/firebaseConfig';
 import { createNotification } from './notificationsSlice';
+import { toLocalISOString } from '../../utils/dateUtils';
 
 const initialState = {
   myBookings: [],
@@ -42,7 +44,7 @@ export const createBooking = createAsyncThunk(
         parentId: auth.currentUser.uid,
         // Firestore rules require 'pending' on create
         status: 'pending',
-        date: typeof date === 'string' ? date : new Date(date).toISOString(),
+        date: typeof date === 'string' ? date : toLocalISOString(new Date(date)),
         notes: notes || '',
         createdAt: serverTimestamp(),
       };
@@ -205,9 +207,9 @@ export const fetchTeacherBookings = createAsyncThunk(
 
 export const updateBookingStatus = createAsyncThunk(
   'bookings/updateBookingStatus',
-  async ({ bookingId, status, parentId, teacherName, date, declineReason, suggestedDate, suggestedDateFormatted }, { rejectWithValue, dispatch }) => {
+  async ({ bookingId, status, parentId, teacherName, date, declineReason, suggestedDate, suggestedDateFormatted, cancelledBy }, { rejectWithValue, dispatch }) => {
     try {
-      console.log('[updateBookingStatus] Starting:', { bookingId, status, parentId });
+      console.log('[updateBookingStatus] Starting:', { bookingId, status, parentId, cancelledBy });
       
       if (!auth?.currentUser) throw new Error('Not authenticated');
       const ref = doc(db, 'bookings', bookingId);
@@ -226,7 +228,7 @@ export const updateBookingStatus = createAsyncThunk(
       const update = { status };
       if (status === 'accepted') {
         // Generate unique room name from bookingId for privacy
-        const roomName = `Lesson-${bookingId}`;
+        const roomName = `Session-${bookingId}`;
         const meetingUrl = `https://meet.jit.si/${roomName}`;
         update.meetingProvider = 'jitsi';
         update.meetingUrl = meetingUrl;
@@ -242,6 +244,11 @@ export const updateBookingStatus = createAsyncThunk(
           update.suggestedDateFormatted = suggestedDateFormatted || new Date(suggestedDate).toLocaleString();
           update.awaitingReschedule = true; // Flag for parent to accept new time
         }
+      }
+      
+      // When cancelling, save who cancelled
+      if (status === 'cancelled' && cancelledBy) {
+        update.cancelledBy = cancelledBy;
       }
       
       console.log('[updateBookingStatus] Updating booking with:', update);
@@ -343,31 +350,43 @@ export const updateBookingStatus = createAsyncThunk(
         }
         
         // For non-recurring or declined bookings, use individual notifications
+        console.log('[updateBookingStatus] 📋 Preparing notification - parentId from param:', parentId);
+        console.log('[updateBookingStatus] 📋 Preparing notification - parentId from booking:', bookingData.parentId);
+        
+        // Use parentId from booking data if not provided in params
+        const targetParentId = parentId || bookingData.parentId;
+        
+        if (!targetParentId) {
+          console.error('[updateBookingStatus] ❌ ERROR: No parentId available! Cannot send notification!');
+          console.error('[updateBookingStatus] Booking data:', bookingData);
+          return { bookingId, status };
+        }
+        
         let notificationData = {
-          userId: parentId,
-          navigationTarget: 'ParentBookings',
+          userId: targetParentId,
+          navigationTarget: 'Bookings',
           navigationParams: { bookingId }
         };
 
         if (status === 'accepted') {
           notificationData.type = 'booking_accepted';
           notificationData.title = 'Booking Confirmed! 🎉';
-          notificationData.message = `${teacherName || 'Teacher'} accepted your booking${date ? ' for ' + new Date(date).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}\n\n📹 Video meeting link available in Dashboard → Upcoming Lessons`;
+          notificationData.message = `${teacherName || 'Teacher'} accepted your booking${date ? ' for ' + new Date(date).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}\n\n📹 Video meeting link available in Dashboard → Upcoming Sessions`;
           
-          console.log('[updateBookingStatus] 🔔 Creating notification FOR PARENT:', parentId, '(current user:', auth.currentUser.uid, ')');
+          console.log('[updateBookingStatus] 🔔 Creating notification FOR PARENT:', targetParentId, '(current user:', auth.currentUser.uid, ')');
           
           // Send push notification to parent (but not if it's the same user testing)
           (async () => {
             try {
               // Don't send push to yourself when testing with same device
-              if (auth.currentUser.uid === parentId) {
+              if (auth.currentUser.uid === targetParentId) {
                 console.log('[push] ⏭️ Skipping push notification - same user testing');
                 return;
               }
               
               const { sendExpoPushNotification } = await import('../../services/pushService');
-              console.log('[push] Fetching parent push token for:', parentId);
-              const userDoc = await getDoc(doc(db, 'users', parentId));
+              console.log('[push] Fetching parent push token for:', targetParentId);
+              const userDoc = await getDoc(doc(db, 'users', targetParentId));
               const token = userDoc.exists() ? userDoc.data()?.push?.expo?.token : null;
               
               if (token) {
@@ -380,7 +399,7 @@ export const updateBookingStatus = createAsyncThunk(
                 );
                 console.log('[push] ✅ Push notification sent to parent:', result);
               } else {
-                console.warn('[push] ⚠️ No push token found for parent:', parentId);
+                console.warn('[push] ⚠️ No push token found for parent:', targetParentId);
               }
             } catch (pushErr) {
               console.error('[push] ❌ Failed to send push to parent:', pushErr?.message || pushErr);
@@ -405,7 +424,7 @@ export const updateBookingStatus = createAsyncThunk(
           // Send push notification to parent (but not if testing with same user)
           (async () => {
             try {
-              if (auth.currentUser.uid === parentId) {
+              if (auth.currentUser.uid === targetParentId) {
                 console.log('[push] ⏭️ Skipping decline push - same user testing');
                 return;
               }
@@ -484,32 +503,52 @@ export const cancelBooking = createAsyncThunk(
 
       // Notify other party
       const otherUserId = uid === teacherId ? parentId : teacherId;
+      console.log('[cancelBooking] 📬 Preparing notification:', { 
+        currentUserId: uid, 
+        teacherId, 
+        parentId, 
+        otherUserId,
+        isTeacherCancelling: uid === teacherId
+      });
+      
       if (otherUserId) {
-        let title = 'Varaus peruutettu';
-        let message = `Varaus ${date ? new Date(date).toLocaleString('fi-FI') : ''} on peruutettu.`;
-        if (reason) message += ` Syynä: ${reason}`;
+        let title = 'Session Cancelled';
+        let message = `Session ${date ? new Date(date).toLocaleString('en-US') : ''} has been cancelled.`;
+        if (reason) message += ` Reason: ${reason}`;
         
-        // If teacher cancelled, offer rebooking option
-        if (uid === teacherId) {
-          message += ` Haluatko varata uuden ajan?`;
-          dispatch(createNotification({
-            userId: otherUserId,
-            type: 'booking_cancelled',
-            title,
-            message,
-            navigationTarget: 'FindProviders',
-            navigationParams: { teacherId }
-          }));
-        } else {
-          dispatch(createNotification({
-            userId: otherUserId,
-            type: 'booking_cancelled',
-            title,
-            message,
-            navigationTarget: 'TeacherBookings',
-            navigationParams: { bookingId }
-          }));
+        try {
+          // If teacher cancelled, offer rebooking option
+          if (uid === teacherId) {
+            console.log('[cancelBooking] 👨‍🏫 Teacher cancelled - notifying parent:', otherUserId);
+            message += ` Would you like to book a new time?`;
+            await dispatch(createNotification({
+              userId: otherUserId,
+              type: 'booking_cancelled',
+              title,
+              message,
+              navigationTarget: 'FindProviders',
+              navigationParams: { teacherId }
+            })).unwrap();
+            console.log('[cancelBooking] ✅ Notification sent to parent');
+          } else {
+            // Student/parent cancelled - notify teacher
+            console.log('[cancelBooking] 👨‍🎓 Student/parent cancelled - notifying teacher:', otherUserId);
+            await dispatch(createNotification({
+              userId: otherUserId,
+              type: 'booking_cancelled',
+              title,
+              message,
+              navigationTarget: 'Bookings',
+              navigationParams: { bookingId }
+            })).unwrap();
+            console.log('[cancelBooking] ✅ Notification sent to teacher');
+          }
+        } catch (notifErr) {
+          console.error('[cancelBooking] ❌ Failed to send notification:', notifErr);
+          // Don't fail the whole cancellation if notification fails
         }
+      } else {
+        console.warn('[cancelBooking] ⚠️ No otherUserId found - cannot send notification');
       }
       return { bookingId, status: cancelledStatus, cancelReason: reason || null };
     } catch (err) {
@@ -1018,5 +1057,72 @@ const bookingsSlice = createSlice({
 export const selectBookings = (state) => state.bookings.myBookings;
 export const selectBookingsLoading = (state) => state.bookings.loading;
 export const selectBookingsError = (state) => state.bookings.error;
+
+// Real-time listener for bookings (replaces polling)
+let bookingsUnsubscribe = null;
+
+export const startBookingsListener = (userId, isProvider, dispatch) => {
+  console.log('🔔 [Bookings] Starting real-time listener for:', userId, isProvider ? '(teacher)' : '(parent)');
+  
+  // Stop any existing listener
+  if (bookingsUnsubscribe) {
+    console.log('🔕 [Bookings] Stopping previous listener');
+    bookingsUnsubscribe();
+  }
+
+  try {
+    // Query based on user role
+    const q = isProvider 
+      ? query(collection(db, 'bookings'), where('teacherId', '==', userId))
+      : query(collection(db, 'bookings'), where('parentId', '==', userId));
+
+    bookingsUnsubscribe = onSnapshot(q, (snapshot) => {
+      console.log('📦 [Bookings] Real-time update received:', snapshot.size, 'bookings');
+      
+      const bookings = snapshot.docs.map(d => {
+        const data = d.data();
+        const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
+        
+        // Validate date field
+        let validDate = data.date;
+        if (validDate) {
+          try {
+            const testDate = new Date(validDate);
+            if (isNaN(testDate.getTime())) {
+              console.warn('[Bookings listener] Invalid date:', d.id, validDate);
+              validDate = null;
+            }
+          } catch (e) {
+            console.warn('[Bookings listener] Error parsing date:', d.id, e);
+            validDate = null;
+          }
+        }
+        
+        return { id: d.id, ...data, createdAt, date: validDate };
+      }).filter(b => b.date); // Only include bookings with valid dates
+      
+      // Update Redux state directly
+      dispatch({
+        type: isProvider ? 'bookings/fetchTeacherBookings/fulfilled' : 'bookings/fetchParentBookings/fulfilled',
+        payload: bookings
+      });
+    }, (error) => {
+      console.error('❌ [Bookings] Listener error:', error);
+    });
+
+    return bookingsUnsubscribe;
+  } catch (error) {
+    console.error('❌ [Bookings] Failed to start listener:', error);
+    return null;
+  }
+};
+
+export const stopBookingsListener = () => {
+  if (bookingsUnsubscribe) {
+    console.log('🔕 [Bookings] Stopping listener');
+    bookingsUnsubscribe();
+    bookingsUnsubscribe = null;
+  }
+};
 
 export default bookingsSlice.reducer;

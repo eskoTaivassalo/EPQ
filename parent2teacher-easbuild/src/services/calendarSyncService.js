@@ -70,8 +70,8 @@ export async function exportBookingToCalendar(booking, calendarId) {
     if (!hasPermission) return null;
 
     const title = booking.teacherName 
-      ? `Lesson with ${booking.teacherName}` 
-      : `Lesson with ${booking.parentName}`;
+      ? `Session with ${booking.teacherName}` 
+      : `Session with ${booking.parentName}`;
     
     const notes = [
       booking.subject ? `Subject: ${booking.subject}` : '',

@@ -8,6 +8,19 @@ export const toISODate = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+// Convert Date to ISO string in local timezone (not UTC)
+// Returns format: "2025-12-09T12:00:00" (without timezone offset)
+export const toLocalISOString = (date) => {
+  const d = new Date(date);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+};
+
 export const parseTimeHM = (hm) => {
   // hm like '09:00'
   const [h, m] = (hm || '00:00').split(':').map(Number);

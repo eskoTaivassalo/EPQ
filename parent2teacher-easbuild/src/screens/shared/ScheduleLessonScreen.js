@@ -106,7 +106,7 @@ const ScheduleLessonScreen = ({ navigation, route }) => {
   };
 
   const handleRecurringSkip = async () => {
-    // User chose to book only single lesson - create it now
+    // User chose to book only single session - create it now
     try {
       if (!createdBookingData) return;
       
@@ -145,7 +145,7 @@ const ScheduleLessonScreen = ({ navigation, route }) => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Schedule Lesson</Text>
+        <Text style={styles.headerTitle}>Schedule Session</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -187,7 +187,7 @@ const ScheduleLessonScreen = ({ navigation, route }) => {
         />
 
         <TouchableOpacity style={[styles.submit, loading && { opacity: 0.6 }]} disabled={loading} onPress={submit}>
-          <Text style={styles.submitText}>{loading ? 'Scheduling...' : 'Schedule lesson'}</Text>
+          <Text style={styles.submitText}>{loading ? 'Scheduling...' : 'Schedule session'}</Text>
         </TouchableOpacity>
       </View>
 

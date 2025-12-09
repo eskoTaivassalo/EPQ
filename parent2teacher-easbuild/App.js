@@ -33,14 +33,12 @@ import ProfileScreen from './src/screens/shared/ProfileScreen';
 // Screens - Provider (Legacy)
 import ProviderSignupScreen from './src/screens/provider/ProviderSignupScreen';
 import ClientsScreen from './src/screens/shared/ClientsScreen';
-import ProviderBookingsScreen from './src/screens/provider/ProviderBookingsScreen';
 import ProviderAvailabilityScreen from './src/screens/provider/ProviderAvailabilityScreen';
 import ManageSlotsScreen from './src/screens/provider/ManageSlotsScreen';
 
 // Screens - Client (Legacy)
 import ClientSignupScreen from './src/screens/client/ClientSignupScreen';
 import FavoriteProvidersScreen from './src/screens/shared/FavoriteProvidersScreen';
-import ClientBookingsScreen from './src/screens/client/ClientBookingsScreen';
 import ProviderAvailableSlotsScreen from './src/screens/shared/ProviderAvailableSlotsScreen';
 import ProviderWeeklyAvailabilityScreen from './src/screens/shared/ProviderWeeklyAvailabilityScreen';
 import ProviderAvailabilityCalendarScreen from './src/screens/shared/ProviderAvailabilityCalendarScreen';
@@ -345,14 +343,12 @@ const AppNavigator = () => {
             <Stack.Screen name="Availability" component={ProviderAvailabilityScreen} />
 
             {/* Legacy Provider (Teacher/Coach) specific screens */}
-            <Stack.Screen name="TeacherBookings" component={ProviderBookingsScreen} />
             <Stack.Screen name="TeacherAvailability" component={ProviderAvailabilityScreen} />
             <Stack.Screen name="ManageSlots" component={ManageSlotsScreen} />
             <Stack.Screen name="Clients" component={ClientsScreen} />
             
             {/* Legacy Client (Parent/Athlete) specific screens */}
             <Stack.Screen name="FavoriteProviders" component={FavoriteProvidersScreen} />
-            <Stack.Screen name="ParentBookings" component={ClientBookingsScreen} />
             <Stack.Screen name="ProviderAvailableSlots" component={ProviderAvailableSlotsScreen} />
             <Stack.Screen name="ProviderWeeklyAvailability" component={ProviderWeeklyAvailabilityScreen} />
             <Stack.Screen name="ProviderAvailabilityCalendar" component={ProviderAvailabilityCalendarScreen} />

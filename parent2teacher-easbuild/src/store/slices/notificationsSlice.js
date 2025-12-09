@@ -11,9 +11,13 @@ import {
   doc, 
   getDoc,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  onSnapshot
 } from 'firebase/firestore';
 import { db, auth } from '../../config/firebaseConfig';
+
+// Store active listener for cleanup
+let activeNotificationListener = null;
 
 // Fetch notifications for current user
 export const fetchNotifications = createAsyncThunk(
@@ -224,6 +228,57 @@ export const deleteOldNotifications = createAsyncThunk(
   }
 );
 
+// Start real-time listener (replaces polling)
+export const startNotificationListener = (userId, dispatch) => {
+  // Stop existing listener if any
+  if (activeNotificationListener) {
+    activeNotificationListener();
+    activeNotificationListener = null;
+  }
+
+  if (!userId) return;
+
+  console.log('🔔 Starting real-time notification listener for:', userId);
+
+  const q = query(
+    collection(db, 'notifications'),
+    where('userId', '==', userId)
+  );
+
+  activeNotificationListener = onSnapshot(q, 
+    (snapshot) => {
+      const notifications = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate().toISOString() || new Date().toISOString()
+        };
+      });
+
+      // Sort newest first
+      notifications.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      
+      // Update store directly
+      dispatch(notificationsSlice.actions.setNotifications(notifications));
+    },
+    (error) => {
+      console.error('🔔 Notification listener error:', error);
+    }
+  );
+
+  return activeNotificationListener;
+};
+
+// Stop listener
+export const stopNotificationListener = () => {
+  if (activeNotificationListener) {
+    console.log('🔕 Stopping notification listener');
+    activeNotificationListener();
+    activeNotificationListener = null;
+  }
+};
+
 const notificationsSlice = createSlice({
   name: 'notifications',
   initialState: {
@@ -236,6 +291,10 @@ const notificationsSlice = createSlice({
     clearNotifications: (state) => {
       state.notifications = [];
       state.unreadCount = 0;
+    },
+    setNotifications: (state, action) => {
+      state.notifications = action.payload;
+      state.unreadCount = action.payload.filter(n => !n.read).length;
     }
   },
   extraReducers: (builder) => {
@@ -311,5 +370,5 @@ const notificationsSlice = createSlice({
   }
 });
 
-export const { clearNotifications } = notificationsSlice.actions;
+export const { clearNotifications, setNotifications } = notificationsSlice.actions;
 export default notificationsSlice.reducer;

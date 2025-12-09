@@ -216,7 +216,7 @@ const TeacherDashboard = ({ navigation }) => {
     }));
     
     // Show confirmation with meeting link
-    alert(`✅ Booking accepted!\n\n📹 Video meeting link:\n${meetingUrl}\n\nYou can join from Dashboard → Upcoming Lessons\n\n(Link also copied to console)`);
+    alert(`✅ Booking accepted!\n\n📹 Video meeting link:\n${meetingUrl}\n\nYou can join from Dashboard → Upcoming Sessions\n\n(Link also copied to console)`);
   };
 
   const handleDecline = (booking) => {
@@ -265,7 +265,7 @@ const TeacherDashboard = ({ navigation }) => {
       subtitle: 'Handle parent requests',
       icon: 'calendar',
       color: '#FF9800',
-      screen: 'TeacherBookings'
+      screen: 'Bookings'
     },
     {
       id: 3,
@@ -278,7 +278,7 @@ const TeacherDashboard = ({ navigation }) => {
     {
       id: 4,
       title: 'Calendar',
-      subtitle: 'Monthly lesson overview',
+      subtitle: 'Monthly session overview',
       icon: 'calendar',
       color: '#3F51B5',
       screen: 'Calendar'
@@ -409,11 +409,11 @@ const TeacherDashboard = ({ navigation }) => {
           />
         }
       >
-        {/* Upcoming Lessons */}
+        {/* Upcoming Sessions */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Varaukset</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('TeacherBookings')}>
+            <TouchableOpacity onPress={() => navigation.navigate('Bookings')}>
               <Text style={styles.seeAllText}>Näytä kaikki</Text>
             </TouchableOpacity>
           </View>
@@ -444,7 +444,7 @@ const TeacherDashboard = ({ navigation }) => {
                   <Text style={styles.emptyRequestsText}>Ei tulevia tunteja</Text>
                   <TouchableOpacity 
                     style={styles.viewAllBookingsButton}
-                    onPress={() => navigation.navigate('TeacherBookings')}
+                    onPress={() => navigation.navigate('Bookings')}
                   >
                     <Text style={styles.viewAllBookingsText}>Näytä kaikki varaukset</Text>
                   </TouchableOpacity>
@@ -512,7 +512,7 @@ const TeacherDashboard = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Pending Requests</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('TeacherBookings')}>
+            <TouchableOpacity onPress={() => navigation.navigate('Bookings')}>
               <Text style={styles.seeAllText}>View All</Text>
             </TouchableOpacity>
           </View>
@@ -550,7 +550,7 @@ const TeacherDashboard = ({ navigation }) => {
                       {firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     </Text>
                     <Text style={styles.recurringDates}>
-                      {request.bookings.length} lessons • Every week
+                      {request.bookings.length} sessions • Every week
                     </Text>
                     <View style={styles.requestActions}>
                       <TouchableOpacity 
@@ -627,7 +627,7 @@ const TeacherDashboard = ({ navigation }) => {
             <View style={styles.statCard}>
               <Ionicons name="calendar" size={28} color={colors.primary} />
               <Text style={styles.statNumber}>{displayWeekLessons}</Text>
-              <Text style={styles.statLabel}>Lessons</Text>
+              <Text style={styles.statLabel}>Sessions</Text>
             </View>
             <View style={styles.statCard}>
               <Ionicons name="people" size={28} color={colors.secondary} />
@@ -655,7 +655,7 @@ const TeacherDashboard = ({ navigation }) => {
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => navigation.navigate('TeacherBookings')}
+              onPress={() => navigation.navigate('Bookings')}
             >
               <Ionicons name="list" size={24} color={colors.primary} />
               <Text style={styles.actionButtonText}>All Bookings</Text>

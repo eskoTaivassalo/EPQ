@@ -435,7 +435,7 @@ const ParentDashboard = ({ navigation }) => {
     {
       id: 4,
       title: 'Bookings',
-      subtitle: 'Scheduled lessons and events',
+      subtitle: 'Scheduled sessions and events',
       icon: 'calendar',
       color: '#4CAF50',
       screen: 'Bookings'
@@ -466,7 +466,7 @@ const ParentDashboard = ({ navigation }) => {
     } else if (item.screen === 'Favorites') {
       navigation.navigate('ParentFavorites');
     } else if (item.screen === 'Bookings') {
-      navigation.navigate('ParentBookings');
+      navigation.navigate('Bookings');
     } else if (item.screen === 'Calendar') {
       navigation.navigate('Calendar');
     } else if (item.screen === 'Messages') {
@@ -642,7 +642,7 @@ const ParentDashboard = ({ navigation }) => {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Tulevat varaukset</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('ParentBookings')}>
+            <TouchableOpacity onPress={() => navigation.navigate('Bookings')}>
               <Text style={styles.seeAllText}>Näytä kaikki</Text>
             </TouchableOpacity>
           </View>
@@ -721,7 +721,7 @@ const ParentDashboard = ({ navigation }) => {
                           <Ionicons name="videocam" size={24} color={colors.primary} />
                         </TouchableOpacity>
                       ) : (
-                        <TouchableOpacity style={styles.lessonAction} onPress={() => navigation.navigate('ParentBookings')}>
+                        <TouchableOpacity style={styles.lessonAction} onPress={() => navigation.navigate('Bookings')}>
                           <Ionicons name="calendar" size={24} color={colors.primary} />
                         </TouchableOpacity>
                       )}
@@ -907,7 +907,7 @@ const ParentDashboard = ({ navigation }) => {
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.actionButton}
-              onPress={() => navigation.navigate('ParentBookings')}
+              onPress={() => navigation.navigate('Bookings')}
             >
               <Ionicons name="calendar-outline" size={24} color={colors.primary} />
               <Text style={styles.actionButtonText}>My Bookings</Text>

@@ -78,8 +78,8 @@ export const TEACHING_METHODS = [
   { id: 'online', label: 'Online Teaching', icon: 'laptop' },
   { id: 'in_person', label: 'In-Person Teaching', icon: 'people' },
   { id: 'hybrid', label: 'Hybrid (Both)', icon: 'git-merge' },
-  { id: 'group', label: 'Group Lessons', icon: 'people-circle' },
-  { id: 'individual', label: 'Individual Lessons', icon: 'person' },
+  { id: 'group', label: 'Group Sessions', icon: 'people-circle' },
+  { id: 'individual', label: 'Individual Sessions', icon: 'person' },
 ];
 
 // Kokemusalueet

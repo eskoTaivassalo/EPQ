@@ -1,4 +1,4 @@
-// Supported subjects for lessons/slots/bookings
+// Supported subjects for sessions/slots/bookings
 export const SUBJECTS = [
   'Matematiikka',
   'Äidinkieli',

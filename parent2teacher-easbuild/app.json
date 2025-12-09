@@ -21,7 +21,7 @@
         "NSPhotoLibraryAddUsageDescription": "This app needs access to save photos to your photo library.",
         "NSLocationWhenInUseUsageDescription": "This app needs your location to show nearby teachers.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs your location to show nearby teachers.",
-        "NSCalendarsUsageDescription": "This app needs access to your calendar to manage lesson bookings.",
+        "NSCalendarsUsageDescription": "This app needs access to your calendar to manage session bookings.",
         "NSRemindersUsageDescription": "This app needs access to reminders to send booking notifications.",
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -76,7 +76,7 @@
       [
         "expo-calendar",
         {
-          "calendarPermission": "The app needs access to your calendar to manage lesson bookings."
+          "calendarPermission": "The app needs access to your calendar to manage session bookings."
         }
       ],
       "expo-font"

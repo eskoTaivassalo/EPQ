@@ -19,7 +19,7 @@ const HelpCenterScreen = ({ navigation }) => {
   const faqs = [
     {
       id: 1,
-      question: 'How do I book a lesson?',
+      question: 'How do I book a session?',
       answer: 'Go to "Find Teachers" from the menu, browse available teachers, select their profile, choose an available time slot, and confirm your booking.',
     },
     {

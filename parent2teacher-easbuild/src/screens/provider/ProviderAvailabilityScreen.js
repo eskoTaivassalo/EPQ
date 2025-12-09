@@ -266,7 +266,7 @@ export default function TeacherAvailabilityScreen({ navigation }) {
 
         {/* Lesson Duration */}
         <View style={styles.timeSection}>
-          <Text style={styles.label}>Lesson Duration</Text>
+          <Text style={styles.label}>Session Duration</Text>
           <Text style={styles.timeDisplay}>{durationMin} min</Text>
           <View style={styles.controlRow}>
             <TouchableOpacity 

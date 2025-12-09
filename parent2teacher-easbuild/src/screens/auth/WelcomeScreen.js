@@ -267,7 +267,7 @@ const WelcomeScreen = ({ navigation }) => {
               <View style={styles.statDivider} />
               <View style={styles.statItem}>
                 <Text style={styles.statNumber}>25k+</Text>
-                <Text style={styles.statLabel}>Lessons Completed</Text>
+                <Text style={styles.statLabel}>Sessions Completed</Text>
               </View>
             </View>
 

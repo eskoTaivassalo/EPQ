@@ -15,6 +15,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Animated,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -99,11 +100,18 @@ const BookingsScreen = ({ navigation }) => {
 
   const handleBookingAction = async (bookingId, action) => {
     try {
-      await dispatch(updateBookingStatus({ 
+      const updateData = { 
         bookingId, 
         status: action,
         parentId: user?.uid 
-      })).unwrap();
+      };
+      
+      // Add cancelledBy field when cancelling
+      if (action === 'cancelled') {
+        updateData.cancelledBy = isProvider ? 'teacher' : 'student';
+      }
+      
+      await dispatch(updateBookingStatus(updateData)).unwrap();
       loadBookings();
     } catch (error) {
       console.error('Error updating booking:', error);
@@ -154,7 +162,7 @@ const BookingsScreen = ({ navigation }) => {
     );
   };
 
-  const getStatusConfig = (status) => {
+  const getStatusConfig = (status, cancelledBy = null) => {
     const isPending = status === 'pending' || status === 'booked';
     const isApproved = status === 'approved' || status === 'accepted';
     const isCompleted = status === 'completed';
@@ -164,46 +172,53 @@ const BookingsScreen = ({ navigation }) => {
       return {
         color: '#FFA500',
         icon: 'time-outline',
-        label: 'Odottaa',
+        label: 'Pending',
         gradient: ['#FFB74D', '#FFA726']
       };
     } else if (isApproved) {
       return {
         color: '#27AE60',
         icon: 'checkmark-circle',
-        label: 'Hyväksytty',
+        label: 'Approved',
         gradient: ['#4CAF50', '#27AE60']
       };
     } else if (isCompleted) {
       return {
         color: '#3498DB',
         icon: 'checkmark-done-circle',
-        label: 'Valmis',
+        label: 'Completed',
         gradient: ['#42A5F5', '#2196F3']
       };
     } else {
+      let label = 'Cancelled';
+      if (cancelledBy === 'teacher') {
+        label = 'Cancelled by Teacher';
+      } else if (cancelledBy === 'student') {
+        label = 'Cancelled by Student';
+      }
+      
       return {
         color: '#E74C3C',
         icon: 'close-circle',
-        label: 'Peruttu',
+        label: label,
         gradient: ['#EF5350', '#E53935']
       };
     }
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Ei päivämäärää';
+    if (!dateString) return 'No date';
     const date = new Date(dateString);
     const now = new Date();
     const diffTime = date - now;
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     
-    if (diffDays === 0) return 'Tänään';
-    if (diffDays === 1) return 'Huomenna';
-    if (diffDays === -1) return 'Eilen';
-    if (diffDays > 1 && diffDays <= 7) return `${diffDays} päivän kuluttua`;
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays === -1) return 'Yesterday';
+    if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`;
     
-    return date.toLocaleDateString('fi-FI', { 
+    return date.toLocaleDateString('en-US', { 
       weekday: 'short', 
       day: 'numeric', 
       month: 'short',
@@ -213,8 +228,13 @@ const BookingsScreen = ({ navigation }) => {
 
   const formatTime = (dateString) => {
     if (!dateString) return '';
+    console.log('[BookingsScreen] 🕐 formatTime input:', dateString);
     const date = new Date(dateString);
-    return date.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+    console.log('[BookingsScreen] 🕐 Parsed Date object:', date.toString());
+    console.log('[BookingsScreen] 🕐 Hours:', date.getHours(), 'Minutes:', date.getMinutes());
+    const formatted = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    console.log('[BookingsScreen] 🕐 Formatted time:', formatted);
+    return formatted;
   };
 
   const getTimeUntilMeeting = (dateString) => {
@@ -223,19 +243,19 @@ const BookingsScreen = ({ navigation }) => {
     const meetingDate = new Date(dateString);
     const diffInMinutes = Math.floor((meetingDate - now) / (1000 * 60));
     
-    if (diffInMinutes < 0) return 'Käynnissä';
-    if (diffInMinutes < 5) return 'Alkaa kohta';
-    if (diffInMinutes < 60) return `Alkaa ${diffInMinutes} min kuluttua`;
+    if (diffInMinutes < 0) return 'In Progress';
+    if (diffInMinutes < 5) return 'Starting Soon';
+    if (diffInMinutes < 60) return `Starts in ${diffInMinutes} min`;
     
     const hours = Math.floor(diffInMinutes / 60);
     const minutes = diffInMinutes % 60;
-    if (hours < 2) return `Alkaa ${hours}h ${minutes}min kuluttua`;
+    if (hours < 2) return `Starts in ${hours}h ${minutes}min`;
     
     return '';
   };
 
   const renderBookingCard = (booking, isJoinableCard = false) => {
-    const statusConfig = getStatusConfig(booking.status);
+    const statusConfig = getStatusConfig(booking.status, booking.cancelledBy);
     const isPending = booking.status === 'pending' || booking.status === 'booked';
     const isApproved = booking.status === 'approved' || booking.status === 'accepted';
     const canJoin = isJoinable(booking);
@@ -330,7 +350,7 @@ const BookingsScreen = ({ navigation }) => {
               }}
             >
               <Ionicons name="videocam" size={20} color="#FFFFFF" />
-              <Text style={styles.meetingButtonText}>Liity tapaamiseen</Text>
+              <Text style={styles.meetingButtonText}>Join Meeting</Text>
               <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
             </TouchableOpacity>
           )}
@@ -340,7 +360,7 @@ const BookingsScreen = ({ navigation }) => {
             <View style={styles.meetingInfoBox}>
               <Ionicons name="information-circle" size={20} color="#3498DB" />
               <Text style={styles.meetingInfoText}>
-                Liittymislinkki tulee näkyviin tunti ennen tapaamista
+                Meeting link will be available 1 hour before session
               </Text>
             </View>
           )}
@@ -354,7 +374,7 @@ const BookingsScreen = ({ navigation }) => {
                 activeOpacity={0.8}
               >
                 <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                <Text style={styles.actionButtonText}>Hyväksy</Text>
+                <Text style={styles.actionButtonText}>Approve</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.actionButton, styles.declineButton]}
@@ -362,7 +382,61 @@ const BookingsScreen = ({ navigation }) => {
                 activeOpacity={0.8}
               >
                 <Ionicons name="close-circle" size={20} color="#FFFFFF" />
-                <Text style={styles.actionButtonText}>Hylkää</Text>
+                <Text style={styles.actionButtonText}>Decline</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Cancel Button for Clients */}
+          {!isProvider && isPending && (
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.cancelButton]}
+                onPress={() => {
+                  Alert.alert(
+                    'Cancel Booking',
+                    'Are you sure you want to cancel this booking?',
+                    [
+                      { text: 'No', style: 'cancel' },
+                      { 
+                        text: 'Yes, Cancel', 
+                        style: 'destructive',
+                        onPress: () => handleBookingAction(booking.id, 'cancelled')
+                      }
+                    ]
+                  );
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="close-circle" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Cancel Booking</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Cancel Button for Clients - Approved Bookings */}
+          {!isProvider && isApproved && (
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.cancelButton]}
+                onPress={() => {
+                  Alert.alert(
+                    'Cancel Session',
+                    'Are you sure you want to cancel this confirmed session? Your teacher will be notified.',
+                    [
+                      { text: 'No', style: 'cancel' },
+                      { 
+                        text: 'Yes, Cancel', 
+                        style: 'destructive',
+                        onPress: () => handleBookingAction(booking.id, 'cancelled')
+                      }
+                    ]
+                  );
+                }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="close-circle" size={20} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Cancel Session</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -401,7 +475,7 @@ const BookingsScreen = ({ navigation }) => {
         </TouchableOpacity>
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>
-            {isProvider ? 'Varaukset' : 'Omat varaukset'}
+            {isProvider ? 'Bookings' : 'My Bookings'}
           </Text>
           <Text style={styles.headerSubtitle}>
             {filteredBookings.length} {filteredBookings.length === 1 ? 'varaus' : 'varausta'}
@@ -829,6 +903,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#27AE60',
   },
   declineButton: {
+    backgroundColor: '#E74C3C',
+  },
+  cancelButton: {
     backgroundColor: '#E74C3C',
   },
   actionButtonText: {
