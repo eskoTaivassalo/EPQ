@@ -77,12 +77,14 @@ const LoginScreen = ({ route, navigation }) => {
         console.log('🔑 Login successful!');
         // Navigation happens automatically in App.js when user state changes
       } else {
-        console.log('🔑 Login failed:', result.error);
-        Alert.alert('Login failed', result.error || 'Unknown error');
+        // Show user-friendly error message (already translated in authSlice)
+        const errorMessage = result.error || 'Kirjautuminen epäonnistui';
+        Alert.alert('Kirjautuminen epäonnistui', errorMessage);
       }
     } catch (error) {
       console.error('🔑 Login error:', error);
-      Alert.alert('Error', 'Login failed');
+      // Generic fallback for unexpected errors
+      Alert.alert('Virhe', 'Kirjautuminen epäonnistui. Yritä uudelleen.');
     } finally {
       setLoading(false);
     }

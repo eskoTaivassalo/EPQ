@@ -16,12 +16,6 @@ const authMiddleware = (store) => {
 
     // Track authentication events
     if (action.type.startsWith('auth/')) {
-      console.log(`🔐 Auth Middleware: ${action.type}`, {
-        timestamp: new Date().toISOString(),
-        isAuthenticated: state.auth?.isAuthenticated,
-        userId: state.auth?.user?.uid || 'anonymous'
-      });
-
       // Track logout in-flight status
       if (action.type === 'auth/logoutUser/pending') {
         isLoggingOut = true;
@@ -29,22 +23,21 @@ const authMiddleware = (store) => {
       if (action.type === 'auth/logoutUser/fulfilled' || action.type === 'auth/logoutUser/rejected') {
         // Clear sensitive data from other slices on successful logout
         if (action.type === 'auth/logoutUser/fulfilled') {
-          console.log('🚪 Auth Middleware: User logged out');
           store.dispatch({ type: 'security/clearValidationCache' });
           store.dispatch({ type: 'appData/invalidateCache' });
         }
         isLoggingOut = false;
       }
 
-      // Handle successful login
-      if (action.type === 'auth/loginUser/fulfilled') {
-        console.log('✅ Auth Middleware: User logged in successfully');
-        // Place to start session-related side effects if needed
-      }
-
-      // Handle auth errors
-      if (action.type.endsWith('/rejected') && action.type.startsWith('auth/')) {
-        console.error('❌ Auth Middleware: Authentication error:', action.payload);
+      // Development-only logging
+      if (__DEV__) {
+        if (action.type === 'auth/loginUser/fulfilled') {
+          console.log('✅ Login successful');
+        } else if (action.type === 'auth/logoutUser/fulfilled') {
+          console.log('🚪 Logout successful');
+        } else if (action.type.endsWith('/rejected')) {
+          console.log('❌', action.type.replace('auth/', '').replace('/rejected', ''), 'failed');
+        }
       }
     }
 
@@ -69,7 +62,7 @@ const authMiddleware = (store) => {
       const timeSinceLogin = Date.now() - updatedState.auth.lastLogin;
 
       if (timeSinceLogin > sessionTimeout) {
-        console.log('⏰ Auth Middleware: Session expired, logging out');
+        if (__DEV__) console.log('⏰ Session expired');
         isLoggingOut = true;
         // Dispatch the actual thunk to update state properly
         store.dispatch(logoutUser());

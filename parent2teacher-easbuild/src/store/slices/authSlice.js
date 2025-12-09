@@ -183,8 +183,24 @@ export const loginUser = createAsyncThunk(
       return serializeFirestoreData(userData);
       
     } catch (error) {
-      console.error('❌ Redux: Login error:', error);
-      return rejectWithValue(error.message);
+      // Käännä Firebase-virhekoodit käyttäjäystävällisiksi viesteiksi
+      let userMessage = error.message;
+      
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+        userMessage = 'Virheellinen sähköposti tai salasana';
+      } else if (error.code === 'auth/user-not-found') {
+        userMessage = 'Käyttäjää ei löydy tällä sähköpostilla';
+      } else if (error.code === 'auth/invalid-email') {
+        userMessage = 'Virheellinen sähköpostiosoite';
+      } else if (error.code === 'auth/too-many-requests') {
+        userMessage = 'Liian monta kirjautumisyritystä. Yritä myöhemmin uudelleen';
+      } else if (error.code === 'auth/network-request-failed') {
+        userMessage = 'Verkkovirhe. Tarkista internet-yhteys';
+      } else if (error.code === 'auth/user-disabled') {
+        userMessage = 'Tämä käyttäjätili on poistettu käytöstä';
+      }
+      
+      return rejectWithValue(userMessage);
     }
   }
 );

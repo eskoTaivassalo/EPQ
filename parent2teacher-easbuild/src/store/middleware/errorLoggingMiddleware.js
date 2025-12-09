@@ -26,41 +26,42 @@ const errorLoggingMiddleware = (store) => (next) => (action) => {
         meta: action.meta
       };
       
-      console.error('🚨 Error Middleware: Action failed', error);
+      // Only log in development, don't show to user
+      if (__DEV__) {
+        console.log('🚨 Redux Error:', action.type.replace('/rejected', ''));
+        console.log('📋 Error details:', action.payload);
+      }
       
-      // In production, send to error reporting service
+      // In production, send to error reporting service (silently)
       if (process.env.NODE_ENV === 'production') {
         // Example: Sentry.captureException(new Error(action.payload));
         // Example: Analytics.track('Redux Action Failed', error);
       }
       
-      // Show user-friendly error message for critical actions
-      if (isCriticalAction(action.type)) {
-        // Could dispatch a notification action here
-        console.log('💡 Error Middleware: Critical action failed, should show user notification');
-      }
+      // Don't show middleware errors to user - let the UI components handle it
+      // The rejected actions already contain user-friendly error messages
     }
     
-    // Log performance for async actions
-    if (action.type.endsWith('/fulfilled') || action.type.endsWith('/rejected')) {
+    // Log performance for async actions (development only)
+    if (__DEV__ && (action.type.endsWith('/fulfilled') || action.type.endsWith('/rejected'))) {
       const duration = Date.now() - startTime;
       const actionName = action.type.replace(/\/(fulfilled|rejected)$/, '');
       
-      console.log(`⏱️ Performance: ${actionName} took ${duration}ms`);
-      
-      // Track slow actions
+      // Only log slow actions to reduce console noise
       if (duration > 1000) {
-        console.warn(`🐌 Slow action detected: ${actionName} took ${duration}ms`);
+        console.log(`⏱️ Slow action: ${actionName} (${duration}ms)`);
       }
     }
     
     return result;
     
   } catch (error) {
-    // Catch any synchronous errors in middleware chain
-    console.error('🚨 Error Middleware: Synchronous error in action:', action.type, error);
+    // Catch any synchronous errors in middleware chain (development only)
+    if (__DEV__) {
+      console.error('🚨 Middleware error:', action.type, error.message);
+    }
     
-    // In production, report this error
+    // In production, report silently to error service
     if (process.env.NODE_ENV === 'production') {
       // Example: Sentry.captureException(error);
     }
