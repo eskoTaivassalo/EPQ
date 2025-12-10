@@ -253,63 +253,50 @@ const WelcomeScreen = ({ navigation }) => {
               </View>
             )}
 
-            {/* Stats Section */}
-            <View style={styles.statsSection}>
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>500+</Text>
-                <Text style={styles.statLabel}>Teachers</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>5k+</Text>
-                <Text style={styles.statLabel}>Students</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.statItem}>
-                <Text style={styles.statNumber}>25k+</Text>
-                <Text style={styles.statLabel}>Sessions Completed</Text>
-              </View>
-            </View>
 
-            {/* Trust Section */}
-            <View style={styles.trustSection}>
-              <Ionicons name="ribbon" size={32} color={colors.primary} />
-              <Text style={styles.trustTitle}>Trusted by Thousands</Text>
-              <Text style={styles.trustDescription}>
-                Join our community of students and teachers making meaningful connections in education
-              </Text>
-            </View>
         </>
 
+        {/* Clear CTA Section */}
+        <View style={styles.ctaSection}>
+          <View style={styles.ctaBadge}>
+            <Ionicons name="rocket" size={20} color={colors.primary} />
+            <Text style={styles.ctaBadgeText}>Get Started</Text>
+          </View>
+          <Text style={styles.ctaTitle}>Create Your Free Account</Text>
+          <Text style={styles.ctaDescription}>
+            Join our community and start connecting with teachers or students today
+          </Text>
+        </View>
+
         <View style={styles.mainSelection}>
-          {/* Dynamic Role Selection from roleConfig */}
-          <Text style={styles.selectionPrompt}>Ready to Get Started?</Text>
+          {/* Role Selection - Only Teacher and Parent/Student */}
+          <Text style={styles.selectionPrompt}>I want to sign up as:</Text>
           
-          {Object.values(ROLE_CONFIG).map((roleConfig, index) => (
+          {Object.values(ROLE_CONFIG)
+            .filter(role => role.id === ROLE_TYPES.SERVICE_PROVIDER || role.id === ROLE_TYPES.CLIENT)
+            .map((roleConfig) => (
             <TouchableOpacity
               key={roleConfig.id}
-              style={styles.mainChoiceCard}
+              style={styles.modernRoleCard}
               onPress={() => handleSignupSelection(roleConfig.id)}
             >
-              <LinearGradient
-                colors={[roleConfig.colors.primary, roleConfig.colors.secondary]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.mainChoiceGradient}
-              >
-                <View style={styles.mainChoiceIconGradient}>
-                  <Ionicons name={roleConfig.icon} size={26} color="#FFFFFF" />
-                </View>
-                <Text style={styles.mainChoiceTitleGradient}>
-                  I'm {roleConfig.category === ROLE_CATEGORIES.PROVIDER ? 'a' : 'a'} {roleConfig.name}
+              <View style={[styles.modernRoleIcon, { backgroundColor: roleConfig.colors.primary }]}>
+                <Ionicons name={roleConfig.icon} size={32} color="#FFFFFF" />
+              </View>
+              <View style={styles.modernRoleContent}>
+                <Text style={styles.modernRoleTitle}>
+                  {roleConfig.id === ROLE_TYPES.SERVICE_PROVIDER ? 'Teacher' : 'Parent/Student'}
                 </Text>
-                <Text style={styles.mainChoiceDescriptionGradient}>
-                  {roleConfig.category === ROLE_CATEGORIES.PROVIDER
-                    ? `Share your expertise and connect with clients`
-                    : `Find qualified ${roleConfig.serviceProviderLabel?.toLowerCase() || 'professionals'} and start today`}
+                <Text style={styles.modernRoleDescription}>
+                  {roleConfig.id === ROLE_TYPES.SERVICE_PROVIDER
+                    ? 'Share your expertise and teach students'
+                    : 'Find qualified teachers and book sessions'}
                 </Text>
-                <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={styles.mainChoiceArrow} />
-              </LinearGradient>
+              </View>
+              <View style={styles.signupArrowContainer}>
+                <Text style={[styles.signupArrowText, { color: roleConfig.colors.primary }]}>Sign Up</Text>
+                <Ionicons name="arrow-forward" size={20} color={roleConfig.colors.primary} />
+              </View>
             </TouchableOpacity>
           ))}
         </View>
@@ -926,6 +913,93 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   trustDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  // Modern Role Cards
+  modernRoleCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 2,
+    borderColor: 'rgba(102, 126, 234, 0.1)',
+  },
+  modernRoleIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  modernRoleContent: {
+    flex: 1,
+  },
+  modernRoleTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  modernRoleDescription: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    lineHeight: 18,
+  },
+  signupArrowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  signupArrowText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // CTA Section
+  ctaSection: {
+    backgroundColor: 'rgba(102, 126, 234, 0.08)',
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 24,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(102, 126, 234, 0.2)',
+  },
+  ctaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.white,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+  },
+  ctaBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  ctaTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  ctaDescription: {
     fontSize: 14,
     color: colors.textSecondary,
     textAlign: 'center',
