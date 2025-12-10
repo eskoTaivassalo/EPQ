@@ -20,22 +20,7 @@ export default function ConversationsScreen({ navigation, route }) {
   // Check if we should start a new conversation immediately
   const { recipientId, recipientName } = route?.params || {};
 
-  const loadNames = useCallback(async (rows) => {
-    try {
-      const ids = Array.from(new Set(rows.map(r => r.counterpartId).filter(Boolean)));
-      const map = {};
-      // Teachers see parents; parents see teachers
-      const collection = role === 'teacher' ? 'parents' : 'teachers';
-      for (const id of ids) {
-        try {
-          const snap = await getDoc(doc(db, collection, id));
-          const data = snap.exists() ? snap.data() : null;
-          map[id] = data?.name || data?.fullName || id;
-        } catch {}
-      }
-      setNameMap(map);
-    } catch {}
-  }, [role]);
+
 
   const load = useCallback(async () => {
     if (!user?.uid) return;
@@ -45,8 +30,25 @@ export default function ConversationsScreen({ navigation, route }) {
       console.log('🔍 Loading conversations for:', user.uid, 'role:', role);
       const rows = await listConversationsForUser(user.uid, role);
       console.log('✅ Loaded conversations:', rows.length);
+      
+      // Load names BEFORE setting items to avoid showing IDs
+      const ids = Array.from(new Set(rows.map(r => r.counterpartId).filter(Boolean)));
+      const map = {};
+      const collection = role === 'teacher' ? 'parents' : 'teachers';
+      
+      await Promise.all(ids.map(async (id) => {
+        try {
+          const snap = await getDoc(doc(db, collection, id));
+          const data = snap.exists() ? snap.data() : null;
+          map[id] = data?.name || data?.fullName || id;
+        } catch (err) {
+          console.warn('Failed to load name for:', id);
+          map[id] = id;
+        }
+      }));
+      
+      setNameMap(map);
       setItems(rows);
-      loadNames(rows);
     } catch (e) {
       console.error('❌ Conversations error:', e);
       console.error('Error code:', e.code);
@@ -55,7 +57,7 @@ export default function ConversationsScreen({ navigation, route }) {
     } finally {
       setLoading(false);
     }
-  }, [user?.uid, role, loadNames]);
+  }, [user?.uid, role]);
 
   useEffect(() => { load(); }, [load]);
 

@@ -99,9 +99,16 @@ const RoleDashboard = ({ navigation }) => {
     try {
       setRefreshing(true);
       
-      // Refresh notifications
+      // Refresh notifications - silently fail if auth not ready
       if (user?.uid) {
-        await dispatch(fetchNotifications(user.uid));
+        try {
+          await dispatch(fetchNotifications(user.uid)).unwrap();
+        } catch (error) {
+          // Silent fail - auth might not be ready yet
+          if (error !== 'not_authenticated' && error !== 'user_mismatch') {
+            console.warn('[Dashboard] Failed to fetch notifications:', error);
+          }
+        }
       }
       
       // Calculate real stats from bookings

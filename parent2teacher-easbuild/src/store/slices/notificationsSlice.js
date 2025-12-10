@@ -22,7 +22,7 @@ let activeNotificationListener = null;
 // Fetch notifications for current user
 export const fetchNotifications = createAsyncThunk(
   'notifications/fetch',
-  async (userId) => {
+  async (userId, { rejectWithValue }) => {
     try {
       if (!userId) {
         return [];
@@ -30,14 +30,15 @@ export const fetchNotifications = createAsyncThunk(
       
       // Check if user is actually authenticated in Firebase
       if (!auth?.currentUser) {
-        console.error('[fetchNotifications] ❌ User not authenticated in Firebase!');
-        return [];
+        // Silent fail - this is normal during app startup
+        console.log('[fetchNotifications] ⏸️ Waiting for Firebase authentication...');
+        return rejectWithValue('not_authenticated');
       }
       
       // Verify the userId matches the authenticated user
       if (auth.currentUser.uid !== userId) {
-        console.error('[fetchNotifications] ❌ userId mismatch! Requested:', userId, 'Authenticated:', auth.currentUser.uid);
-        return [];
+        console.warn('[fetchNotifications] ⚠️ userId mismatch! Requested:', userId, 'Authenticated:', auth.currentUser.uid);
+        return rejectWithValue('user_mismatch');
       }
       
       // Avoid orderBy to prevent missing-index failures on fresh environments; sort on client instead.
@@ -317,7 +318,10 @@ const notificationsSlice = createSlice({
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message;
+        // Don't show error for auth-related rejections during startup
+        if (action.payload !== 'not_authenticated' && action.payload !== 'user_mismatch') {
+          state.error = action.error.message;
+        }
       })
       
       // Create notification - NOTE: Don't add to state here!
