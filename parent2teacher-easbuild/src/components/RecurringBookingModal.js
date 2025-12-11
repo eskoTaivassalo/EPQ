@@ -12,7 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../styles/commonStyles';
 
 /**
- * 🔁 RecurringBookingModal
+ * ­ƒöü RecurringBookingModal
  * 
  * Modal shown after creating a booking to ask if user wants to repeat it
  * 

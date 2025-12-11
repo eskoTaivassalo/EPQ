@@ -114,7 +114,22 @@ export default function TeacherAvailabilityScreen({ navigation }) {
         end,
         { locationType: 'online', userRole: user.role || user.userType || 'teacher' }
       );
-      Alert.alert('Success! 🎉', `${result.createdCount} time slots created`);
+      
+      // Show appropriate message based on results
+      if (result.createdCount === 0 && result.skippedCount > 0) {
+        Alert.alert(
+          'No Slots Created ⚠️', 
+          `All ${result.skippedCount} time slots were skipped because they would overlap with existing bookings. Please choose different times or delete existing slots first.`
+        );
+      } else if (result.createdCount > 0 && result.skippedCount > 0) {
+        Alert.alert(
+          'Partially Created ⚠️', 
+          `Created ${result.createdCount} new slots.\n\nSkipped ${result.skippedCount} slots due to overlaps with existing bookings.`
+        );
+      } else {
+        Alert.alert('Success! 🎉', `${result.createdCount} time slots created`);
+      }
+      
       navigation.goBack();
     } catch (e) {
       console.error('Generate slots error', e);

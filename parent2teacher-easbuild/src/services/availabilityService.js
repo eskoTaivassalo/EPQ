@@ -64,10 +64,24 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
   }
 
   const created = [];
+  const skipped = [];
   const { daysOfWeek: dows = [1,2,3,4,5], startTime = '09:00', endTime = '16:00', durationMin = 60, subjects = [] } = template || {};
   const { h: sh, m: sm } = parseTimeHM(startTime);
   const { h: eh, m: em } = parseTimeHM(endTime);
   const userRole = options.userRole || 'teacher'; // Default to teacher for backward compatibility
+
+  // First, check for existing slots to prevent overlaps
+  const existingSlotsQuery = query(
+    getAvailabilitySlotsCollection(teacherId, userRole),
+    where('date', '>=', toISODate(fromDate)),
+    where('date', '<=', toISODate(toDate))
+  );
+  const existingSnap = await getDocs(existingSlotsQuery);
+  const existingSlots = existingSnap.docs.map(d => ({
+    id: d.id,
+    start: new Date(d.data().start),
+    end: new Date(d.data().end)
+  }));
 
   // Iterate days
   await runTransaction(db, async (tx) => {
@@ -88,6 +102,19 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
         const slotEnd = addMinutes(slotStart, durationMin);
         if (slotEnd > end) break; // do not overflow daily end
 
+        // Check for overlap with existing slots
+        const hasOverlap = existingSlots.some(existing => {
+          // Overlap occurs if: new slot starts before existing ends AND new slot ends after existing starts
+          return slotStart < existing.end && slotEnd > existing.start;
+        });
+
+        if (hasOverlap) {
+          console.warn(`⚠️ Skipping overlapping slot: ${slotStart.toISOString()}`);
+          skipped.push(slotStart.toISOString());
+          cursor = slotEnd;
+          continue;
+        }
+
         const slotKey = `${teacherId}#${slotStart.toISOString()}`; // unique key
         const slotId = slotKey; // deterministic id to avoid duplicates
         // Use hierarchical path: serviceTypes/{serviceType}/{collectionName}/{userId}/availabilitySlots/{slotId}
@@ -106,15 +133,27 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
           updatedAt: serverTimestamp(),
         };
         
-        tx.set(slotRef, slotData, { merge: true });
+        // Remove merge: true to prevent accidental overwrites
+        tx.set(slotRef, slotData);
         created.push(slotId);
+
+        // Add to existingSlots array to check against future slots in this generation
+        existingSlots.push({
+          id: slotId,
+          start: slotStart,
+          end: slotEnd
+        });
 
         cursor = slotEnd;
       }
     });
   });
 
-  return { createdCount: created.length };
+  return { 
+    createdCount: created.length, 
+    skippedCount: skipped.length,
+    skippedSlots: skipped
+  };
 }
 
 /**

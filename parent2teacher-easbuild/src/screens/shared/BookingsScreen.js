@@ -111,6 +111,9 @@ const BookingsScreen = ({ navigation }) => {
       
       loadBookings();
       
+      // Navigate to Dashboard
+      navigation.navigate('Dashboard');
+      
       // Ask if user wants to book a new time
       Alert.alert(
         'Varaus peruttu',
@@ -275,8 +278,21 @@ const BookingsScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Cancel button for approved bookings */}
-        {isApproved && (
+        {/* Cancel button for clients on pending or approved bookings */}
+        {!isProvider && (isPending || isApproved) && (
+          <View style={styles.actionButtons}>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.cancelButton]}
+              onPress={() => openCancelModal(booking)}
+            >
+              <Ionicons name="close-circle" size={20} color="#FFFFFF" />
+              <Text style={styles.actionButtonText}>Peruuta</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Cancel button for providers on approved bookings only */}
+        {isProvider && isApproved && (
           <View style={styles.actionButtons}>
             <TouchableOpacity
               style={[styles.actionButton, styles.cancelButton]}

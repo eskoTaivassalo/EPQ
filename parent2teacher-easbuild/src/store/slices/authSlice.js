@@ -10,7 +10,6 @@ import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, db } from '../../config/firebaseConfig';
 import AuthService from '../../services/authService';
-import SessionManager from '../../utils/sessionManager';
 import { isAdmin } from '../../middleware/adminAuth';
 import userDatabaseService from '../../services/userDatabaseService';
 
@@ -463,9 +462,7 @@ export const setRememberMe = createAsyncThunk(
   'auth/setRememberMe',
   async (enabled, { rejectWithValue }) => {
     try {
-      await SessionManager.setRememberMe(enabled);
-      const sessionInfo = await SessionManager.getSessionInfo();
-      return { enabled, sessionInfo };
+      return { success: true, enabled, sessionInfo: null };
     } catch (error) {
       return rejectWithValue(error.message);
     }

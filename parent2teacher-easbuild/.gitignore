@@ -51,6 +51,11 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
+# Testing
+coverage/
+*.lcov
+.nyc_output/
+
 # generated native folders
 /ios
 /android
