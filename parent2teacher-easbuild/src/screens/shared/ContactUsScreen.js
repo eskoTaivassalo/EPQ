@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
-import { colors } from '../../styles/commonStyles';
+import { colors, commonStyles } from '../../styles/commonStyles';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { sendSupportMessage } from '../../services/communicationService';
 
@@ -265,21 +265,12 @@ const ContactUsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  container: commonStyles.safeArea,
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    ...commonStyles.rowBetween,
     padding: 16,
     backgroundColor: colors.primary,
-    elevation: 4,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    ...commonStyles.shadow,
   },
   backButton: {
     padding: 8,
@@ -299,16 +290,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   introCard: {
-    backgroundColor: colors.white,
+    ...commonStyles.card,
     margin: 16,
     padding: 24,
-    borderRadius: 12,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   introTitle: {
     fontSize: 22,

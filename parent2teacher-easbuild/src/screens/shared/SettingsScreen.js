@@ -295,7 +295,7 @@ EmailVerified: ${user?.emailVerified ? 'Yes' : 'No'}
   );
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={commonStyles.safeArea} edges={['bottom']}>
       <WatercolorBackground />
       {/* Header */}
       <View style={styles.header}>
@@ -488,14 +488,8 @@ EmailVerified: ${user?.emailVerified ? 'Yes' : 'No'}
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    ...commonStyles.rowBetween,
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: colors.white,
@@ -528,24 +522,11 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
+    ...commonStyles.card,
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
   },
   settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...commonStyles.row,
     padding: 16,
   },
   settingIconContainer: {

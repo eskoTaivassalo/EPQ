@@ -10,8 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../styles/commonStyles';
-import commonStyles from '../../styles/commonStyles';
+import { colors, commonStyles } from '../../styles/commonStyles';
 import WatercolorBackground from '../../components/WatercolorBackground';
 
 const HelpCenterScreen = ({ navigation }) => {

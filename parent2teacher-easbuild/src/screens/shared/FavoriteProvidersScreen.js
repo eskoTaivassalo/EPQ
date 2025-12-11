@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { useAppData } from '../../hooks/useAppData';
-import { colors } from '../../styles/commonStyles';
+import { colors, commonStyles } from '../../styles/commonStyles';
 import { SUBJECTS, LOCATIONS, TEACHING_METHODS, getTagLabels } from '../../constants/tags';
 
 const FavoriteProvidersScreen = ({ navigation }) => {
@@ -59,8 +59,8 @@ const FavoriteProvidersScreen = ({ navigation }) => {
   };
 
   const renderItem = ({ item }) => (
-    <View style={styles.teacherCard}>
-      <View style={styles.teacherHeader}>
+    <View style={[commonStyles.card, {marginBottom: 16}]}>
+      <View style={[commonStyles.row, {marginBottom: 12}]}>
         <View style={styles.avatarContainer}>
           {item.photoURL ? (
             <Image source={{ uri: item.photoURL }} style={styles.avatarImage} resizeMode="cover" />
@@ -88,7 +88,7 @@ const FavoriteProvidersScreen = ({ navigation }) => {
 
       <View style={styles.tagsSection}>
         <Text style={styles.tagsSectionTitle}>Subjects:</Text>
-        <View style={styles.tagsContainer}>
+        <View style={[commonStyles.row, {flexWrap: 'wrap', gap: 6}]}>
           {getTagLabels(SUBJECTS, item.subjects || []).length > 0 ? (
             <>
               {getTagLabels(SUBJECTS, item.subjects || []).slice(0, 3).map((subject, index) => (
@@ -110,7 +110,7 @@ const FavoriteProvidersScreen = ({ navigation }) => {
 
       <View style={styles.tagsSection}>
         <Text style={styles.tagsSectionTitle}>Location:</Text>
-        <View style={styles.tagsContainer}>
+        <View style={[commonStyles.row, {flexWrap: 'wrap', gap: 6}]}>
           {getTagLabels(LOCATIONS, item.location || []).slice(0, 2).map((location, index) => (
             <View key={index} style={[styles.tag, styles.locationTag]}>
               <Ionicons name="location" size={12} color={colors.primary} />
@@ -147,7 +147,15 @@ const FavoriteProvidersScreen = ({ navigation }) => {
 
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <TouchableOpacity 
-          style={[styles.contactButton, { flex: 1 }]}
+          style={[commonStyles.row, {
+            backgroundColor: colors.secondary,
+            flex: 1,
+            justifyContent: 'center',
+            paddingVertical: 12,
+            borderRadius: 8,
+            marginTop: 8
+          }]}
+          onPress={() => navigation.navigate('ProviderWeeklyAvailability', { providerId: item.id })}
           onPress={() => handleContactTeacher(item)}
         >
           <Ionicons name="chatbubble" size={16} color={colors.white} />
@@ -168,7 +176,7 @@ const FavoriteProvidersScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={commonStyles.safeArea}>
       <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
@@ -184,7 +192,7 @@ const FavoriteProvidersScreen = ({ navigation }) => {
         renderItem={renderItem}
         contentContainerStyle={{ padding: 16 }}
         ListEmptyComponent={
-          <View style={styles.empty}> 
+          <View style={commonStyles.emptyState}> 
             <Ionicons name="heart-outline" size={54} color={colors.textSecondary} />
             <Text style={styles.emptyTitle}>No favorites yet</Text>
             <Text style={styles.emptyText}>Tap the heart on a teacher to save them here</Text>
@@ -199,32 +207,8 @@ const FavoriteProvidersScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: {
-    backgroundColor: colors.secondary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
   headerTitle: { color: colors.white, fontSize: 18, fontWeight: 'bold' },
   teachersList: { flex: 1, padding: 20 },
-  teacherCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  teacherHeader: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
   avatarContainer: {
     width: 60,
     height: 60,
@@ -249,7 +233,6 @@ const styles = StyleSheet.create({
   favoriteButton: { padding: 6, alignSelf: 'flex-start' },
   tagsSection: { marginBottom: 8 },
   tagsSectionTitle: { fontSize: 12, color: colors.textSecondary, marginBottom: 4, fontWeight: '500' },
-  tagsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   tag: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   locationTag: { backgroundColor: '#E3F2FD' },
   methodTag: { backgroundColor: '#F3E5F5' },
@@ -257,11 +240,7 @@ const styles = StyleSheet.create({
   description: { fontSize: 14, color: colors.textSecondary, lineHeight: 20, marginVertical: 8 },
   emptyInlineText: { fontSize: 12, color: colors.textSecondary, fontStyle: 'italic' },
   phoneText: { fontSize: 12, color: colors.text, marginBottom: 8 },
-  contactButton: { backgroundColor: colors.secondary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, marginTop: 8 },
   contactButtonText: { color: colors.white, fontSize: 14, fontWeight: '600', marginLeft: 6 },
-  empty: { alignItems: 'center', paddingTop: 60 },
-  emptyTitle: { marginTop: 12, fontSize: 16, fontWeight: '600', color: colors.text },
-  emptyText: { marginTop: 6, fontSize: 13, color: colors.textSecondary },
 });
 
 export default FavoriteProvidersScreen;
