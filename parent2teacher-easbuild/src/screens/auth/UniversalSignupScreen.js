@@ -524,6 +524,20 @@ const UniversalSignupScreen = ({ navigation, route }) => {
               </TouchableOpacity>
             </View>
 
+            {/* Phone Number */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                Phone Number <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="e.g. +358 40 1234567"
+                value={formData.phoneNumber || ''}
+                onChangeText={(text) => handleInputChange('phoneNumber', text)}
+                keyboardType="phone-pad"
+              />
+            </View>
+
             {/* Password Fields (not for Google users) */}
             {!googleUser && (
               <>
