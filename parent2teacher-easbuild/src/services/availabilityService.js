@@ -1,10 +1,52 @@
-import { collection, doc, setDoc, getDocs, getDoc, query, where, orderBy, runTransaction, serverTimestamp, addDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, getDocs, getDoc, query, where, orderBy, runTransaction, serverTimestamp, addDoc, collectionGroup } from 'firebase/firestore';
 import { db, auth } from '../config/firebaseConfig';
 import { toISODate, parseTimeHM, addMinutes, eachDay, dayOfWeek } from '../utils/dateUtils';
 import { sendExpoPushNotification } from './pushService';
+import { getRoleCollectionInfo } from './userDatabaseService';
 
-const SLOTS_COL = 'availabilitySlots';
 const BOOKINGS_COL = 'bookings';
+
+/**
+ * Get the hierarchical collection path for availability slots
+ * Returns collection reference: serviceTypes/{serviceType}/{collectionName}/{userId}/availabilitySlots
+ */
+function getAvailabilitySlotsCollection(userId, userRole) {
+  if (!userId) throw new Error('userId required for slots collection');
+  const roleInfo = getRoleCollectionInfo(userRole || 'teacher');
+  const { serviceType, collection: collectionName } = roleInfo;
+  return collection(db, 'serviceTypes', serviceType, collectionName, userId, 'availabilitySlots');
+}
+
+/**
+ * Get the hierarchical document path for a specific availability slot
+ */
+function getAvailabilitySlotDoc(userId, userRole, slotId) {
+  if (!userId || !slotId) throw new Error('userId and slotId required');
+  const roleInfo = getRoleCollectionInfo(userRole || 'teacher');
+  const { serviceType, collection: collectionName } = roleInfo;
+  return doc(db, 'serviceTypes', serviceType, collectionName, userId, 'availabilitySlots', slotId);
+}
+
+/**
+ * Get the hierarchical collection path for bookings
+ * Returns collection reference: serviceTypes/{serviceType}/{collectionName}/{userId}/bookings
+ */
+function getBookingsCollection(userId, userRole) {
+  if (!userId) throw new Error('userId required for bookings collection');
+  const roleInfo = getRoleCollectionInfo(userRole || 'teacher');
+  const { serviceType, collection: collectionName } = roleInfo;
+  return collection(db, 'serviceTypes', serviceType, collectionName, userId, 'bookings');
+}
+
+/**
+ * Get the hierarchical document path for a specific booking
+ */
+function getBookingDoc(userId, userRole, bookingId) {
+  if (!userId || !bookingId) throw new Error('userId and bookingId required');
+  const roleInfo = getRoleCollectionInfo(userRole || 'teacher');
+  const { serviceType, collection: collectionName } = roleInfo;
+  return doc(db, 'serviceTypes', serviceType, collectionName, userId, 'bookings', bookingId);
+}
 
 /**
  * Generate availability slots based on a weekly template
@@ -12,7 +54,7 @@ const BOOKINGS_COL = 'bookings';
  * @param {Object} template { daysOfWeek: [1..7 or 0..6], startTime:'09:00', endTime:'16:00', durationMin:60 }
  * @param {Date} fromDate inclusive
  * @param {Date} toDate inclusive
- * @param {Object} options { locationType, price }
+ * @param {Object} options { locationType, price, userRole }
  */
 export async function generateAvailabilitySlots(teacherId, template, fromDate, toDate, options = {}) {
   if (!db) throw new Error('Firestore not initialized');
@@ -25,6 +67,7 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
   const { daysOfWeek: dows = [1,2,3,4,5], startTime = '09:00', endTime = '16:00', durationMin = 60, subjects = [] } = template || {};
   const { h: sh, m: sm } = parseTimeHM(startTime);
   const { h: eh, m: em } = parseTimeHM(endTime);
+  const userRole = options.userRole || 'teacher'; // Default to teacher for backward compatibility
 
   // Iterate days
   await runTransaction(db, async (tx) => {
@@ -47,7 +90,8 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
 
         const slotKey = `${teacherId}#${slotStart.toISOString()}`; // unique key
         const slotId = slotKey; // deterministic id to avoid duplicates
-        const slotRef = doc(db, SLOTS_COL, slotId);
+        // Use hierarchical path: serviceTypes/{serviceType}/{collectionName}/{userId}/availabilitySlots/{slotId}
+        const slotRef = getAvailabilitySlotDoc(teacherId, userRole, slotId);
         const slotData = {
           teacherId,
           date: toISODate(slotStart),
@@ -75,14 +119,16 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
 
 /**
  * List teacher's available slots within a date range
+ * Uses collectionGroup query to find slots across all role subcollections
  */
 export async function listAvailableSlots(teacherId, fromDate, toDate) {
   if (!db) throw new Error('Firestore not initialized');
   const fromISO = toISODate(fromDate);
   const toISO = toISODate(toDate);
 
+  // Use collectionGroup to query all availabilitySlots subcollections
   const q = query(
-    collection(db, SLOTS_COL),
+    collectionGroup(db, 'availabilitySlots'),
     where('teacherId', '==', teacherId),
     where('date', '>=', fromISO),
     where('date', '<=', toISO),
@@ -102,19 +148,41 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
   if (!db) throw new Error('Firestore not initialized');
   if (!slotId || !parentId) throw new Error('slotId and parentId required');
 
-  const slotRef = doc(db, SLOTS_COL, slotId);
-  const bookingRef = doc(collection(db, BOOKINGS_COL));
+  // Generate a unique booking ID
+  const bookingId = doc(collection(db, 'temp')).id;
+  
   let teacherIdForNotify = null;
   let startISO = null;
   let endISO = null;
   let bookedSubject = null;
+  let slotRef = null;
+
+  // Parse slotId: format is "teacherId#startISO"
+  const [teacherIdFromSlot, startISOFromSlot] = slotId.split('#');
+  if (!teacherIdFromSlot || !startISOFromSlot) {
+    throw new Error('Invalid slotId format');
+  }
+  
+  // Find the slot using collectionGroup query by teacherId and start time
+  const slotQuery = query(
+    collectionGroup(db, 'availabilitySlots'),
+    where('teacherId', '==', teacherIdFromSlot),
+    where('start', '==', startISOFromSlot)
+  );
+  const slotSnap = await getDocs(slotQuery);
+  
+  if (slotSnap.empty) {
+    throw new Error('Slot not found');
+  }
+  
+  slotRef = slotSnap.docs[0].ref;
 
   await runTransaction(db, async (tx) => {
-    const slotSnap = await tx.get(slotRef);
-    if (!slotSnap.exists()) {
+    const slotDocSnap = await tx.get(slotRef);
+    if (!slotDocSnap.exists()) {
       throw new Error('Slot not found');
     }
-    const slot = slotSnap.data();
+    const slot = slotDocSnap.data();
     
     if (slot.status !== 'available') {
       throw new Error('Slot not available');
@@ -134,30 +202,54 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
     } else if (Array.isArray(slot.subjects) && slot.subjects.length === 1) {
       bookedSubject = slot.subjects[0];
     }
-    tx.update(slotRef, {
-      status: 'booked',
-      parentId,
-      updatedAt: serverTimestamp(),
-    });
-    tx.set(bookingRef, {
+    
+    // Get teacher's role from slot data or default to teacher
+    const teacherRole = slot.userRole || 'teacher';
+    
+    // Get client role from metadata or default to parent
+    const clientRole = metadata.clientRole || 'parent';
+    
+    const bookingData = {
+      bookingId, // Add explicit bookingId field for easier querying
       slotId,
       teacherId: slot.teacherId,
       parentId,
-      date: slot.start, // Use slot.start (has full datetime) instead of slot.date (date only)
+      teacherRole, // Add role information for easier path reconstruction
+      clientRole,  // Add role information for easier path reconstruction
+      date: slot.start,
       start: slot.start,
       end: slot.end,
       status: 'booked',
       subject: bookedSubject || null,
       createdAt: serverTimestamp(),
       ...metadata,
+    };
+    
+    // Update slot status
+    tx.update(slotRef, {
+      status: 'booked',
+      parentId,
+      updatedAt: serverTimestamp(),
     });
+    
+    // Teacher's bookings: serviceTypes/{serviceType}/{collection}/{teacherId}/bookings/{bookingId}
+    const teacherBookingRef = getBookingDoc(slot.teacherId, teacherRole, bookingId);
+    console.log('📝 Saving teacher booking to:', teacherBookingRef.path);
+    console.log('📝 Teacher role:', teacherRole, 'Teacher ID:', slot.teacherId);
+    tx.set(teacherBookingRef, { ...bookingData, role: 'provider' });
+    
+    // Parent's bookings: serviceTypes/{serviceType}/{collection}/{parentId}/bookings/{bookingId}
+    const parentBookingRef = getBookingDoc(parentId, clientRole, bookingId);
+    console.log('📝 Saving parent booking to:', parentBookingRef.path);
+    console.log('📝 Client role:', clientRole, 'Parent ID:', parentId);
+    tx.set(parentBookingRef, { ...bookingData, role: 'client' });
   });
   
   // Fire-and-forget: create an in-app notification for the teacher
   try {
     if (teacherIdForNotify) {
       const startStr = new Date(startISO).toLocaleString();
-      await addDoc(collection(db, 'notifications'), {
+      await addDoc(collection(db, 'users', teacherIdForNotify, 'notifications'), {
         userId: teacherIdForNotify,
         type: 'booking',
         title: 'New booking',
@@ -166,7 +258,7 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
         createdAt: serverTimestamp(),
         data: {
           slotId,
-          bookingId: bookingRef.id,
+          bookingId: bookingId,
           parentId,
           start: startISO,
           end: endISO,
@@ -185,7 +277,7 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
             token,
             '📅 New booking',
             `You have a new booking on ${startStr}${bookedSubject ? ` (Subject: ${bookedSubject})` : ''}.`,
-            { slotId, bookingId: bookingRef.id, type: 'new_booking', subject: bookedSubject || null }
+            { slotId, bookingId: bookingId, type: 'new_booking', subject: bookedSubject || null }
           );
         }
       } catch (pushErr) {
@@ -197,14 +289,33 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
     console.warn('Notification creation failed', notifyErr);
   }
 
-  return { success: true, bookingId: bookingRef.id };
+  return { success: true, bookingId: bookingId };
 }
 
 /** Cancel a booking and free the slot */
-export async function cancelBooking(bookingId, slotId, requesterId) {
+export async function cancelBooking(bookingId, slotId, requesterId, userId, userRole) {
   if (!db) throw new Error('Firestore not initialized');
-  const bookingRef = doc(db, BOOKINGS_COL, bookingId);
-  const slotRef = doc(db, SLOTS_COL, slotId);
+  const bookingRef = getBookingDoc(userId, userRole, bookingId);
+  
+  // Parse slotId: format is "teacherId#startISO"
+  const [teacherIdFromSlot, startISOFromSlot] = slotId.split('#');
+  if (!teacherIdFromSlot || !startISOFromSlot) {
+    throw new Error('Invalid slotId format');
+  }
+  
+  // Find slot using collectionGroup query by teacherId and start time
+  const slotQuery = query(
+    collectionGroup(db, 'availabilitySlots'),
+    where('teacherId', '==', teacherIdFromSlot),
+    where('start', '==', startISOFromSlot)
+  );
+  const slotSnap = await getDocs(slotQuery);
+  
+  if (slotSnap.empty) {
+    throw new Error('Slot not found');
+  }
+  
+  const slotRef = slotSnap.docs[0].ref;
 
   await runTransaction(db, async (tx) => {
     const bookingSnap = await tx.get(bookingRef);
@@ -238,8 +349,8 @@ export default {
 export async function listStudentsForTeacher(teacherId) {
   if (!db) throw new Error('Firestore not initialized');
   if (!teacherId) throw new Error('teacherId required');
-  // Query bookings for this teacher. We avoid additional filters to reduce index requirements.
-  const q = query(collection(db, BOOKINGS_COL), where('teacherId', '==', teacherId));
+  // Query bookings for this teacher using collectionGroup to search across serviceTypes structure
+  const q = query(collectionGroup(db, 'bookings'), where('teacherId', '==', teacherId));
   const snap = await getDocs(q);
   const parentIds = new Set();
   snap.docs.forEach(d => {
@@ -249,7 +360,8 @@ export async function listStudentsForTeacher(teacherId) {
   const results = [];
   for (const pid of parentIds) {
     try {
-      const ref = doc(db, 'parents', pid);
+      // Use hierarchical structure: users/{userId}/students/{userId}
+      const ref = doc(db, 'users', pid, 'students', pid);
       const psnap = await getDoc(ref);
       if (psnap.exists()) {
         results.push({ id: pid, ...psnap.data() });

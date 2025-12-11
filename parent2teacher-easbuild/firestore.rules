@@ -48,7 +48,101 @@ service cloud.firestore {
     }
     
     // ========================================
-    // USERS COLLECTION
+    // COLLECTION GROUP RULES (for hierarchical queries)
+    // These allow collectionGroup queries across all subcollections
+    // ========================================
+    
+    // Teachers collectionGroup - allows searching all teacher profiles
+    match /{path=**}/teachers/{teacherId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == teacherId;
+    }
+    
+    // Students/Parents collectionGroup - allows searching all parent profiles
+    match /{path=**}/students/{studentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == studentId;
+    }
+    
+    // Therapists collectionGroup - allows searching all therapist profiles
+    match /{path=**}/therapists/{therapistId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == therapistId;
+    }
+    
+    // Availability Slots collectionGroup - allows querying all availability slots
+    match /{path=**}/availabilitySlots/{slotId} {
+      allow read: if isAuthenticated();
+      // Write permissions handled by specific path rules below
+    }
+    
+    // Bookings collectionGroup - allows querying all bookings by teacherId or parentId
+    match /{path=**}/bookings/{bookingId} {
+      allow read: if isAuthenticated() && 
+                    (resource.data.teacherId == request.auth.uid || 
+                     resource.data.parentId == request.auth.uid);
+      // Write permissions handled by specific path rules below
+    }
+    
+    // ========================================
+    // SERVICE TYPES COLLECTION
+    // New hierarchical structure: serviceTypes/{serviceType}/{collection}/{userId}
+    // ========================================
+    match /serviceTypes/{serviceType}/{collectionName}/{userId} {
+      // Read: All authenticated users can read profiles
+      allow read: if isAuthenticated();
+      
+      // Write: Only owner can create/update/delete their own profile
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
+      
+      // Availability Slots subcollection
+      // serviceTypes/{serviceType}/{collectionName}/{userId}/availabilitySlots/{slotId}
+      match /availabilitySlots/{slotId} {
+        // Read: All authenticated users can read slots
+        allow read: if isAuthenticated();
+        
+        // Create: Only owner can create slots
+        allow create: if isAuthenticated() && 
+                        isOwner(userId) &&
+                        request.resource.data.teacherId == userId;
+        
+        // Update: Owner can update, or anyone can book/release
+        allow update: if isAuthenticated() && 
+                        (isOwner(userId) ||
+                         request.resource.data.status in ['booked', 'pending', 'available']);
+        
+        // Delete: Only owner can delete
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // Bookings subcollection
+      // serviceTypes/{serviceType}/{collectionName}/{userId}/bookings/{bookingId}
+      match /bookings/{bookingId} {
+        // Read: Owner can read their own bookings, or if they are involved in the booking
+        allow read: if isAuthenticated() && 
+                      (isOwner(userId) || 
+                       request.auth.uid == resource.data.teacherId || 
+                       request.auth.uid == resource.data.parentId);
+        
+        // Create: Anyone can create a booking if they are the parent/client
+        allow create: if isAuthenticated() && 
+                        request.resource.data.parentId == request.auth.uid;
+        
+        // Update: Owner or participants can update booking status
+        allow update: if isAuthenticated() && 
+                        (isOwner(userId) || 
+                         request.auth.uid == resource.data.teacherId || 
+                         request.auth.uid == resource.data.parentId);
+        
+        // Delete: Only owner can delete
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+    }
+    
+    // ========================================
+    // USERS COLLECTION (Main profiles)
     // ========================================
     match /users/{userId} {
       // Luku: Vain kirjautuneet käyttäjät voivat lukea käyttäjätietoja
@@ -57,14 +151,76 @@ service cloud.firestore {
       // Kirjoitus: Vain omistaja voi luoda/päivittää
       allow create: if isOwner(userId) && 
                       isValidString('email') && 
-                      isValidEmail(request.resource.data.email) &&
-                      hasField('userType') &&
-                      hasField('createdAt');
+                      isValidEmail(request.resource.data.email);
       
       allow update: if isOwner(userId);
       
       // Poisto: Vain omistaja voi poistaa
       allow delete: if isOwner(userId);
+      
+      // ========================================
+      // NOTIFICATIONS SUBCOLLECTION
+      // users/{userId}/notifications/{notificationId}
+      // ========================================
+      match /notifications/{notificationId} {
+        // Luku: Vain omistaja voi lukea omat notifikaationsa
+        allow read: if isAuthenticated() && isOwner(userId);
+        
+        // Luonti: Kuka tahansa kirjautunut voi luoda notifikaation (lähettäjä)
+        // userId täytyy täsmätä parent path:in kanssa
+        allow create: if isAuthenticated();
+        
+        // Päivitys: Vain omistaja voi päivittää (esim. merkitä luetuksi)
+        allow update: if isAuthenticated() && isOwner(userId);
+        
+        // Poisto: Vain omistaja voi poistaa
+        allow delete: if isAuthenticated() && isOwner(userId);
+      }
+      
+      // ========================================
+      // ROLE SUBCOLLECTIONS
+      // Path: users/{userId}/{collectionName}/{roleDocId}
+      // Examples: 
+      //   users/123/teachers/123 - Teacher profile
+      //   users/123/students/123 - Student/Parent profile
+      //   users/456/therapists/456 - Therapist profile
+      // ========================================
+      match /{collectionName}/{roleDocId} {
+        // Luku: Kaikki kirjautuneet voivat lukea profiileja
+        allow read: if isAuthenticated();
+        
+        // Kirjoitus: Vain omistaja voi luoda/päivittää/poistaa
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId) || isAdmin();
+        allow delete: if isOwner(userId) || isAdmin();
+        
+        // ========================================
+        // AVAILABILITY SLOTS SUBCOLLECTION
+        // users/{userId}/{collectionName}/{roleDocId}/availabilitySlots/{slotId}
+        // ========================================
+        match /availabilitySlots/{slotId} {
+          // Luku: Kaikki kirjautuneet voivat lukea vapaita aikoja
+          allow read: if isAuthenticated();
+          
+          // Luonti: Vain roolidokumentin omistaja voi luoda slotteja
+          // Varmistetaan että teacherId vastaa roleDocId:tä ja userId:tä
+          allow create: if isAuthenticated() && 
+                          isOwner(userId) &&
+                          request.auth.uid == roleDocId &&
+                          request.auth.uid == request.resource.data.teacherId;
+          
+          // Päivitys: 
+          // - Roolidokumentin omistaja (teacher/therapist) voi päivittää
+          // - Muut käyttäjät voivat varata (status -> booked/pending)
+          // - Muut käyttäjät voivat vapauttaa (status -> available)
+          allow update: if isAuthenticated() && 
+                          (isOwner(userId) ||
+                           request.resource.data.status in ['booked', 'pending', 'available']);
+          
+          // Poisto: Vain roolidokumentin omistaja
+          allow delete: if isAuthenticated() && isOwner(userId);
+        }
+      }
     }
     
     // ========================================
@@ -260,16 +416,6 @@ service cloud.firestore {
       allow delete: if isAuthenticated() && 
                       (request.auth.uid == resource.data.parentId || 
                        request.auth.uid == resource.data.teacherId);
-    }
-    
-    // ========================================
-    // NOTIFICATIONS COLLECTION
-    // ========================================
-    match /notifications/{notificationId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
     }
     
     // ========================================

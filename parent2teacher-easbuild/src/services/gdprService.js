@@ -233,16 +233,29 @@ export class GDPRService {
         email: user.email
       });
 
-      // 1. Poista profiili Firestoresta
+      // 1. Poista rooliprofiilit hierarkisesta rakenteesta users/{uid}/{collectionName}/{uid}
       try {
-        await deleteDoc(doc(db, 'teachers', user.uid));
-      } catch (error) {
-        // Yritä parents-kokoelmasta
-        try {
-          await deleteDoc(doc(db, 'parents', user.uid));
-        } catch (parentError) {
-          console.warn('No profile found to delete');
+        // Poista pääkäyttäjädokumentti
+        await deleteDoc(doc(db, 'users', user.uid));
+        
+        // Poista mahdolliset rooliprofiilit serviceTypes rakenteesta
+        const serviceTypeMap = {
+          education: ['teachers', 'students'],
+          therapy: ['therapists', 'clients'],
+          coaching: ['coaches', 'athletes']
+        };
+        
+        for (const [serviceType, collections] of Object.entries(serviceTypeMap)) {
+          for (const collectionName of collections) {
+            try {
+              await deleteDoc(doc(db, 'serviceTypes', serviceType, collectionName, user.uid));
+            } catch (error) {
+              // Role profile ei välttämättä ole olemassa, jatketaan
+            }
+          }
         }
+      } catch (error) {
+        console.warn('Error deleting user profiles:', error);
       }
 
       // 2. Poista viestit (placeholder)

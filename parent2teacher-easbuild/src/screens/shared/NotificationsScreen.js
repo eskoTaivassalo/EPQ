@@ -45,8 +45,14 @@ const NotificationsScreen = ({ navigation }) => {
     }
   }, [currentUser?.uid, dispatch]);
 
-  const handleMarkAsRead = (notificationId) => {
-    dispatch(markAsRead(notificationId));
+  const handleMarkAsRead = async (notificationId) => {
+    try {
+      console.log('📖 Marking notification as read:', notificationId);
+      await dispatch(markAsRead(notificationId)).unwrap();
+      console.log('✅ Notification marked as read:', notificationId);
+    } catch (error) {
+      console.error('❌ Error marking notification as read:', error);
+    }
   };
 
   const handleMarkAllAsRead = () => {
@@ -233,6 +239,8 @@ const NotificationsScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[styles.card, !item.read && styles.unreadCard]}
           onPress={() => {
+            console.log('🔔 Notification tapped:', { id: item.id, type: item.type, read: item.read, navigationTarget: item.navigationTarget });
+            
             // Handle booking cancellation and declined notifications specially with modal
             if (item.type === 'booking_cancelled' || item.type === 'booking_declined') {
               if (!item.read) {
@@ -247,13 +255,19 @@ const NotificationsScreen = ({ navigation }) => {
                 : item.navigationTarget;
               
               if (target) {
-                // Navigate immediately for instant response
-                navigation.push(target, item.navigationParams);
-                
-                // Mark as read asynchronously (don't wait)
+                // Mark as read first
                 if (!item.read) {
                   handleMarkAsRead(item.id);
                 }
+                
+                // Navigate after marking as read
+                navigation.push(target, item.navigationParams);
+              }
+            } else {
+              // No navigation target - just mark as read
+              if (!item.read) {
+                console.log('📖 No navigation target, marking as read only');
+                handleMarkAsRead(item.id);
               }
             }
           }}

@@ -16,6 +16,8 @@ export const ROLE_TYPES = {
   CLIENT: 'client',
   COACH: 'coach',
   ATHLETE: 'athlete',
+  THERAPIST: 'therapist',
+  THERAPY_CLIENT: 'therapy_client',
   ADMIN: 'admin',
   // Legacy support
   TEACHER: 'teacher',
@@ -68,6 +70,7 @@ export const ROLE_CONFIG = {
     nameLocalized: 'Teacher',
     namePlural: 'Teachers',
     namePluralLocalized: 'Teachers',
+    description: 'Provide teaching and tutoring services to students',
     category: ROLE_CATEGORIES.PROVIDER,
     tags: ['education', 'tutoring', 'teaching'],
     
@@ -177,6 +180,7 @@ export const ROLE_CONFIG = {
     nameLocalized: 'Parent/Student',
     namePlural: 'Parents/Students',
     namePluralLocalized: 'Parents/Students',
+    description: 'Find and book sessions with teachers and tutors',
     category: ROLE_CATEGORIES.CUSTOMER,
     tags: ['education', 'parenting', 'student'],
     
@@ -276,12 +280,208 @@ export const ROLE_CONFIG = {
     ],
   },
 
+  [ROLE_TYPES.THERAPIST]: {
+    id: ROLE_TYPES.THERAPIST,
+    name: 'Therapist',
+    nameLocalized: 'Terapeutti',
+    namePlural: 'Therapists',
+    namePluralLocalized: 'Terapeutit',
+    description: 'Provide therapy and counseling services',
+    category: ROLE_CATEGORIES.PROVIDER,
+    tags: ['therapy', 'mental health', 'counseling'],
+    
+    legacyName: 'therapist',
+    collectionName: 'therapists',
+    
+    colors: {
+      primary: '#E74C3C',
+      secondary: '#C0392B',
+      accent: '#EC7063',
+      background: '#FFF5F5',
+      card: '#FFFFFF',
+      text: '#2C3E50',
+      textSecondary: '#7F8C8D',
+      success: '#27AE60',
+      warning: '#F39C12',
+      error: '#E74C3C',
+    },
+    
+    icon: 'heart',
+    iconOutline: 'heart-outline',
+    
+    features: {
+      canProvideServices: true,
+      canSetAvailability: true,
+      canReceiveBookings: true,
+      canSendMessages: true,
+      canReceiveMessages: true,
+      canManageProfile: true,
+      canViewAnalytics: true,
+      canSetPricing: true,
+      canManageCalendar: true,
+    },
+    
+    navigation: {
+      dashboard: {
+        name: 'Dashboard',
+        icon: 'home',
+        screen: 'Dashboard',
+      },
+      calendar: {
+        name: 'My Calendar',
+        icon: 'calendar',
+        screen: 'Calendar',
+      },
+      availability: {
+        name: 'Create Time Slots',
+        icon: 'time',
+        screen: 'Availability',
+      },
+      manageSlots: {
+        name: 'Manage Slots',
+        icon: 'settings',
+        screen: 'ManageSlots',
+      },
+      bookings: {
+        name: 'Bookings',
+        icon: 'list',
+        screen: 'Bookings',
+      },
+      clients: {
+        name: 'Clients',
+        icon: 'people',
+        screen: 'Clients',
+      },
+      messages: {
+        name: 'Messages',
+        icon: 'chatbubbles',
+        screen: 'Conversations',
+      },
+      profile: {
+        name: 'Profile',
+        icon: 'person',
+        screen: 'Profile',
+      },
+    },
+    
+    dashboardStats: [
+      { key: 'activeBookings', label: 'Active Sessions', icon: 'calendar' },
+      { key: 'totalClients', label: 'Total Clients', icon: 'people' },
+      { key: 'unreadMessages', label: 'Unread Messages', icon: 'mail' },
+      { key: 'upcomingSessions', label: 'Upcoming Sessions', icon: 'time' },
+    ],
+    
+    signupFields: [
+      { key: 'phoneNumber', type: 'phone', label: 'Phone Number', required: true },
+      { key: 'specializations', type: 'tags', label: 'Specializations', required: true },
+      { key: 'hourlyRate', type: 'number', label: 'Hourly Rate (€)', required: true },
+      { key: 'description', type: 'textarea', label: 'About You', required: true },
+      { key: 'qualifications', type: 'textarea', label: 'Qualifications & Certifications', required: true },
+    ],
+  },
+
+  [ROLE_TYPES.THERAPY_CLIENT]: {
+    id: ROLE_TYPES.THERAPY_CLIENT,
+    name: 'Therapy Client',
+    nameLocalized: 'Therapy Client',
+    namePlural: 'Therapy Clients',
+    namePluralLocalized: 'Therapy Clients',
+    description: 'Find and book therapy sessions',
+    category: ROLE_CATEGORIES.CUSTOMER,
+    tags: ['therapy', 'mental health', 'support'],
+    
+    serviceProviderLabel: 'Therapists',
+    serviceProviderLabelSingular: 'Therapist',
+    
+    legacyName: 'therapy_client',
+    collectionName: 'clients',
+    
+    colors: {
+      primary: '#9B59B6',
+      secondary: '#8E44AD',
+      accent: '#BB8FCE',
+      background: '#F4ECF7',
+      card: '#FFFFFF',
+      text: '#2C3E50',
+      textSecondary: '#7F8C8D',
+      success: '#27AE60',
+      warning: '#F39C12',
+      error: '#E74C3C',
+    },
+    
+    icon: 'person',
+    iconOutline: 'person-outline',
+    
+    features: {
+      canProvideServices: false,
+      canSetAvailability: false,
+      canReceiveBookings: false,
+      canSendMessages: true,
+      canReceiveMessages: true,
+      canManageProfile: true,
+      canViewAnalytics: false,
+      canSetPricing: false,
+      canManageCalendar: false,
+      canBookServices: true,
+      canSearchProviders: true,
+      canWriteReviews: true,
+    },
+    
+    navigation: {
+      dashboard: {
+        name: 'Dashboard',
+        icon: 'home',
+        screen: 'Dashboard',
+      },
+      findProviders: {
+        name: 'Find Therapists',
+        icon: 'search',
+        screen: 'FindProviders',
+      },
+      bookings: {
+        name: 'My Sessions',
+        icon: 'calendar',
+        screen: 'Bookings',
+      },
+      messages: {
+        name: 'Messages',
+        icon: 'chatbubbles',
+        screen: 'Conversations',
+      },
+      favorites: {
+        name: 'Favorite Therapists',
+        icon: 'heart',
+        screen: 'FavoriteProviders',
+      },
+      profile: {
+        name: 'Profile',
+        icon: 'person',
+        screen: 'Profile',
+      },
+    },
+    
+    dashboardStats: [
+      { key: 'upcomingBookings', label: 'Upcoming Sessions', icon: 'calendar' },
+      { key: 'totalBookings', label: 'Total Sessions', icon: 'time' },
+      { key: 'favoriteProviders', label: 'Favorite Therapists', icon: 'heart' },
+      { key: 'unreadMessages', label: 'Unread Messages', icon: 'mail' },
+    ],
+    
+    signupFields: [
+      { key: 'phoneNumber', type: 'phone', label: 'Phone Number', required: false },
+      { key: 'therapyNeeds', type: 'tags', label: 'What brings you here?', required: false },
+      { key: 'preferredLanguages', type: 'tags', label: 'Preferred Languages', required: false },
+      { key: 'additionalInfo', type: 'textarea', label: 'Anything else we should know?', required: false },
+    ],
+  },
+
   [ROLE_TYPES.ADMIN]: {
     id: ROLE_TYPES.ADMIN,
     name: 'Administrator',
     nameLocalized: 'Ylläpitäjä',
     namePlural: 'Administrators',
     namePluralLocalized: 'Ylläpitäjät',
+    description: 'Manage and moderate the platform',
     category: 'admin',
     tags: ['admin', 'management', 'moderation'],
     
@@ -380,6 +580,7 @@ export const ROLE_CONFIG = {
     nameLocalized: 'Valmentaja',
     namePlural: 'Coaches',
     namePluralLocalized: 'Valmentajat',
+    description: 'Provide coaching and training services',
     category: ROLE_CATEGORIES.PROVIDER,
     tags: ['sports', 'fitness', 'coaching', 'training'],
     
@@ -477,6 +678,7 @@ export const ROLE_CONFIG = {
     nameLocalized: 'Urheilija',
     namePlural: 'Athletes',
     namePluralLocalized: 'Urheilijat',
+    description: 'Find and book coaching sessions',
     category: ROLE_CATEGORIES.CUSTOMER,
     tags: ['sports', 'fitness', 'training'],
     
@@ -567,8 +769,10 @@ export const ROLE_CONFIG = {
 
 /**
  * Get role configuration
+ * Handles legacy role names (teacher -> service_provider, parent -> client)
  */
 export const getRoleConfig = (role) => {
+  // Handle legacy role names
   const canonical = getCanonicalRole(role);
   return ROLE_CONFIG[canonical] || ROLE_CONFIG[ROLE_TYPES.CLIENT];
 };

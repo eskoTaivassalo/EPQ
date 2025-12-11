@@ -6,6 +6,7 @@ import {
   setDoc, 
   getDoc, 
   updateDoc,
+  collectionGroup
 } from 'firebase/firestore';
 import { arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db, auth } from '../../config/firebaseConfig';
@@ -136,8 +137,14 @@ export const fetchTeachers = createAsyncThunk(
         return [];
       }
       
-      const teachersCollection = collection(db, 'teachers');
-      const teachersSnapshot = await getDocs(teachersCollection);
+      // Use collectionGroup to query all teachers from hierarchical structure
+      // This finds all users/{userId}/teachers/{userId} documents
+      console.log('🔍 Redux: Fetching teachers using collectionGroup query...');
+      const teachersQuery = collectionGroup(db, 'teachers');
+      const teachersSnapshot = await getDocs(teachersQuery);
+      
+      console.log(`📄 Redux: Found ${teachersSnapshot.docs.length} teacher profiles`);
+      
       let rawTeachers = teachersSnapshot.docs.map(doc => {
         const data = doc.data();
         // Convert Firestore Timestamps to ISO strings for Redux serialization
@@ -231,8 +238,14 @@ export const fetchParents = createAsyncThunk(
       
       console.log('📊 Redux: User authenticated, fetching parents...');
       
-      const parentsCollection = collection(db, 'parents');
-      const parentsSnapshot = await getDocs(parentsCollection);
+      // Use collectionGroup to query all parents/students from hierarchical structure
+      // This finds all users/{userId}/students/{userId} documents
+      console.log('🔍 Redux: Fetching parents using collectionGroup query...');
+      const parentsQuery = collectionGroup(db, 'students');
+      const parentsSnapshot = await getDocs(parentsQuery);
+      
+      console.log(`📄 Redux: Found ${parentsSnapshot.docs.length} parent/student profiles`);
+      
       const parentsData = parentsSnapshot.docs.map(doc => {
         const data = doc.data();
         // Convert Firestore Timestamps to ISO strings for Redux serialization
@@ -404,7 +417,8 @@ export const loadFavoritesForCurrentUser = createAsyncThunk(
       }
       if (!db) throw new Error('Firebase database not initialized');
 
-      const parentRef = doc(db, 'parents', auth.currentUser.uid);
+      // Use hierarchical structure: users/{userId}/students/{userId}
+      const parentRef = doc(db, 'users', auth.currentUser.uid, 'students', auth.currentUser.uid);
       const snapshot = await getDoc(parentRef);
       if (!snapshot.exists()) {
         console.log('❤️ Favorites: Parent doc not found, returning empty');
@@ -426,7 +440,9 @@ export const addFavoriteTeacher = createAsyncThunk(
     try {
       if (!auth?.currentUser) throw new Error('Not authenticated');
       if (!db) throw new Error('Firebase database not initialized');
-      const parentRef = doc(db, 'parents', auth.currentUser.uid);
+      
+      // Use hierarchical structure: users/{userId}/students/{userId}
+      const parentRef = doc(db, 'users', auth.currentUser.uid, 'students', auth.currentUser.uid);
       await updateDoc(parentRef, {
         favoriteTeacherIds: arrayUnion(teacherId)
       });
@@ -445,7 +461,9 @@ export const removeFavoriteTeacher = createAsyncThunk(
     try {
       if (!auth?.currentUser) throw new Error('Not authenticated');
       if (!db) throw new Error('Firebase database not initialized');
-      const parentRef = doc(db, 'parents', auth.currentUser.uid);
+      
+      // Use hierarchical structure: users/{userId}/students/{userId}
+      const parentRef = doc(db, 'users', auth.currentUser.uid, 'students', auth.currentUser.uid);
       await updateDoc(parentRef, {
         favoriteTeacherIds: arrayRemove(teacherId)
       });

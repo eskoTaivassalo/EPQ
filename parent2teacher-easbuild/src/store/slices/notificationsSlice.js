@@ -39,11 +39,8 @@ export const fetchNotifications = createAsyncThunk(
         return rejectWithValue('user_mismatch');
       }
       
-      // Avoid orderBy to prevent missing-index failures on fresh environments; sort on client instead.
-      const q = query(
-        collection(db, 'notifications'),
-        where('userId', '==', userId)
-      );
+      // Use subcollection under user document
+      const q = collection(db, 'users', userId, 'notifications');
       const snapshot = await getDocs(q);
       const notifications = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -78,7 +75,7 @@ export const createNotification = createAsyncThunk(
         console.warn('[createNotification] ⚠️ WARNING: Creating notification for SELF (sender = receiver). This is OK for testing but may indicate a bug.');
       }
       
-      const docRef = await addDoc(collection(db, 'notifications'), {
+      const docRef = await addDoc(collection(db, 'users', notificationData.userId, 'notifications'), {
         ...notificationData,
         read: false,
         createdAt: serverTimestamp()
@@ -105,23 +102,29 @@ export const markAsRead = createAsyncThunk(
   'notifications/markAsRead',
   async (notificationId) => {
     try {
+      console.log('📖 markAsRead called with notificationId:', notificationId);
       
-      const ref = doc(db, 'notifications', notificationId);
+      // notificationId format: userId/notificationDocId or just notificationDocId
+      // For new structure we need userId, get from auth
+      const userId = auth?.currentUser?.uid;
+      if (!userId) throw new Error('Not authenticated');
+      
+      console.log('👤 Current userId:', userId);
+      console.log('📍 Document path:', `users/${userId}/notifications/${notificationId}`);
+      
+      const ref = doc(db, 'users', userId, 'notifications', notificationId);
       const snap = await getDoc(ref);
       if (!snap.exists()) {
-        console.warn('[notifications] markAsRead skipped: doc does not exist', notificationId);
-        return notificationId; // Graceful: return so reducer can ignore if needed
-      }
-      const data = snap.data();
-      
-      if (!data || typeof data.userId !== 'string') {
-        console.warn('[notifications] markAsRead skipped: missing userId field (legacy malformed doc?)', notificationId);
+        console.warn('[notifications] ⚠️ markAsRead skipped: doc does not exist', notificationId);
         return notificationId;
       }
+      
+      console.log('📄 Notification found, updating read status...');
       await updateDoc(ref, { read: true });
+      console.log('✅ Notification marked as read successfully');
       return notificationId;
     } catch (error) {
-      console.error('Error marking notification as read:', error);
+      console.error('❌ Error marking notification as read:', error);
       throw error;
     }
   }
@@ -133,14 +136,13 @@ export const markAllAsRead = createAsyncThunk(
   async (userId) => {
     try {
       const q = query(
-        collection(db, 'notifications'),
-        where('userId', '==', userId),
+        collection(db, 'users', userId, 'notifications'),
         where('read', '==', false)
       );
       const snapshot = await getDocs(q);
       
       const updates = snapshot.docs.map(document => 
-        updateDoc(doc(db, 'notifications', document.id), { read: true })
+        updateDoc(doc(db, 'users', userId, 'notifications', document.id), { read: true })
       );
       
       await Promise.all(updates);
@@ -157,7 +159,10 @@ export const deleteNotification = createAsyncThunk(
   'notifications/delete',
   async (notificationId) => {
     try {
-      await deleteDoc(doc(db, 'notifications', notificationId));
+      const userId = auth?.currentUser?.uid;
+      if (!userId) throw new Error('Not authenticated');
+      
+      await deleteDoc(doc(db, 'users', userId, 'notifications', notificationId));
       return notificationId;
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -172,14 +177,13 @@ export const clearReadNotifications = createAsyncThunk(
   async (userId) => {
     try {
       const q = query(
-        collection(db, 'notifications'),
-        where('userId', '==', userId),
+        collection(db, 'users', userId, 'notifications'),
         where('read', '==', true)
       );
       const snapshot = await getDocs(q);
       
       const deletions = snapshot.docs.map(document => 
-        deleteDoc(doc(db, 'notifications', document.id))
+        deleteDoc(doc(db, 'users', userId, 'notifications', document.id))
       );
       
       await Promise.all(deletions);
@@ -199,10 +203,7 @@ export const deleteOldNotifications = createAsyncThunk(
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      const q = query(
-        collection(db, 'notifications'),
-        where('userId', '==', userId)
-      );
+      const q = collection(db, 'users', userId, 'notifications');
       const snapshot = await getDocs(q);
       
       // Filter old notifications client-side
@@ -214,7 +215,7 @@ export const deleteOldNotifications = createAsyncThunk(
       });
       
       const deletions = oldDocs.map(document => 
-        deleteDoc(doc(db, 'notifications', document.id))
+        deleteDoc(doc(db, 'users', userId, 'notifications', document.id))
       );
       
       await Promise.all(deletions);
@@ -236,10 +237,7 @@ export const startNotificationListener = (userId, dispatch) => {
 
   if (!userId) return;
 
-  const q = query(
-    collection(db, 'notifications'),
-    where('userId', '==', userId)
-  );
+  const q = collection(db, 'users', userId, 'notifications');
 
   activeNotificationListener = onSnapshot(q, 
     (snapshot) => {

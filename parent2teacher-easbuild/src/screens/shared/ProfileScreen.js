@@ -15,12 +15,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
 import { useAuth } from '../../hooks/useAuth';
+import { getRoleCollectionInfo } from '../../services/userDatabaseService';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
 import TagSelector from '../../components/TagSelector';
 import imagePickerService from '../../services/imagePickerService';
 import { colors } from '../../styles/commonStyles';
 import { SUBJECTS, LANGUAGES, TEACHING_METHODS, AVAILABILITY } from '../../constants/tags';
+import { ROLE_CONFIG, ROLE_TYPES } from '../../config/roleConfig';
 
 /**
  * Yhteinen profiilinäkymä kaikille rooleille
@@ -56,8 +58,8 @@ const ProfileScreen = ({ navigation }) => {
 
     try {
       setLoading(true);
-      const collection = isProvider ? 'teachers' : 'parents';
-      const docRef = doc(db, collection, user.uid);
+      const { serviceType, collection: collectionName } = getRoleCollectionInfo(userRole);
+      const docRef = doc(db, 'serviceTypes', serviceType, collectionName, user.uid);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
@@ -156,14 +158,14 @@ const ProfileScreen = ({ navigation }) => {
 
     setSaving(true);
     try {
-      const collection = isProvider ? 'teachers' : 'parents';
-      const docRef = doc(db, collection, user.uid);
+      const { serviceType, collection: collectionName } = getRoleCollectionInfo(userRole);
+      const docRef = doc(db, 'serviceTypes', serviceType, collectionName, user.uid);
 
       const updateData = {
-        name: profileData.name,
-        email: profileData.email,
-        phone: profileData.phone,
-        photoURL: profileData.photoURL,
+        name: profileData.name || '',
+        email: profileData.email || user.email || '',
+        phone: profileData.phone || '',
+        photoURL: profileData.photoURL || null,
         updatedAt: new Date().toISOString(),
       };
 
@@ -181,7 +183,7 @@ const ProfileScreen = ({ navigation }) => {
         // Tallenna myös nested profile-objektiin (backward compatibility)
         updateData.profile = {
           ...updateData,
-          phoneNumber: profileData.phone,
+          phoneNumber: profileData.phone || '',
         };
       } else {
         // Client-spesifit kentät
@@ -190,9 +192,9 @@ const ProfileScreen = ({ navigation }) => {
         
         // Tallenna myös nested profile-objektiin (backward compatibility)
         updateData.profile = {
-          name: profileData.name,
-          phoneNumber: profileData.phone,
-          photoURL: profileData.photoURL,
+          name: profileData.name || '',
+          phoneNumber: profileData.phone || '',
+          photoURL: profileData.photoURL || null,
           needs: profileData.needs || [],
           preferences: profileData.preferences || '',
         };
@@ -245,6 +247,34 @@ const ProfileScreen = ({ navigation }) => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleAddNewRole = () => {
+    // Get all available roles
+    const availableRoles = Object.values(ROLE_CONFIG);
+    
+    // Get user's current roles from Firestore users collection
+    // For now, we'll show all roles and let them choose
+    const roleOptions = availableRoles.map(config => ({
+      text: config.nameLocalized || config.name,
+      onPress: () => {
+        navigation.navigate('UniversalSignup', { 
+          roleType: config.id,
+          addingRole: true 
+        });
+      }
+    }));
+
+    roleOptions.push({
+      text: 'Peruuta',
+      style: 'cancel'
+    });
+
+    Alert.alert(
+      'Lisää uusi rooli',
+      'Valitse mitä roolia haluat käyttää tällä tilillä:',
+      roleOptions
+    );
   };
 
   if (loading) {
@@ -307,6 +337,15 @@ const ProfileScreen = ({ navigation }) => {
               {isProvider ? '👨‍🏫 Teacher' : '👨‍👩‍👧 Parent/Student'}
             </Text>
           </View>
+          
+          {/* Add New Role Button */}
+          <TouchableOpacity 
+            style={styles.addRoleButton}
+            onPress={handleAddNewRole}
+          >
+            <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
+            <Text style={styles.addRoleButtonText}>Lisää uusi rooli</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Perustiedot */}
@@ -633,6 +672,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.primary,
     fontWeight: '600',
+  },
+  addRoleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+    marginTop: 15,
+    borderWidth: 1,
+    borderColor: colors.primary,
+  },
+  addRoleButtonText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontWeight: '600',
+    marginLeft: 8,
   },
   section: {
     backgroundColor: colors.white,

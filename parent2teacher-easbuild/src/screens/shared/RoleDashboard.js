@@ -68,9 +68,17 @@ const RoleDashboard = ({ navigation }) => {
   useEffect(() => {
     if (!user?.uid) return;
     
+    console.log('🎯 RoleDashboard: Setting up bookings listener', { 
+      userId: user.uid, 
+      isProvider, 
+      role: user?.role || user?.userType,
+      userName: user?.displayName || user?.name 
+    });
+    
     const unsubscribe = startBookingsListener(user.uid, isProvider, dispatch);
     
     return () => {
+      console.log('🛑 RoleDashboard: Cleaning up bookings listener');
       stopBookingsListener();
     };
   }, [dispatch, user?.uid, isProvider]);

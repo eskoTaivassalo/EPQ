@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { collection, query, where, getDocs, deleteDoc, doc, orderBy, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, deleteDoc, doc, orderBy, writeBatch, collectionGroup } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
 import { useAuth } from '../../hooks/useAuth';
 import WatercolorBackground from '../../components/WatercolorBackground';
@@ -50,8 +50,9 @@ export default function ManageSlotsScreen({ navigation }) {
     try {
       setLoading(true);
       
+      // Use collectionGroup to query across hierarchical structure
       let q = query(
-        collection(db, 'availabilitySlots'),
+        collectionGroup(db, 'availabilitySlots'),
         where('teacherId', '==', user.uid),
         orderBy('start', 'asc')
       );
@@ -60,6 +61,7 @@ export default function ManageSlotsScreen({ navigation }) {
       
       let fetchedSlots = snapshot.docs.map(doc => ({
         id: doc.id,
+        ref: doc.ref, // Store reference for deletion
         ...doc.data()
       })).filter(slot => {
         // Filter out slots with invalid dates
@@ -120,7 +122,7 @@ export default function ManageSlotsScreen({ navigation }) {
           style: 'destructive',
           onPress: async () => {
             try {
-              await deleteDoc(doc(db, 'availabilitySlots', slot.id));
+              await deleteDoc(slot.ref);
               setAllSlots(prev => prev.filter(s => s.id !== slot.id));
               Alert.alert('Deleted', 'Time slot removed');
             } catch (error) {
@@ -152,7 +154,7 @@ export default function ManageSlotsScreen({ navigation }) {
             try {
               const batch = writeBatch(db);
               availableSlots.forEach(slot => {
-                batch.delete(doc(db, 'availabilitySlots', slot.id));
+                batch.delete(slot.ref);
               });
               await batch.commit();
               
@@ -211,7 +213,7 @@ export default function ManageSlotsScreen({ navigation }) {
                     try {
                       const batch = writeBatch(db);
                       slotsToDelete.forEach(slot => {
-                        batch.delete(doc(db, 'availabilitySlots', slot.id));
+                        batch.delete(slot.ref);
                       });
                       await batch.commit();
                       

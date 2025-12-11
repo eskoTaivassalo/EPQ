@@ -45,7 +45,7 @@ export async function sendMessage({ teacherId, parentId, senderType, text }) {
     } else {
       // Fallback: create directly to Firestore
       const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
-      await addDoc(collection(db, 'notifications'), {
+      await addDoc(collection(db, 'users', teacherId, 'notifications'), {
         ...notificationData,
         read: false,
         createdAt: serverTimestamp()

@@ -8,6 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { generateAvailabilitySlots } from '../../services/availabilityService';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
+import { getRoleCollectionInfo } from '../../services/userDatabaseService';
 
 const DAYS = [
   { id: 1, label: 'Mon' },
@@ -39,21 +40,30 @@ export default function TeacherAvailabilityScreen({ navigation }) {
     async function fetchSubjects() {
       if (!user?.uid) return;
       try {
-        const docRef = doc(db, 'teachers', user.uid);
+        // Fetch from serviceTypes structure: serviceTypes/{serviceType}/{collectionName}/{userId}
+        const role = user.role || user.userType || 'teacher';
+        const { serviceType, collection: collectionName } = getRoleCollectionInfo(role);
+        const docRef = doc(db, 'serviceTypes', serviceType, collectionName, user.uid);
         const snap = await getDoc(docRef);
         if (snap.exists()) {
           const data = snap.data();
           
-          // Try both root and nested profile
-          const subjects = data.subjects || data.profile?.subjects || [];
+          // Get subjects directly from role profile
+          const subjects = data.subjects || [];
           
           if (Array.isArray(subjects) && subjects.length > 0) {
+            console.log('✅ Loaded subjects from profile:', subjects);
             setProfileSubjects(subjects);
           } else {
+            console.log('⚠️ No subjects found in profile');
             setProfileSubjects([]);
           }
+        } else {
+          console.log(`⚠️ Profile not found at serviceTypes/${serviceType}/${collectionName}/${user.uid}`);
+          setProfileSubjects([]);
         }
       } catch (e) {
+        console.error('❌ Error fetching subjects:', e);
         setProfileSubjects([]);
       }
     }
@@ -77,9 +87,7 @@ export default function TeacherAvailabilityScreen({ navigation }) {
     if (daysOfWeek.length === 0) {
       return Alert.alert('Error', 'Please select at least one day');
     }
-    if (selectedSubjects.length === 0) {
-      return Alert.alert('Error', 'Please select at least one subject');
-    }
+    // Subjects are optional - client will select when booking
     const startTimeStr = formatTime(startHour, startMinute);
     // Calculate end time: each session starts on the hour (60 min blocks including break)
     const totalMinutes = startHour * 60 + startMinute + (60 * sessionsPerDay);
@@ -92,12 +100,19 @@ export default function TeacherAvailabilityScreen({ navigation }) {
       const start = new Date();
       const end = new Date();
       end.setDate(end.getDate() + rangeDays);
+      const slotConfig = { 
+        daysOfWeek, 
+        startTime: startTimeStr, 
+        endTime: endTimeStr, 
+        durationMin,
+        ...(selectedSubjects.length > 0 && { subjects: selectedSubjects })
+      };
       const result = await generateAvailabilitySlots(
         user.uid,
-        { daysOfWeek, startTime: startTimeStr, endTime: endTimeStr, durationMin, subjects: selectedSubjects },
+        slotConfig,
         start,
         end,
-        { locationType: 'online' }
+        { locationType: 'online', userRole: user.role || user.userType || 'teacher' }
       );
       Alert.alert('Success! 🎉', `${result.createdCount} time slots created`);
       navigation.goBack();
@@ -141,29 +156,7 @@ export default function TeacherAvailabilityScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Subjects */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Subjects</Text>
-          <View style={styles.chipsContainer}>
-            {profileSubjects.length === 0 ? (
-              <Text style={styles.emptyText}>
-                No subjects in profile
-              </Text>
-            ) : (
-              profileSubjects.map(subject => (
-                <TouchableOpacity
-                  key={subject}
-                  style={[styles.chip, selectedSubjects.includes(subject) && styles.chipActive]}
-                  onPress={() => toggleSubject(subject)}
-                >
-                  <Text style={[styles.chipText, selectedSubjects.includes(subject) && styles.chipTextActive]}>
-                    {subject}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        </View>
+        {/* Subjects removed - client selects during booking */}
 
         {/* Time Settings */}
         <View style={styles.card}>

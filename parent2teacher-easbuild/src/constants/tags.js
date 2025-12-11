@@ -204,6 +204,36 @@ export const AVAILABILITY = [
   { id: 'flexible', label: 'Flexible Schedule', icon: 'time' },
 ];
 
+// Terapian erikoisalat
+export const THERAPY_SPECIALIZATIONS = [
+  { id: 'cognitive_behavioral', label: 'Cognitive Behavioral Therapy (CBT)', icon: 'brain' },
+  { id: 'psychodynamic', label: 'Psychodynamic Therapy', icon: 'analytics' },
+  { id: 'family_therapy', label: 'Family Therapy', icon: 'people' },
+  { id: 'couples_therapy', label: 'Couples Therapy', icon: 'heart' },
+  { id: 'child_therapy', label: 'Child & Adolescent Therapy', icon: 'happy' },
+  { id: 'trauma', label: 'Trauma Therapy', icon: 'shield' },
+  { id: 'addiction', label: 'Addiction Counseling', icon: 'medical' },
+  { id: 'grief', label: 'Grief Counseling', icon: 'sad' },
+  { id: 'anxiety', label: 'Anxiety Treatment', icon: 'pulse' },
+  { id: 'depression', label: 'Depression Treatment', icon: 'rainy' },
+  { id: 'mindfulness', label: 'Mindfulness-Based Therapy', icon: 'leaf' },
+  { id: 'emdr', label: 'EMDR', icon: 'eye' },
+];
+
+// Terapian tarpeet (asiakkaille)
+export const THERAPY_NEEDS = [
+  { id: 'anxiety', label: 'Anxiety', icon: 'pulse' },
+  { id: 'depression', label: 'Depression', icon: 'rainy' },
+  { id: 'stress', label: 'Stress Management', icon: 'fitness' },
+  { id: 'relationships', label: 'Relationship Issues', icon: 'heart' },
+  { id: 'trauma', label: 'Trauma', icon: 'shield' },
+  { id: 'grief', label: 'Grief & Loss', icon: 'sad' },
+  { id: 'addiction', label: 'Addiction', icon: 'medical' },
+  { id: 'family', label: 'Family Issues', icon: 'people' },
+  { id: 'personal_growth', label: 'Personal Growth', icon: 'trending-up' },
+  { id: 'life_transitions', label: 'Life Transitions', icon: 'swap-horizontal' },
+];
+
 // Apufunktiot
 export const getTagById = (tags, id) => {
   return tags.find(tag => tag.id === id);

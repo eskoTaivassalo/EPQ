@@ -29,6 +29,8 @@ import TagSelector from '../../components/TagSelector';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { getRoleConfig, getRoleColors, getCanonicalRole } from '../../config/roleConfig';
+import { addRoleToUser } from '../../services/userDatabaseService';
+import { auth } from '../../config/firebaseConfig';
 import { 
   SUBJECTS,
   EDUCATION_LEVELS,
@@ -38,7 +40,9 @@ import {
   PRICE_RANGES,
   AVAILABILITY,
   TEACHING_STYLES,
-  SPECIAL_NEEDS
+  SPECIAL_NEEDS,
+  THERAPY_SPECIALIZATIONS,
+  THERAPY_NEEDS
 } from '../../constants/tags';
 import { getCurrentLocation, reverseGeocode, requestForegroundPermissions } from '../../services/locationService';
 
@@ -52,6 +56,8 @@ const TAG_CONSTANTS = {
   availability: AVAILABILITY,
   teachingStyles: TEACHING_STYLES,
   specialNeeds: SPECIAL_NEEDS,
+  specializations: THERAPY_SPECIALIZATIONS,
+  therapyNeeds: THERAPY_NEEDS,
 };
 
 const UniversalSignupScreen = ({ navigation, route }) => {
@@ -67,11 +73,12 @@ const UniversalSignupScreen = ({ navigation, route }) => {
   } = useSecurity();
 
   // Get role from route params (e.g., from WelcomeScreen or RoleSignupScreen)
-  const roleParam = route?.params?.role || 'service_provider';
+  const roleParam = route?.params?.role || route?.params?.roleType || 'service_provider';
   const role = getCanonicalRole(roleParam);
   const roleConfig = getRoleConfig(role);
   const roleColors = getRoleColors(role);
   const googleUser = route?.params?.googleUser;
+  const addingRole = route?.params?.addingRole || false; // New role for existing account
 
   // Initialize form state dynamically based on role's signupFields
   const [formData, setFormData] = useState(() => {
@@ -144,6 +151,11 @@ const UniversalSignupScreen = ({ navigation, route }) => {
 
   const handleInputChange = (key, value) => {
     setFormData(prev => ({ ...prev, [key]: value }));
+    
+    // Debug subjects changes
+    if (key === 'subjects') {
+      console.log('🏷️ Subjects updated:', value);
+    }
 
     // Password validation
     if (key === 'password' && !googleUser) {
@@ -155,6 +167,13 @@ const UniversalSignupScreen = ({ navigation, route }) => {
   };
 
   const validateForm = () => {
+    console.log('🔍 Validating form, current formData:', {
+      subjects: formData.subjects,
+      hourlyRate: formData.hourlyRate,
+      description: formData.description,
+      allKeys: Object.keys(formData)
+    });
+    
     // Profile image check
     if (!profileImageUri) {
       Alert.alert('Profile Photo Required', 'Please upload a profile photo to continue.');
@@ -179,8 +198,8 @@ const UniversalSignupScreen = ({ navigation, route }) => {
       }
     }
 
-    // Password validation (only for non-Google users)
-    if (!googleUser) {
+    // Password validation (only for non-Google users and when not adding role)
+    if (!googleUser && !addingRole) {
       if (!formData.password || formData.password.length < 6) {
         Alert.alert('Invalid Password', 'Password must be at least 6 characters long.');
         return false;
@@ -211,6 +230,64 @@ const UniversalSignupScreen = ({ navigation, route }) => {
 
     setLoading(true);
     try {
+      // Check if we're adding a role to existing account
+      if (addingRole) {
+        // Use existing authenticated user
+        const currentUser = auth.currentUser;
+        
+        if (!currentUser) {
+          Alert.alert('Error', 'You must be logged in to add a new role');
+          return;
+        }
+
+        // Build profile data for the new role
+        const roleProfileData = {
+          name: formData.fullName,
+          email: currentUser.email,
+          role: roleConfig.legacyName || role,
+        };
+
+        // Add all other fields from formData (except passwords and system fields)
+        Object.keys(formData).forEach(key => {
+          if (!['password', 'confirmPassword', 'acceptTerms', 'acceptMarketing', 'fullName', 'email'].includes(key)) {
+            roleProfileData[key] = formData[key];
+          }
+        });
+
+        console.log('📝 Adding new role to existing user:', currentUser.uid);
+        console.log('📝 Role data:', JSON.stringify(roleProfileData, null, 2));
+
+        // Add the role to the user
+        await addRoleToUser(currentUser.uid, roleConfig.legacyName || role, roleProfileData);
+
+        // Upload profile image if provided
+        if (profileImageUri) {
+          try {
+            await AuthService.updateProfileImage(profileImageUri, currentUser.uid, roleConfig.legacyName || role);
+          } catch (imageError) {
+            console.error('Profile image upload error:', imageError);
+            Alert.alert(
+              'Notice',
+              'Profile image upload failed, but your role was added successfully. You can add it later.'
+            );
+          }
+        }
+
+        Alert.alert(
+          '🎉 Role Added!',
+          `✅ ${roleConfig.nameLocalized || roleConfig.name} role has been added to your account!\n\n🚀 You can now switch between your roles.`,
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack()
+            }
+          ]
+        );
+
+        return;
+      }
+
+      // Normal signup flow (creating new account)
       // Google authentication
       if (googleUser?.idToken) {
         await AuthService.signInWithGoogleToken(googleUser.idToken);
@@ -232,6 +309,9 @@ const UniversalSignupScreen = ({ navigation, route }) => {
           userData[key] = formData[key];
         }
       });
+
+      console.log('📝 User data to register:', JSON.stringify(userData, null, 2));
+      console.log('🏷️ Subjects in userData:', userData.subjects);
 
       const result = await register(userData);
       
@@ -417,7 +497,9 @@ const UniversalSignupScreen = ({ navigation, route }) => {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Join as {roleConfig.name}</Text>
+        <Text style={styles.headerTitle}>
+          {addingRole ? `Add ${roleConfig.name} Role` : `Join as ${roleConfig.name}`}
+        </Text>
       </View>
 
       <KeyboardAvoidingView 
@@ -432,14 +514,26 @@ const UniversalSignupScreen = ({ navigation, route }) => {
         >
           <View style={styles.welcomeSection}>
             <Text style={styles.welcomeTitle}>
-              {roleConfig.id === 'service_provider' 
-                ? 'Showcase Your Skills, Be Found by Families' 
-                : 'Find the Perfect Teacher for Your Child'}
+              {roleConfig.category === 'provider' 
+                ? `${roleConfig.name} - Share Your Expertise` 
+                : roleConfig.id === 'client' 
+                  ? 'Find the Perfect Teacher for Your Child'
+                  : roleConfig.id === 'therapy_client'
+                    ? 'Find the Perfect Therapist for You'
+                    : roleConfig.id === 'athlete'
+                      ? 'Find the Perfect Coach for You'
+                      : `Find Your ${roleConfig.name}`}
             </Text>
             <Text style={styles.welcomeSubtitle}>
-              {roleConfig.id === 'service_provider'
-                ? 'Join our global platform connecting you with families worldwide'
-                : 'Connect with qualified teachers in your area'}
+              {roleConfig.category === 'provider'
+                ? `Join our platform connecting ${roleConfig.name.toLowerCase()}s with clients worldwide`
+                : roleConfig.id === 'client'
+                  ? 'Connect with qualified teachers in your area'
+                  : roleConfig.id === 'therapy_client'
+                    ? 'Connect with licensed therapists who can help you'
+                    : roleConfig.id === 'athlete'
+                      ? 'Connect with experienced coaches in your sport'
+                      : 'Connect with qualified professionals in your area'}
             </Text>
           </View>
 
@@ -538,8 +632,8 @@ const UniversalSignupScreen = ({ navigation, route }) => {
               />
             </View>
 
-            {/* Password Fields (not for Google users) */}
-            {!googleUser && (
+            {/* Password Fields (not for Google users or when adding role) */}
+            {!googleUser && !addingRole && (
               <>
                 <Text style={[styles.sectionTitle, { color: roleColors.primary }]}>
                   Account Security
@@ -599,17 +693,21 @@ const UniversalSignupScreen = ({ navigation, route }) => {
               {loading ? (
                 <ActivityIndicator color="#FFFFFF" />
               ) : (
-                <Text style={styles.signupButtonText}>Create Account</Text>
+                <Text style={styles.signupButtonText}>
+                  {addingRole ? 'Add Role' : 'Create Account'}
+                </Text>
               )}
             </TouchableOpacity>
 
-            {/* Login Link */}
-            <View style={styles.loginLinkContainer}>
-              <Text style={styles.loginLinkText}>Already have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={[styles.loginLink, { color: roleColors.primary }]}>Log In</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Login Link (only for normal signup) */}
+            {!addingRole && (
+              <View style={styles.loginLinkContainer}>
+                <Text style={styles.loginLinkText}>Already have an account? </Text>
+                <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+                  <Text style={[styles.loginLink, { color: roleColors.primary }]}>Log In</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

@@ -9,7 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Animated
+  Animated,
+  ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -24,6 +25,8 @@ import { colors, commonStyles } from '../../styles/commonStyles';
 import { AuthService } from '../../services/authService';
 import AppLogo from '../../components/AppLogo';
 import WatercolorBackground from '../../components/WatercolorBackground';
+import { ROLE_CONFIG, ROLE_TYPES } from '../../config/roleConfig';
+import { getRoleCollectionInfo } from '../../services/userDatabaseService';
 
 const LoginScreen = ({ route, navigation }) => {
   const { userType } = route.params || {};
@@ -141,18 +144,84 @@ const LoginScreen = ({ route, navigation }) => {
       }
       const { user } = userCredential;
       const uid = user.uid;
-      // Fetch both possible profile docs
-      const teacherDocRef = doc(db, 'teachers', uid);
-      const parentDocRef = doc(db, 'parents', uid);
-      const [teacherSnap, parentSnap] = await Promise.all([
-        getDoc(teacherDocRef),
-        getDoc(parentDocRef)
-      ]);
+      
+      // Fetch user profile from new hierarchical structure
+      const mainProfileRef = doc(db, 'users', uid);
+      const mainProfileSnap = await getDoc(mainProfileRef);
 
-      const teacherData = teacherSnap.exists() ? teacherSnap.data() : null;
-      const parentData = parentSnap.exists() ? parentSnap.data() : null;
+      if (!mainProfileSnap.exists()) {
+        // User doesn't have a profile yet - show role selection
+        setGoogleExistingLoading(false);
+        
+        const googleUserData = {
+          uid: user.uid,
+          email: user.email,
+          name: user.displayName,
+          photoURL: user.photoURL,
+          emailVerified: user.emailVerified
+        };
+        
+        // Create buttons for each role
+        const roleButtons = Object.values(ROLE_CONFIG).map(roleConfig => ({
+          text: `${roleConfig.name}`,
+          onPress: () => {
+            navigation.navigate('UniversalSignup', {
+              role: roleConfig.id,
+              googleUser: googleUserData
+            });
+          }
+        }));
+        
+        // Add cancel button
+        roleButtons.push({
+          text: 'Cancel',
+          style: 'cancel'
+        });
+        
+        Alert.alert(
+          '👋 Welcome!',
+          'What type of account do you want to create?',
+          roleButtons,
+          { cancelable: true }
+        );
+        return;
+      }
 
-      const normalizeUser = (firebaseUser, roleValue, firestoreData) => {
+      const mainData = mainProfileSnap.data();
+      
+      // Check if user has multiple roles
+      const roles = mainData.roles || [mainData.primaryRole];
+      if (roles.length > 1) {
+        // User has multiple roles - show role selection screen
+        setGoogleExistingLoading(false);
+        navigation.navigate('RoleSelection', {
+          userId: uid,
+          availableRoles: roles,
+          mainProfile: mainData,
+          // Only pass serializable user data
+          firebaseUserData: {
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            emailVerified: user.emailVerified,
+          },
+        });
+        return;
+      }
+      
+      // Fetch role-specific data
+      let roleData = null;
+      if (mainData.primaryRole) {
+        const { serviceType, collection: collectionName } = getRoleCollectionInfo(mainData.primaryRole);
+        const roleProfileRef = doc(db, 'serviceTypes', serviceType, collectionName, uid);
+        const roleProfileSnap = await getDoc(roleProfileRef);
+        
+        if (roleProfileSnap.exists()) {
+          roleData = roleProfileSnap.data();
+        }
+      }
+
+      const normalizeUser = (firebaseUser, mainProfile, roleProfile) => {
         if (!firebaseUser) return null;
         const base = {
           uid: firebaseUser.uid,
@@ -160,150 +229,71 @@ const LoginScreen = ({ route, navigation }) => {
           name: firebaseUser.displayName,
           displayName: firebaseUser.displayName,
           emailVerified: firebaseUser.emailVerified,
-          role: roleValue || firestoreData?.role || firestoreData?.userType,
-          userType: roleValue || firestoreData?.userType || firestoreData?.role,
+          role: mainProfile?.primaryRole || 'parent',
+          userType: mainProfile?.primaryRole || 'parent',
           timestamp: Date.now(),
         };
-        if (!firestoreData) {
+        
+        if (!mainProfile) {
           return base;
         }
-        // Merge firestore root + nested profile
-        const nested = firestoreData.profile || {};
-        const doubleNested = nested.profile || {}; // fallback if profile.profile used accidentally
-        const mergedProfile = { ...doubleNested, ...nested }; // nested wins over doubleNested
-        const flattened = {
-          ...firestoreData,
-          ...mergedProfile,
+        
+        // Merge main profile + role profile
+        const merged = {
+          ...mainProfile,
+          ...(roleProfile || {}),
         };
+        
         // Preferred phone
-        const phone = flattened.phone || flattened.phoneNumber || mergedProfile.phone || mergedProfile.phoneNumber;
+        const phone = merged.phone || merged.phoneNumber;
         return {
           ...base,
-          ...flattened,
+          ...merged,
           phone,
-          subjects: flattened.subjects || mergedProfile.subjects || [],
-          educationLevels: flattened.educationLevels || mergedProfile.educationLevels || [],
-          location: flattened.location || mergedProfile.location || [],
-          teachingMethods: flattened.teachingMethods || mergedProfile.teachingMethods || [],
-          languages: flattened.languages || mergedProfile.languages || [],
-          teachingStyles: flattened.teachingStyles || mergedProfile.teachingStyles || [],
-          availability: flattened.availability || mergedProfile.availability || [],
-          hourlyRate: flattened.hourlyRate || mergedProfile.hourlyRate || '',
-          experience: flattened.experience || mergedProfile.experience || '',
-          description: flattened.description || mergedProfile.description || '',
+          subjects: merged.subjects || [],
+          educationLevels: merged.educationLevels || [],
+          location: merged.location || [],
+          teachingMethods: merged.teachingMethods || [],
+          languages: merged.languages || [],
+          teachingStyles: merged.teachingStyles || [],
+          availability: merged.availability || [],
+          hourlyRate: merged.hourlyRate || '',
+          experience: merged.experience || '',
+          description: merged.description || '',
         };
       };
 
-      const finalizeRoleLogin = async (chosenRole, data) => {
+      const finalizeRoleLogin = async (normalizedUser) => {
         try {
-          const normalizedUser = normalizeUser(user, chosenRole, data);
+          console.log('🔐 Finalizing Google login with user:', {
+            uid: normalizedUser.uid,
+            role: normalizedUser.role,
+            email: normalizedUser.email
+          });
+          
           dispatch(setUser(normalizedUser));
           await AsyncStorage.setItem('user', JSON.stringify(normalizedUser));
           await AsyncStorage.setItem('userRole', normalizedUser.role);
           await AsyncStorage.setItem('userId', uid);
-          // Also store a list of available roles for quick switching later
-          const roles = [
-            teacherData ? 'teacher' : null,
-            parentData ? 'parent' : null
-          ].filter(Boolean);
+          // Store available roles
+          const roles = mainData.roles || [mainData.primaryRole];
           await AsyncStorage.setItem('availableRoles', JSON.stringify(roles));
+          
+          console.log('✅ Google login finalized successfully');
         } catch (e) {
           console.error('❌ finalizeRoleLogin error:', e);
-          Alert.alert('Login Error', 'Failed to finalize login for role ' + chosenRole);
+          Alert.alert('Login Error', 'Failed to finalize login');
         }
       };
 
-      // Case: both profiles exist -> ask user
-      if (teacherData && parentData) {
-        Alert.alert(
-          'Choose Profile',
-          'You have both a teacher and a parent profile. Which one do you want to use now?',
-          [
-            { text: 'Parent', onPress: () => finalizeRoleLogin('parent', parentData) },
-            { text: 'Teacher', onPress: () => finalizeRoleLogin('teacher', teacherData) },
-            { text: 'Cancel', style: 'cancel' }
-          ],
-          { cancelable: true }
-        );
-        return;
-      }
+      // If user has multiple roles, could add role selection logic here
+      // For now, just use the primary role
+      const normalizedUser = normalizeUser(user, mainData, roleData);
+      await finalizeRoleLogin(normalizedUser);
+      
+      // Success - loading will be cleared in finally block
+      // Navigation happens automatically via App.js when Redux state updates
 
-      // Case: only teacher exists
-      if (teacherData && !parentData) {
-        // If userType specified and wants parent -> offer choice
-        if (userType === 'parent') {
-          Alert.alert(
-            'Teacher Profile Found',
-            'You have a teacher profile. Log in as teacher or create a parent profile?',
-            [
-              { text: 'Create Parent Profile', onPress: async () => {
-                  const googleInfo = await AuthService.getGoogleUserInfo();
-                  navigation.navigate('ParentSignup', { googleUser: googleInfo });
-                }
-              },
-              { text: 'Log in as Teacher', onPress: () => finalizeRoleLogin('teacher', teacherData) },
-              { text: 'Cancel', style: 'cancel' }
-            ],
-            { cancelable: true }
-          );
-          return;
-        } else {
-          // No userType specified or userType is teacher -> just login as teacher
-          await finalizeRoleLogin('teacher', teacherData);
-          return;
-        }
-      }
-
-      // Case: only parent exists
-      if (parentData && !teacherData) {
-        // If userType specified and wants teacher -> offer choice
-        if (userType === 'teacher') {
-          Alert.alert(
-            'Parent Profile Found',
-            'You have a parent profile. Log in as parent or create a teacher profile?',
-            [
-              { text: 'Create Teacher Profile', onPress: async () => {
-                  const googleInfo = await AuthService.getGoogleUserInfo();
-                  navigation.navigate('UniversalSignup', { role: 'service_provider', googleUser: googleInfo });
-                }
-              },
-              { text: 'Log in as Parent', onPress: () => finalizeRoleLogin('parent', parentData) },
-              { text: 'Cancel', style: 'cancel' }
-            ],
-            { cancelable: true }
-          );
-          return;
-        } else {
-          // No userType specified or userType is parent -> login as parent
-          await finalizeRoleLogin('parent', parentData);
-          return;
-        }
-      }
-
-      // No profile found -> offer creation
-      console.log('ℹ️ No existing profile found for Google account');
-      Alert.alert(
-        'Profile not found',
-        'No teacher or parent profile exists for this Google account. Create one now?',
-        [
-          {
-            text: 'Create Teacher Profile',
-            onPress: async () => {
-              const googleInfo = await AuthService.getGoogleUserInfo();
-              navigation.navigate('UniversalSignup', { role: 'service_provider', googleUser: googleInfo });
-            }
-          },
-          {
-            text: 'Create Parent Profile',
-            onPress: async () => {
-              const googleInfo = await AuthService.getGoogleUserInfo();
-              navigation.navigate('UniversalSignup', { role: 'client', googleUser: googleInfo });
-            }
-          },
-          { text: 'Cancel', style: 'cancel' }
-        ],
-        { cancelable: true }
-      );
     } catch (error) {
       console.error('❌ Existing Google sign-in error:', error);
       if (error.message?.toLowerCase().includes('peruutettiin') || error.message?.toLowerCase().includes('cancel')) {
@@ -480,6 +470,23 @@ const LoginScreen = ({ route, navigation }) => {
         </ScrollView>
       </KeyboardAvoidingView>
       </Animated.View>
+      
+      {/* Full Screen Loading Overlay */}
+      {(loading || googleExistingLoading) && (
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <AppLogo size={100} />
+            <ActivityIndicator 
+              size="large" 
+              color={colors.primary} 
+              style={{ marginTop: 24 }}
+            />
+            <Text style={styles.loadingText}>
+              {loading ? 'Signing in...' : 'Connecting with Google...'}
+            </Text>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -626,6 +633,27 @@ const styles = StyleSheet.create({
     color: colors.textLight,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: colors.textSecondary,
+    fontWeight: '500',
   },
 });
 

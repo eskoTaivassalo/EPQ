@@ -2,7 +2,7 @@ import React, { useEffect, lazy, Suspense } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, ActivityIndicator, AppState, Alert } from 'react-native';
+import { View, ActivityIndicator, AppState, Alert, Animated, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Redux
@@ -29,20 +29,13 @@ import ProfileScreen from './src/screens/shared/ProfileScreen';
 import ProviderAvailabilityScreen from './src/screens/provider/ProviderAvailabilityScreen';
 import ManageSlotsScreen from './src/screens/provider/ManageSlotsScreen';
 import ClientsScreen from './src/screens/shared/ClientsScreen';
+import UniversalSignupScreen from './src/screens/auth/UniversalSignupScreen';
+import RoleSelectionScreen from './src/screens/auth/RoleSelectionScreen';
+import FavoriteProvidersScreen from './src/screens/shared/FavoriteProvidersScreen';
+import ProviderAvailableSlotsScreen from './src/screens/shared/ProviderAvailableSlotsScreen';
+import ProviderWeeklyAvailabilityScreen from './src/screens/shared/ProviderWeeklyAvailabilityScreen';
 
 // LAZY LOADED SCREENS - Ladataan vain tarvittaessa
-// Auth
-const RoleSignupScreen = lazy(() => import('./src/screens/auth/RoleSignupScreen'));
-const UniversalSignupScreen = lazy(() => import('./src/screens/auth/UniversalSignupScreen'));
-
-// Legacy signup screens (deprecated - use UniversalSignupScreen)
-const ProviderSignupScreen = lazy(() => import('./src/screens/provider/ProviderSignupScreen'));
-const ClientSignupScreen = lazy(() => import('./src/screens/client/ClientSignupScreen'));
-const FavoriteProvidersScreen = lazy(() => import('./src/screens/shared/FavoriteProvidersScreen'));
-const ProviderAvailableSlotsScreen = lazy(() => import('./src/screens/shared/ProviderAvailableSlotsScreen'));
-const ProviderWeeklyAvailabilityScreen = lazy(() => import('./src/screens/shared/ProviderWeeklyAvailabilityScreen'));
-const ProviderAvailabilityCalendarScreen = lazy(() => import('./src/screens/shared/ProviderAvailabilityCalendarScreen'));
-
 // Shared screens (lazy - ei tarvita heti)
 const FindProvidersScreen = lazy(() => import('./src/screens/shared/FindProvidersScreen'));
 const NotificationsScreen = lazy(() => import('./src/screens/shared/NotificationsScreen'));
@@ -87,15 +80,70 @@ import { requestForegroundPermissions as requestLocationPermissions } from './sr
 // Styles
 import { colors } from './src/styles/commonStyles';
 import { initGlobalErrorLogger } from './src/utils/globalErrorLogger';
+import AppLogo from './src/components/AppLogo';
 
 const Stack = createStackNavigator();
 
 // Loading component
-const Loading = () => (
-  <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background }}>
-    <ActivityIndicator size="large" color={colors.primary} />
-  </View>
-);
+const Loading = () => {
+  const [fadeAnim] = React.useState(new Animated.Value(0));
+  const [pulseAnim] = React.useState(new Animated.Value(1));
+
+  React.useEffect(() => {
+    // Fade in animation
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+
+    // Pulse animation loop
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <View style={{ 
+      flex: 1, 
+      justifyContent: 'center', 
+      alignItems: 'center', 
+      backgroundColor: colors.background 
+    }}>
+      <Animated.View style={{ 
+        opacity: fadeAnim,
+        transform: [{ scale: pulseAnim }],
+        alignItems: 'center'
+      }}>
+        <AppLogo size={120} />
+        <ActivityIndicator 
+          size="large" 
+          color={colors.primary} 
+          style={{ marginTop: 30 }}
+        />
+        <Text style={{ 
+          marginTop: 16, 
+          fontSize: 16, 
+          color: colors.textSecondary,
+          fontWeight: '500'
+        }}>
+          Loading...
+        </Text>
+      </Animated.View>
+    </View>
+  );
+};
 
 // Navigation component that uses Redux auth
 
@@ -149,6 +197,19 @@ const AppNavigator = () => {
   const { user, loading, isAuthenticated, loadStoredAuth } = useAuth();
   const [emailVerifiedDelay, setEmailVerifiedDelay] = useState(false);
   const [cachedEmailVerified, setCachedEmailVerified] = useState(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [hasBeenAuthenticated, setHasBeenAuthenticated] = useState(false);
+
+  // Debug logging for auth state changes
+  useEffect(() => {
+    console.log('🔍 Auth state changed:', {
+      isAuthenticated,
+      hasUser: !!user,
+      userRole: user?.role,
+      loading,
+      isInitializing
+    });
+  }, [isAuthenticated, user, loading, isInitializing]);
 
   // Initialize global error logger once
   useEffect(() => {
@@ -157,20 +218,27 @@ const AppNavigator = () => {
 
   // Load stored auth on app start & Configure Google Sign-In & Request notification permissions
   useEffect(() => {
-    // Load cached emailVerified status immediately from AsyncStorage
-    (async () => {
+    const initializeApp = async () => {
       try {
+        // Load cached emailVerified status immediately from AsyncStorage
         const cachedUser = await require('@react-native-async-storage/async-storage').default.getItem('user');
         if (cachedUser) {
           const userData = JSON.parse(cachedUser);
           setCachedEmailVerified(userData.emailVerified);
         }
+        
+        await loadStoredAuth();
+        
+        // Give some time for Redux to update
+        await new Promise(resolve => setTimeout(resolve, 500));
       } catch (e) {
-        // Failed to load cached emailVerified
+        console.error('Failed to initialize app:', e);
+      } finally {
+        setIsInitializing(false);
       }
-    })();
+    };
     
-    loadStoredAuth();
+    initializeApp();
     
     // Listen to Firebase Auth state changes (handles token refresh automatically)
     const { auth } = require('./src/config/firebaseConfig');
@@ -221,6 +289,24 @@ const AppNavigator = () => {
       dispatch(fetchNotifications(user.uid));
     }
   }, [isAuthenticated, user?.uid, dispatch]);
+  
+  // Keep loading visible when transitioning to authenticated state
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      setHasBeenAuthenticated(true);
+      setIsInitializing(true);
+      const timer = setTimeout(() => {
+        setIsInitializing(false);
+      }, 1200); // Give time for Dashboard to mount and load data
+      return () => clearTimeout(timer);
+    } else if (!isAuthenticated && !user) {
+      // User logged out - clear loading state immediately
+      setIsInitializing(false);
+      setHasBeenAuthenticated(false);
+    }
+  }, [isAuthenticated, user]);
+  
+  // NOTE: Removed the problematic useEffect that kept loading screen visible after logout
 
   // Register Expo push token after authentication (and email verified)
   useEffect(() => {
@@ -311,16 +397,23 @@ const AppNavigator = () => {
     };
   }, []);
 
-  // Show loading only for initial auth loading
-  if (loading) {
+  // Show loading during initialization or auth loading
+  if (isInitializing || loading) {
     return <Loading />;
   }
 
   // Determine if email verification is needed
-  // IMPORTANT: Only show email verification if EXPLICITLY false
-  // Default to verified (true) if undefined to prevent blocking on app refresh
+  // IMPORTANT: Only show email verification for NEW email/password accounts
+  // Allow login for:
+  // 1. Google auth users (isGoogleAuth === true)
+  // 2. Existing accounts (emailVerified can be false but they can still login)
+  // 3. Default to allowing access if emailVerified is undefined
+  const isGoogleUser = user?.isGoogleAuth === true;
   const emailVerifiedStatus = user?.emailVerified ?? cachedEmailVerified ?? true;
-  const needsEmailVerification = isAuthenticated && emailVerifiedStatus === false;
+  const needsEmailVerification = isAuthenticated && 
+                                  !isGoogleUser && 
+                                  emailVerifiedStatus === false && 
+                                  user?.justRegistered === true; // Only block newly registered users
 
   return (
     <NavigationWrapper>
@@ -372,12 +465,9 @@ const AppNavigator = () => {
           <>
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="RoleSignup" component={RoleSignupScreen} />
+            <Stack.Screen name="RoleSelection" component={RoleSelectionScreen} />
             {/* Universal signup - works for all roles */}
             <Stack.Screen name="UniversalSignup" component={UniversalSignupScreen} />
-            {/* Legacy signup screens - redirect to UniversalSignup */}
-            <Stack.Screen name="TeacherSignup" component={ProviderSignupScreen} />
-            <Stack.Screen name="ParentSignup" component={ClientSignupScreen} />
             <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
           </>
         ) : needsEmailVerification ? (
@@ -408,7 +498,6 @@ const AppNavigator = () => {
             <Stack.Screen name="FavoriteProviders" component={FavoriteProvidersScreen} />
             <Stack.Screen name="ProviderAvailableSlots" component={ProviderAvailableSlotsScreen} />
             <Stack.Screen name="ProviderWeeklyAvailability" component={ProviderWeeklyAvailabilityScreen} />
-            <Stack.Screen name="ProviderAvailabilityCalendar" component={ProviderAvailabilityCalendarScreen} />
             
             {/* Shared screens - available to all roles */}
             <Stack.Screen name="Calendar" component={CalendarScreen} />
@@ -428,6 +517,8 @@ const AppNavigator = () => {
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
             <Stack.Screen name="Conversations" component={ConversationsScreen} />
             <Stack.Screen name="ConversationThread" component={ConversationThreadScreen} />
+            {/* UniversalSignup - also available for adding new roles to existing account */}
+            <Stack.Screen name="UniversalSignup" component={UniversalSignupScreen} />
             <Stack.Screen 
               name="Settings" 
               component={SettingsScreen}

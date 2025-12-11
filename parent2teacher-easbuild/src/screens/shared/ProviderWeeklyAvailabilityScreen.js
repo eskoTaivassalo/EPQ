@@ -10,8 +10,9 @@ import { useAuth } from '../../hooks/useAuth';
 import RecurringBookingModal from '../../components/RecurringBookingModal';
 import { useDispatch } from 'react-redux';
 import { createRecurringBooking } from '../../store/slices/bookingsSlice';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
+import { getRoleCollectionInfo } from '../../services/userDatabaseService';
 
 function startOfWeek(date) {
   const d = new Date(date);
@@ -35,7 +36,7 @@ function endOfWeek(date) {
 }
 
 export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) {
-  const { teacherId, teacherName } = route.params || {}; // TODO: rename to providerId, providerName
+  const { teacherId, teacherName, teacherRole } = route.params || {}; // TODO: rename to providerId, providerName
   const { user } = useAuth();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [events, setEvents] = useState([]);
@@ -46,10 +47,35 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [bookedSlotData, setBookedSlotData] = useState(null);
   const [bookingInProgress, setBookingInProgress] = useState(false);
+  const [providerProfile, setProviderProfile] = useState(null);
   const dispatch = useDispatch();
 
   const weekStart = useMemo(() => startOfWeek(currentDate), [currentDate]);
   const weekEnd = useMemo(() => endOfWeek(currentDate), [currentDate]);
+
+  // Load provider profile
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const role = teacherRole || 'teacher';
+        const { serviceType, collection: collectionName } = getRoleCollectionInfo(role);
+        const profileRef = doc(db, 'serviceTypes', serviceType, collectionName, teacherId);
+        const profileSnap = await getDoc(profileRef);
+        
+        if (profileSnap.exists()) {
+          const profileData = profileSnap.data();
+          setProviderProfile(profileData);
+          console.log('✅ Provider profile loaded:', {
+            subjects: profileData.subjects,
+            specializations: profileData.specializations
+          });
+        }
+      } catch (error) {
+        console.error('Error loading provider profile:', error);
+      }
+    };
+    loadProfile();
+  }, [teacherId, teacherRole]);
 
   const load = useCallback(async () => {
     try {
@@ -166,29 +192,32 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       return;
     }
 
-    // Enforce subject selection
-    let selectedSubject = null;
-    if (Array.isArray(s.subjects) && s.subjects.length > 0) {
-      if (s.subjects.length === 1) {
-        selectedSubject = s.subjects[0];
+    // Get available services from provider profile
+    const availableServices = providerProfile?.subjects || providerProfile?.specializations || [];
+    const serviceLabel = teacherRole === 'therapist' ? 'therapy type' : 
+                        teacherRole === 'coach' ? 'coaching service' : 'subject';
+    
+    let selectedService = null;
+    if (Array.isArray(availableServices) && availableServices.length > 0) {
+      if (availableServices.length === 1) {
+        selectedService = availableServices[0];
       } else {
-        // Show subject picker
-        selectedSubject = await new Promise(resolve => {
+        // Show service picker
+        selectedService = await new Promise(resolve => {
           Alert.alert(
-            'Valitse aine',
-            'Valitse varattava aine tälle tunnille:',
+            `Valitse ${serviceLabel}`,
+            `Valitse haluamasi ${serviceLabel}:`,
             [
-              ...s.subjects.map(subj => ({ text: subj, onPress: () => resolve(subj) })),
+              ...availableServices.map(service => ({ text: service, onPress: () => resolve(service) })),
               { text: 'Peruuta', style: 'cancel', onPress: () => resolve(null) }
             ]
           );
         });
+        if (!selectedService) return; // User cancelled
       }
     }
-    if (!selectedSubject) {
-      Alert.alert('Aine vaaditaan', 'Et voi varata aikaa ilman aineen valintaa.');
-      return;
-    }
+    // If no services available, allow booking without selection
+    // selectedService can be null
 
     // DON'T ask for confirmation here - just show recurring modal
     // Store data and show recurring modal first
@@ -196,10 +225,10 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       teacherId,
       teacherName: teacherName || 'Teacher',
       date: new Date(s.start),
-      notes: `Subject: ${selectedSubject}`,
+      notes: selectedService ? `Subject: ${selectedService}` : '',
       slotStart: new Date(s.start),
       slotId: s.id,
-      subject: selectedSubject,
+      subject: selectedService,
     });
     
     // Show recurring modal first
@@ -344,10 +373,20 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
     try {
       if (!bookedSlotData?.slotId) return;
       
-      await bookSlot(bookedSlotData.slotId, user.uid, { subject: bookedSlotData.notes || '' });
+      const clientRole = user.role || user.userType || 'parent';
+      await bookSlot(
+        bookedSlotData.slotId, 
+        user.uid, 
+        { 
+          subject: bookedSlotData.subject || bookedSlotData.notes || '', 
+          clientRole 
+        }
+      );
       
       setShowRecurringModal(false);
-      Alert.alert('Booking Confirmed! ✅', 'Your booking has been created.');
+      Alert.alert('Booking Confirmed! ✅', 'Your booking has been created.', [
+        { text: 'OK', onPress: () => navigation.navigate('Dashboard') }
+      ]);
       
       // Reload to show updated calendar
       load();

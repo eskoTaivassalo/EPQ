@@ -12,6 +12,7 @@ import { auth, db } from '../../config/firebaseConfig';
 import AuthService from '../../services/authService';
 import SessionManager from '../../utils/sessionManager';
 import { isAdmin } from '../../middleware/adminAuth';
+import userDatabaseService from '../../services/userDatabaseService';
 
 /**
  * 🔐 Auth Slice - Käyttäjän autentikointi ja sessio
@@ -86,27 +87,9 @@ export const loginUser = createAsyncThunk(
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       
-      // Hae käyttäjän lisätiedot Firestore:sta - kokeile ensin teachers, sitten parents
-      let userDoc = null;
-      let userCollection = null;
-      
-      // Yritä ensin teachers-kokoelmasta
-      const teacherDocRef = doc(db, 'teachers', firebaseUser.uid);
-      const teacherDoc = await getDoc(teacherDocRef);
-      
-      if (teacherDoc.exists()) {
-        userDoc = teacherDoc;
-        userCollection = 'teachers';
-      } else {
-        // Jos ei löydy teachers:sta, kokeile parents:sta
-        const parentDocRef = doc(db, 'parents', firebaseUser.uid);
-        const parentDoc = await getDoc(parentDocRef);
-        
-        if (parentDoc.exists()) {
-          userDoc = parentDoc;
-          userCollection = 'parents';
-        }
-      }
+      // Hae käyttäjän tiedot uudella hierarkkisella rakenteella
+      const mainProfileRef = doc(db, 'users', firebaseUser.uid);
+      const mainProfileDoc = await getDoc(mainProfileRef);
       
       let userData = {
         uid: firebaseUser.uid,
@@ -117,8 +100,8 @@ export const loginUser = createAsyncThunk(
         timestamp: Date.now()
       };
 
-      if (userDoc && userDoc.exists()) {
-        const firestoreData = serializeFirestoreData(userDoc.data());
+      if (mainProfileDoc && mainProfileDoc.exists()) {
+        const firestoreData = serializeFirestoreData(mainProfileDoc.data());
         
         // 🚫 CHECK IF ACCOUNT IS DELETED
         if (firestoreData.isDeleted) {
@@ -127,11 +110,22 @@ export const loginUser = createAsyncThunk(
         
         userData = { ...userData, ...firestoreData };
         
+        // Hae myös role-specific data jos on primaryRole
+        if (firestoreData.primaryRole) {
+          const { category, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(firestoreData.primaryRole);
+          const roleProfileRef = doc(db, 'users', firebaseUser.uid, collectionName, firebaseUser.uid);
+          const roleProfileDoc = await getDoc(roleProfileRef);
+          
+          if (roleProfileDoc && roleProfileDoc.exists()) {
+            const roleData = serializeFirestoreData(roleProfileDoc.data());
+            userData = { ...userData, ...roleData };
+          }
+        }
+        
         // 🔄 SYNC EMAIL: Check if Firebase Auth email differs from Firestore email
         if (firebaseUser.email !== firestoreData.email) {
           try {
-            const userDocRef = doc(db, userCollection, firebaseUser.uid);
-            await updateDoc(userDocRef, {
+            await updateDoc(mainProfileRef, {
               email: firebaseUser.email,
               updatedAt: new Date().toISOString()
             });
@@ -183,7 +177,7 @@ export const loginUser = createAsyncThunk(
 
 export const registerUser = createAsyncThunk(
   'auth/registerUser',
-  async ({ userData }, { rejectWithValue, dispatch }) => {
+  async (userData, { rejectWithValue, dispatch }) => {
     try {
       if (!auth || !db) {
         const fallbackResult = await AuthService.fallbackLogin(userData.role || 'parent', userData);
@@ -198,41 +192,33 @@ export const registerUser = createAsyncThunk(
 
       let firebaseUser;
 
-      // 🔵 JOS GOOGLE-KÄYTTÄJÄ: Käytä nykyistä auth.currentUser (jo kirjautunut)
+      // 🔵 GOOGLE AUTH: Use existing auth.currentUser
       if (userData.isGoogleAuth) {
         firebaseUser = auth.currentUser;
         
         if (!firebaseUser) {
-          throw new Error('Google-autentikointi epäonnistui - käyttäjää ei löydy');
+          throw new Error('Google authentication failed - user not found');
         }
       } else {
-        // 📧 EMAIL/PASSWORD REKISTERÖINTI
-        // Tarkista onko käyttäjä jo kirjautunut samalla sähköpostilla
+        // 📧 EMAIL/PASSWORD REGISTRATION
+        // Check if user already logged in with same email
         if (auth.currentUser && auth.currentUser.email.toLowerCase() === userData.email.toLowerCase()) {
+          console.log('✅ User already logged in with same email - adding new role');
           firebaseUser = auth.currentUser;
         } else {
-          // Luo uusi Firebase Auth käyttäjä
+          // Create new Firebase Auth user
           try {
             const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
             firebaseUser = userCredential.user;
             
-            // Päivitä Firebase Auth profile
+            // Update Firebase Auth profile
             await updateProfile(firebaseUser, {
               displayName: userData.name || userData.fullName
             });
           } catch (authError) {
-            // Jos sähköposti on jo käytössä, yritä kirjautua sisään
+            // If email already in use, ask user to log in first
             if (authError.code === 'auth/email-already-in-use') {
-              if (!userData.password) {
-                throw new Error('Sähköposti on jo käytössä. Kirjaudu ensin sisään lisätäksesi uuden roolin.');
-              }
-              
-              try {
-                const signInResult = await signInWithEmailAndPassword(auth, userData.email, userData.password);
-                firebaseUser = signInResult.user;
-              } catch (signInError) {
-                throw new Error('Sähköposti on jo käytössä eri salasanalla. Kirjaudu ensin sisään olemassa olevalla tilillä.');
-              }
+              throw new Error('This email is already registered. Please log in first, then you can add a new role from your profile settings.');
             } else {
               throw authError;
             }
@@ -240,26 +226,23 @@ export const registerUser = createAsyncThunk(
         }
       }
 
-      // Tallenna lisätiedot Firestore:een oikeaan kokoelmaan (teachers tai parents)
-      const firestoreData = {
+      // 🆕 Use new hierarchical database structure
+      // Creates: users/{userId} + users/{userId}/{category}/{roleType}/{userId}
+      const userProfile = await userDatabaseService.registerUserWithRole(firebaseUser.uid, {
+        ...userData,
+        email: firebaseUser.email,
+        emailVerified: firebaseUser.emailVerified,
+        name: userData.name || userData.fullName,
         fullName: userData.name || userData.fullName,
-        name: userData.name || userData.fullName, // Lisätään name kenttä tietokantaa varten
-        email: userData.email,
-        userType: userData.role || 'parent',
-        createdAt: new Date().toISOString(),
-        profile: userData
-      };
+      });
 
-      // Tallenna vain oikeaan kokoelmaan roolin perusteella
-      const collectionName = userData.role === 'teacher' ? 'teachers' : 'parents';
-      await setDoc(doc(db, collectionName, firebaseUser.uid), firestoreData);
-
-      // 📧 Lähetä vahvistussähköposti (vain email/password rekisteröinnille, ei Google-käyttäjille)
+      // 📧 Send email verification (only for email/password, not Google)
       if (!userData.isGoogleAuth && !firebaseUser.emailVerified) {
         try {
           await sendEmailVerification(firebaseUser);
         } catch (emailError) {
-          // Jätkä rekisteröintiä vaikka sähköposti epäonnistuu
+          console.warn('Failed to send verification email:', emailError);
+          // Continue registration even if email fails
         }
       }
 
@@ -269,17 +252,22 @@ export const registerUser = createAsyncThunk(
         emailVerified: firebaseUser.emailVerified,
         displayName: userData.name || userData.fullName,
         userType: userData.role || 'parent',
+        role: userData.role || 'parent',
         profile: userData,
         timestamp: Date.now(),
-        ...firestoreData
+        // Flag for new registrations - only for email/password (not Google)
+        justRegistered: !userData.isGoogleAuth && !firebaseUser.emailVerified,
+        isGoogleAuth: userData.isGoogleAuth || false,
+        ...userProfile
       };
 
-      // Tallenna AsyncStorage:een
+      // Save to AsyncStorage
       await AsyncStorage.setItem('user', JSON.stringify(finalUserData));
       
       return finalUserData;
       
     } catch (error) {
+      console.error('Registration error:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -509,6 +497,8 @@ const authSlice = createSlice({
     setUser: (state, action) => {
       state.user = action.payload;
       state.isAuthenticated = !!action.payload;
+      state.loading = false; // Clear loading state when setting user
+      state.error = null; // Clear any previous errors
     },
     clearAuth: (state) => {
       state.user = null;
@@ -516,6 +506,7 @@ const authSlice = createSlice({
       state.error = null;
       state.sessionInfo = null;
       state.rememberMe = false;
+      state.loading = false; // Also clear loading when clearing auth
     },
     // 🆕 Update session info
     updateSessionInfo: (state, action) => {
@@ -566,7 +557,7 @@ const authSlice = createSlice({
     // Logout
     builder
       .addCase(logoutUser.pending, (state) => {
-        state.loading = true;
+        // Ei aseteta loading = true, jotta ei jää jumiin
       })
       .addCase(logoutUser.fulfilled, (state) => {
         // Tyhjennä kaikki auth state

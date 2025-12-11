@@ -22,11 +22,14 @@ import { ROLE_CONFIG, ROLE_TYPES, ROLE_CATEGORIES } from '../../config/roleConfi
 
 const { width, height } = Dimensions.get('window');
 
-const WelcomeScreen = ({ navigation }) => {
+const WelcomeScreen = ({ navigation, route }) => {
   const [featuredTeachers, setFeaturedTeachers] = useState([]);
   const fadeAnim = new Animated.Value(0);
   const slideAnim = new Animated.Value(50);
   const scrollY = new Animated.Value(0);
+  
+  // Get Google user data if passed from LoginScreen
+  const googleUser = route?.params?.googleUser;
 
   // Fade in animation
   useEffect(() => {
@@ -70,7 +73,11 @@ const WelcomeScreen = ({ navigation }) => {
 
   const handleSignupSelection = (role) => {
     // Route to UniversalSignup with role parameter
-    navigation.navigate('UniversalSignup', { role });
+    // Pass googleUser if available (from Google sign-in)
+    navigation.navigate('UniversalSignup', { 
+      role,
+      ...(googleUser && { googleUser })
+    });
   };
 
   const renderRoleCard = (roleConfig) => {
@@ -263,11 +270,16 @@ const WelcomeScreen = ({ navigation }) => {
         </View>
 
         <View style={styles.mainSelection}>
-          {/* Role Selection - Only Teacher and Parent/Student */}
+          {/* Role Selection - All roles from roleConfig */}
           <Text style={styles.selectionPrompt}>I want to sign up as:</Text>
           
           {Object.values(ROLE_CONFIG)
-            .filter(role => role.id === ROLE_TYPES.SERVICE_PROVIDER || role.id === ROLE_TYPES.CLIENT)
+            .filter(role => 
+              role.id === ROLE_TYPES.SERVICE_PROVIDER || 
+              role.id === ROLE_TYPES.CLIENT ||
+              role.id === ROLE_TYPES.THERAPIST ||
+              role.id === ROLE_TYPES.THERAPY_CLIENT
+            )
             .map((roleConfig) => (
             <TouchableOpacity
               key={roleConfig.id}
@@ -279,12 +291,12 @@ const WelcomeScreen = ({ navigation }) => {
               </View>
               <View style={styles.modernRoleContent}>
                 <Text style={styles.modernRoleTitle}>
-                  {roleConfig.id === ROLE_TYPES.SERVICE_PROVIDER ? 'Teacher' : 'Parent/Student'}
+                  {roleConfig.name}
                 </Text>
                 <Text style={styles.modernRoleDescription}>
-                  {roleConfig.id === ROLE_TYPES.SERVICE_PROVIDER
-                    ? 'Share your expertise and teach students'
-                    : 'Find qualified teachers and book sessions'}
+                  {roleConfig.category === ROLE_CATEGORIES.PROVIDER
+                    ? `Share your expertise as a ${roleConfig.name.toLowerCase()}`
+                    : `Find qualified ${roleConfig.serviceProviderLabel?.toLowerCase() || 'professionals'} and book sessions`}
                 </Text>
               </View>
               <View style={styles.signupArrowContainer}>

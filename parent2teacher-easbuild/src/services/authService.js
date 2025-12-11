@@ -10,9 +10,10 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth, db } from '../config/firebaseConfig';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, setDoc } from 'firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import imagePickerService from './imagePickerService';
+import * as userDatabaseService from './userDatabaseService';
 
 /**
  * Auth Service - Keskitetty autentikointipalvelu
@@ -671,16 +672,31 @@ export class AuthService {
 
       console.log('✅ Firebase Auth profile updated');
 
-      // Päivitä Firestore profiilikuva
-      const collectionName = userType === 'teacher' ? 'teachers' : 'parents';
-      const userDocRef = doc(db, collectionName, userId);
-      
-      await updateDoc(userDocRef, {
+      // Päivitä Firestore profiilikuva - käytetään userDatabaseService
+      // Päivitä main profile
+      const mainUserDocRef = doc(db, 'users', userId);
+      await updateDoc(mainUserDocRef, {
         photoURL: downloadURL,
+        profileImageUrl: downloadURL,
         updatedAt: new Date().toISOString()
       });
 
-      console.log('✅ Firestore profile updated');
+      console.log('✅ Firestore main profile updated');
+
+      // Päivitä role profile
+      // Path: serviceTypes/{serviceType}/{collectionName}/{userId}
+      const role = userType === 'teacher' ? 'service_provider' : 'parent';
+      const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(role);
+      const roleDocRef = doc(db, 'serviceTypes', serviceType, collectionName, userId);
+      
+      // Use setDoc with merge to create or update
+      await setDoc(roleDocRef, {
+        photoURL: downloadURL,
+        profileImageUrl: downloadURL,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
+
+      console.log('✅ Firestore role profile updated');
 
       return downloadURL;
     } catch (error) {

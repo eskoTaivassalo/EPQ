@@ -43,39 +43,33 @@ const TagSelector = ({
   return (
     <View style={styles.container}>
       {title && <Text style={styles.title}>{title}</Text>}
-      <ScrollView 
-        horizontal 
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tagsContainer}
-      >
-        <View style={styles.tagsWrapper}>
-          {tags.map((tag, index) => (
-            <TouchableOpacity
-              key={tag.id || tag || index}
-              style={[
-                styles.tag,
-                isSelected(tag) && styles.tagSelected
-              ]}
-              onPress={() => handleTagPress(tag)}
-            >
-              {showIcons && tag.icon && (
-                <Ionicons 
-                  name={tag.icon} 
-                  size={16} 
-                  color={isSelected(tag) ? colors.white : colors.primary}
-                  style={styles.tagIcon}
-                />
-              )}
-              <Text style={[
-                styles.tagText,
-                isSelected(tag) && styles.tagTextSelected
-              ]}>
-                {tag.label || tag}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
+      <View style={styles.tagsWrapper}>
+        {tags.map((tag, index) => (
+          <TouchableOpacity
+            key={tag.id || tag || index}
+            style={[
+              styles.tag,
+              isSelected(tag) && styles.tagSelected
+            ]}
+            onPress={() => handleTagPress(tag)}
+          >
+            {showIcons && tag.icon && (
+              <Ionicons 
+                name={tag.icon} 
+                size={16} 
+                color={isSelected(tag) ? colors.white : colors.primary}
+                style={styles.tagIcon}
+              />
+            )}
+            <Text style={[
+              styles.tagText,
+              isSelected(tag) && styles.tagTextSelected
+            ]}>
+              {tag.label || tag}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 };
@@ -90,13 +84,11 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 10,
   },
-  tagsContainer: {
-    paddingRight: 20,
-  },
   tagsWrapper: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    paddingBottom: 8,
   },
   tag: {
     flexDirection: 'row',

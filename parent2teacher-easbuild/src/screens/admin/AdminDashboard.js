@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, collectionGroup, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
 import { colors } from '../../styles/commonStyles';
 import { ROLE_CONFIG, ROLE_TYPES } from '../../config/roleConfig';
@@ -89,8 +89,8 @@ const AdminDashboard = ({ navigation }) => {
       }));
       const pendingReports = reports.filter(r => r.status === 'pending' || !r.status);
 
-      // Fetch bookings
-      const bookingsSnapshot = await getDocs(collection(db, 'bookings'));
+      // Fetch bookings using collectionGroup to get all bookings across serviceTypes
+      const bookingsSnapshot = await getDocs(collectionGroup(db, 'bookings'));
       const bookings = bookingsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()

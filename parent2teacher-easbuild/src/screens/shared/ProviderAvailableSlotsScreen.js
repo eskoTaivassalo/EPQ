@@ -6,17 +6,43 @@ import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { listAvailableSlots, bookSlot } from '../../services/availabilityService';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../config/firebaseConfig';
+import { getRoleCollectionInfo } from '../../services/userDatabaseService';
 
 export default function ProviderAvailableSlotsScreen({ route, navigation }) {
-  const { teacherId, teacherName } = route.params || {}; // TODO: rename to providerId, providerName
+  const { teacherId, teacherName, teacherRole } = route.params || {}; // TODO: rename to providerId, providerName
   const { user } = useAuth();
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
   const [bookingInProgress, setBookingInProgress] = useState(false);
+  const [providerProfile, setProviderProfile] = useState(null);
 
   useEffect(() => {
     const load = async () => {
       try {
+        // Load provider profile to get subjects/specializations
+        const role = teacherRole || 'teacher';
+        console.log('📥 Loading provider profile for:', { teacherId, role });
+        
+        const { serviceType, collection: collectionName } = getRoleCollectionInfo(role);
+        const profileRef = doc(db, 'serviceTypes', serviceType, collectionName, teacherId);
+        const profileSnap = await getDoc(profileRef);
+        
+        if (profileSnap.exists()) {
+          const profileData = profileSnap.data();
+          setProviderProfile(profileData);
+          console.log('✅ Loaded provider profile:', {
+            subjects: profileData.subjects,
+            specializations: profileData.specializations,
+            role,
+            hasSubjects: Array.isArray(profileData.subjects) && profileData.subjects.length > 0,
+            hasSpecializations: Array.isArray(profileData.specializations) && profileData.specializations.length > 0
+          });
+        } else {
+          console.log('⚠️ Provider profile not found at:', `serviceTypes/${serviceType}/${collectionName}/${teacherId}`);
+        }
+        
         const from = new Date();
         // Query a wide range initially to find the teacher's last available date
         const farFuture = new Date();
@@ -70,34 +96,75 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
       setSlots(prev => prev.filter(s => s.id !== slot.id));
       return;
     }
-    // Subject selection
-    let selectedSubject = null;
-    if (Array.isArray(slot.subjects) && slot.subjects.length > 0) {
-      selectedSubject = await new Promise(resolve => {
+    
+    // Get available services from provider profile
+    const availableServices = providerProfile?.subjects || providerProfile?.specializations || [];
+    console.log('📋 Available services for booking:', availableServices);
+    console.log('👨‍🏫 Provider profile:', providerProfile);
+    
+    let selectedService = null;
+    if (Array.isArray(availableServices) && availableServices.length > 0) {
+      // Determine service type label based on role
+      const serviceLabel = teacherRole === 'therapist' ? 'therapy type' : 
+                          teacherRole === 'coach' ? 'coaching service' : 'subject';
+      
+      console.log(`🔔 Showing ${serviceLabel} selection dialog with ${availableServices.length} options`);
+      
+      selectedService = await new Promise(resolve => {
         Alert.alert(
-          'Select subject',
-          'Choose which subject you want to book for this slot:',
+          `Select ${serviceLabel}`,
+          `Choose which ${serviceLabel} you want for this session:`,
           [
-            ...slot.subjects.map(subj => ({ text: subj, onPress: () => resolve(subj) })),
-            { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) }
-          ]
+            ...availableServices.map(service => ({ 
+              text: service, 
+              onPress: () => {
+                console.log(`✅ User selected: ${service}`);
+                resolve(service);
+              }
+            })),
+            { 
+              text: 'Cancel', 
+              style: 'cancel', 
+              onPress: () => {
+                console.log('❌ User cancelled service selection');
+                resolve(null);
+              }
+            }
+          ],
+          { cancelable: false }
         );
       });
-      if (!selectedSubject) return;
+      
+      if (!selectedService) {
+        console.log('⚠️ No service selected, cancelling booking');
+        return;
+      }
+      
+      console.log('✅ Selected service:', selectedService);
+    } else {
+      console.log('ℹ️ No services available in profile, booking without service selection');
     }
+    
     try {
       const ok = await new Promise(resolve => {
         Alert.alert(
           'Confirm booking',
-          `${new Date(slot.start).toLocaleString()} - ${new Date(slot.end).toLocaleTimeString()}` + (selectedSubject ? `\nSubject: ${selectedSubject}` : ''),
+          `${new Date(slot.start).toLocaleString()} - ${new Date(slot.end).toLocaleTimeString()}` + (selectedService ? `\nService: ${selectedService}` : ''),
           [ { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) }, { text: 'Book', onPress: () => resolve(true) } ]
         );
       });
       if (!ok) return;
       
       setBookingInProgress(true);
-      const res = await bookSlot(slot.id, user.uid, selectedSubject ? { subject: selectedSubject } : {});
-      Alert.alert('Booked', 'Your session has been booked');
+      const clientRole = user.role || user.userType || 'parent';
+      const res = await bookSlot(
+        slot.id, 
+        user.uid, 
+        selectedService ? { subject: selectedService, clientRole } : { clientRole }
+      );
+      Alert.alert('Booked', 'Your session has been booked', [
+        { text: 'OK', onPress: () => navigation.navigate('Dashboard') }
+      ]);
       setSlots(prev => prev.filter(s => s.id !== slot.id));
     } catch (e) {
       console.error('Book slot error', e);

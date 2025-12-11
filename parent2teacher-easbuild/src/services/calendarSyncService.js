@@ -12,7 +12,7 @@
  * - Auto-block busy times from external calendars
  */
 
-import { collection, doc, setDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
+import { collection, collectionGroup, doc, setDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
 import { db } from '../config/firebaseConfig';
 import * as Calendar from 'expo-calendar';
 import { Platform, Alert } from 'react-native';
@@ -247,7 +247,7 @@ export async function syncAllBookingsToCalendar(userId, calendarId) {
     // IMPORTANT: Use toISODate() to match the format used when creating bookings (local timezone)
     const now = new Date();
     const bookingsQuery = query(
-      collection(db, 'bookings'),
+      collectionGroup(db, 'bookings'),
       where('teacherId', '==', userId),
       where('date', '>=', toISODate(now)),
       where('status', 'in', ['confirmed', 'booked'])

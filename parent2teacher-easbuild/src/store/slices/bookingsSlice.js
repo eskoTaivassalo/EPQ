@@ -6,15 +6,53 @@ import {
   query,
   where,
   doc,
+  setDoc,
   updateDoc,
   deleteDoc,
   serverTimestamp,
   getDoc,
-  onSnapshot
+  onSnapshot,
+  collectionGroup
 } from 'firebase/firestore';
 import { db, auth } from '../../config/firebaseConfig';
 import { createNotification } from './notificationsSlice';
 import { toLocalISOString } from '../../utils/dateUtils';
+import { getRoleCollectionInfo } from '../../services/userDatabaseService';
+
+/**
+ * Helper function to find and update availability slot in hierarchical structure
+ * Uses collectionGroup query to locate slot across all user role subcollections
+ * @param {string} slotId - Format: "teacherId#startISO"
+ * @param {object} updates - Fields to update
+ */
+async function updateAvailabilitySlot(slotId, updates) {
+  if (!slotId) return;
+  try {
+    // Parse slotId: format is "teacherId#startISO"
+    const [teacherId, startISO] = slotId.split('#');
+    if (!teacherId || !startISO) {
+      console.warn('Invalid slotId format:', slotId);
+      return;
+    }
+    
+    // Find slot using collectionGroup query by teacherId and start time
+    const slotQuery = query(
+      collectionGroup(db, 'availabilitySlots'),
+      where('teacherId', '==', teacherId),
+      where('start', '==', startISO)
+    );
+    const slotSnap = await getDocs(slotQuery);
+    
+    if (!slotSnap.empty) {
+      const slotRef = slotSnap.docs[0].ref;
+      await updateDoc(slotRef, { ...updates, updatedAt: serverTimestamp() });
+    } else {
+      console.warn('Slot not found for slotId:', slotId);
+    }
+  } catch (err) {
+    console.warn('Failed to update availability slot:', err);
+  }
+}
 
 const initialState = {
   myBookings: [],
@@ -25,7 +63,7 @@ const initialState = {
 
 export const createBooking = createAsyncThunk(
   'bookings/createBooking',
-  async ({ teacherId, date, notes, teacherName }, { rejectWithValue, dispatch }) => {
+  async ({ teacherId, date, notes, teacherName, teacherRole, clientRole }, { rejectWithValue, dispatch, getState }) => {
     try {
       if (!auth?.currentUser) {
         throw new Error('Not authenticated');
@@ -34,10 +72,27 @@ export const createBooking = createAsyncThunk(
         throw new Error('Firebase database not initialized');
       }
 
+      const parentId = auth.currentUser.uid;
+      
+      // Get user roles from state if not provided
+      const state = getState?.();
+      const userRole = clientRole || state?.auth?.user?.role || state?.auth?.user?.userType || 'parent';
+      const providerRole = teacherRole || 'teacher';
+      
+      // Generate unique booking ID
+      const bookingId = doc(collection(db, 'temp')).id;
+      
+      // Get role collection info for both teacher and parent
+      const teacherRoleInfo = getRoleCollectionInfo(providerRole);
+      const parentRoleInfo = getRoleCollectionInfo(userRole);
+      
       // Write payload for Firestore (can include serverTimestamp)
       const payloadToDB = {
+        bookingId, // Add explicit bookingId field for easier querying
         teacherId,
-        parentId: auth.currentUser.uid,
+        parentId,
+        teacherRole: providerRole, // Add role information for easier path reconstruction
+        clientRole: userRole,      // Add role information for easier path reconstruction
         // Firestore rules require 'pending' on create
         status: 'pending',
         date: typeof date === 'string' ? date : toLocalISOString(new Date(date)),
@@ -45,12 +100,35 @@ export const createBooking = createAsyncThunk(
         createdAt: serverTimestamp(),
       };
       
-      const ref = await addDoc(collection(db, 'bookings'), payloadToDB);
+      // Save booking to both users' serviceTypes collections for easy querying
+      // Teacher's bookings: serviceTypes/{serviceType}/{collection}/{teacherId}/bookings/{bookingId}
+      const teacherBookingRef = doc(
+        db, 
+        'serviceTypes', 
+        teacherRoleInfo.serviceType, 
+        teacherRoleInfo.collection, 
+        teacherId, 
+        'bookings', 
+        bookingId
+      );
+      await setDoc(teacherBookingRef, { ...payloadToDB, role: 'provider' });
+      
+      // Parent's bookings: serviceTypes/{serviceType}/{collection}/{parentId}/bookings/{bookingId}
+      const parentBookingRef = doc(
+        db, 
+        'serviceTypes', 
+        parentRoleInfo.serviceType, 
+        parentRoleInfo.collection, 
+        parentId, 
+        'bookings', 
+        bookingId
+      );
+      await setDoc(parentBookingRef, { ...payloadToDB, role: 'client' });
 
       // Read back (or compute) a serializable createdAt for Redux state
       let createdAtISO = new Date().toISOString();
       try {
-        const snap = await getDoc(ref);
+        const snap = await getDoc(teacherBookingRef);
         const data = snap.data();
         if (data?.createdAt?.toDate) {
           createdAtISO = data.createdAt.toDate().toISOString();
@@ -66,10 +144,10 @@ export const createBooking = createAsyncThunk(
         title: 'Uusi ajanvaraus',
         message: `Sinulle on tehty uusi ajanvaraus ${new Date(date).toLocaleString('fi-FI')}`,
         navigationTarget: 'TeacherBookings',
-        navigationParams: { bookingId: ref.id }
+        navigationParams: { bookingId: bookingId }
       }));
 
-      return { id: ref.id, ...payloadToDB, createdAt: createdAtISO };
+      return { id: bookingId, ...payloadToDB, createdAt: createdAtISO };
     } catch (err) {
       return rejectWithValue(err.message);
     }
@@ -97,8 +175,13 @@ export const fetchParentBookings = createAsyncThunk(
         return rejectWithValue('Not authenticated');
       }
       
-      const q = query(collection(db, 'bookings'), where('parentId', '==', uid));
+      // Use collectionGroup to query bookings across all serviceTypes structures
+      const q = query(
+        collectionGroup(db, 'bookings'),
+        where('parentId', '==', uid)
+      );
       const snap = await getDocs(q);
+      console.log(`📚 Fetched ${snap.docs.length} parent bookings from serviceTypes structure`);
       
       const bookings = snap.docs.map(d => {
         const data = d.data();
@@ -120,7 +203,20 @@ export const fetchParentBookings = createAsyncThunk(
         return { id: d.id, ...data, createdAt, date: validDate };
       }).filter(b => b.date); // Only include bookings with valid dates
       
-      return bookings;
+      // Remove duplicates - same booking ID appears in both teacher's and student's collections
+      const uniqueBookings = [];
+      const seenIds = new Set();
+      
+      bookings.forEach(booking => {
+        if (!seenIds.has(booking.id)) {
+          seenIds.add(booking.id);
+          uniqueBookings.push(booking);
+        }
+      });
+      
+      console.log(`📊 After deduplication: ${uniqueBookings.length} unique bookings (removed ${bookings.length - uniqueBookings.length} duplicates)`);
+      
+      return uniqueBookings;
     } catch (err) {
       return rejectWithValue(err.message);
     }
@@ -133,23 +229,46 @@ export const fetchTeacherBookings = createAsyncThunk(
     try {
       // Prefer Firebase auth, but fall back to Redux user if needed
       let uid = auth?.currentUser?.uid;
+      let userRole = null;
+      
       if (!uid) {
         const state = getState?.();
         uid = state?.auth?.user?.uid;
+        userRole = state?.auth?.user?.role || state?.auth?.user?.userType;
+      } else {
+        const state = getState?.();
+        userRole = state?.auth?.user?.role || state?.auth?.user?.userType;
       }
 
       if (!uid) {
         await new Promise(resolve => setTimeout(resolve, 150));
         uid = auth?.currentUser?.uid || getState?.()?.auth?.user?.uid;
+        const state = getState?.();
+        userRole = state?.auth?.user?.role || state?.auth?.user?.userType;
       }
 
       if (!uid) {
         return rejectWithValue('Not authenticated');
       }
       
-      const q = query(collection(db, 'bookings'), where('teacherId', '==', uid));
+      console.log('🔍 fetchTeacherBookings: Searching for bookings where teacherId ==', uid);
+      console.log('🔍 User role:', userRole);
+      
+      // Use collectionGroup to query all bookings subcollections
+      // This finds bookings from: serviceTypes/{serviceType}/{collection}/{userId}/bookings/{bookingId}
+      const q = query(
+        collectionGroup(db, 'bookings'),
+        where('teacherId', '==', uid)
+      );
+      
       const snap = await getDocs(q);
       const docs = Array.isArray(snap?.docs) ? snap.docs : [];
+      
+      console.log(`📚 Fetched ${docs.length} teacher bookings from serviceTypes structure`);
+      docs.forEach((doc, idx) => {
+        console.log(`  ${idx + 1}. Booking ID: ${doc.id}, Path: ${doc.ref.path}, Status: ${doc.data()?.status}`);
+      });
+      
       const bookings = docs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
@@ -169,8 +288,23 @@ export const fetchTeacherBookings = createAsyncThunk(
         
         return { id: d.id, ...data, createdAt, date: validDate };
       }).filter(b => b.date); // Only include bookings with valid dates
-      return bookings;
+      
+      // Remove duplicates - same booking ID appears in both teacher's and student's collections
+      const uniqueBookings = [];
+      const seenIds = new Set();
+      
+      bookings.forEach(booking => {
+        if (!seenIds.has(booking.id)) {
+          seenIds.add(booking.id);
+          uniqueBookings.push(booking);
+        }
+      });
+      
+      console.log(`📊 After deduplication: ${uniqueBookings.length} unique bookings (removed ${bookings.length - uniqueBookings.length} duplicates)`);
+      
+      return uniqueBookings;
     } catch (err) {
+      console.error('❌ Error fetching teacher bookings:', err);
       return rejectWithValue(err.message);
     }
   }
@@ -178,17 +312,54 @@ export const fetchTeacherBookings = createAsyncThunk(
 
 export const updateBookingStatus = createAsyncThunk(
   'bookings/updateBookingStatus',
-  async ({ bookingId, status, parentId, teacherName, date, declineReason, suggestedDate, suggestedDateFormatted, cancelledBy }, { rejectWithValue, dispatch }) => {
+  async ({ bookingId, status, parentId, teacherName, date, declineReason, suggestedDate, suggestedDateFormatted, cancelledBy }, { rejectWithValue, dispatch, getState }) => {
     try {
       if (!auth?.currentUser) throw new Error('Not authenticated');
-      const ref = doc(db, 'bookings', bookingId);
       
-      // Check if this is a recurring booking BEFORE updating
-      const bookingSnap = await getDoc(ref);
-      if (!bookingSnap.exists()) {
+      console.log('🔄 updateBookingStatus: Starting update for booking:', bookingId, 'to status:', status);
+      
+      const currentUserId = auth.currentUser.uid;
+      
+      // Find ALL instances of this booking using collectionGroup query
+      // Filter by current user (must be either teacher or parent) for security rules
+      const bookingQueryAsTeacher = query(
+        collectionGroup(db, 'bookings'),
+        where('bookingId', '==', bookingId),
+        where('teacherId', '==', currentUserId)
+      );
+      
+      const bookingQueryAsParent = query(
+        collectionGroup(db, 'bookings'),
+        where('bookingId', '==', bookingId),
+        where('parentId', '==', currentUserId)
+      );
+      
+      let bookingSnap;
+      try {
+        // Try as teacher first
+        bookingSnap = await getDocs(bookingQueryAsTeacher);
+        if (bookingSnap.empty) {
+          // Try as parent
+          bookingSnap = await getDocs(bookingQueryAsParent);
+        }
+      } catch (err) {
+        console.error('❌ Error querying bookings:', err);
+        throw new Error('Failed to find booking: ' + err.message);
+      }
+      
+      if (bookingSnap.empty) {
+        console.error('❌ Booking not found:', bookingId);
         throw new Error('Booking not found');
       }
-      const bookingData = bookingSnap.data();
+      
+      // Get the first (and should be only) matching document
+      const bookingDoc = bookingSnap.docs[0];
+      const bookingData = bookingDoc.data();
+      const bookingRef = bookingDoc.ref;
+      
+      console.log('📍 Found booking at path:', bookingRef.path);
+      console.log('📋 Current booking data:', { status: bookingData.status, teacherId: bookingData.teacherId, parentId: bookingData.parentId });
+      
       const isRecurringBooking = bookingData?.isRecurring && bookingData?.recurringBookingId;
       
       // When accepting, create a Jitsi Meet link (free, no API needed)
@@ -199,6 +370,7 @@ export const updateBookingStatus = createAsyncThunk(
         const meetingUrl = `https://meet.jit.si/${roomName}`;
         update.meetingProvider = 'jitsi';
         update.meetingUrl = meetingUrl;
+        console.log('🎥 Adding meeting URL:', meetingUrl);
       }
       
       // When declining, add reason and suggested time if provided
@@ -218,27 +390,74 @@ export const updateBookingStatus = createAsyncThunk(
         update.cancelledBy = cancelledBy;
       }
       
-      await updateDoc(ref, update);
+      // Update ALL instances of this booking (both in teacher's and student's collections)
+      // We need to update both copies, but security rules only allow reading our own copy
+      // Solution: Construct document paths directly using stored role information
+      
+      console.log(`📝 Updating booking instances for both participants`);
+      
+      // We already have one document reference from our query
+      const docsToUpdate = [bookingRef];
+      
+      // Construct the other participant's document path
+      // Format: serviceTypes/{serviceType}/{collection}/{userId}/bookings/{bookingId}
+      try {
+        if (bookingData.teacherId === currentUserId) {
+          // Current user is teacher, need to update parent's copy
+          const parentRole = bookingData.clientRole || 'parent';
+          const parentRoleInfo = getRoleCollectionInfo(parentRole);
+          const parentBookingRef = doc(
+            db,
+            'serviceTypes',
+            parentRoleInfo.serviceType,
+            parentRoleInfo.collection,
+            bookingData.parentId,
+            'bookings',
+            bookingId
+          );
+          docsToUpdate.push(parentBookingRef);
+          console.log('  → Will update parent copy at:', parentBookingRef.path);
+        } else {
+          // Current user is parent, need to update teacher's copy
+          const teacherRole = bookingData.teacherRole || 'teacher';
+          const teacherRoleInfo = getRoleCollectionInfo(teacherRole);
+          const teacherBookingRef = doc(
+            db,
+            'serviceTypes',
+            teacherRoleInfo.serviceType,
+            teacherRoleInfo.collection,
+            bookingData.teacherId,
+            'bookings',
+            bookingId
+          );
+          docsToUpdate.push(teacherBookingRef);
+          console.log('  → Will update teacher copy at:', teacherBookingRef.path);
+        }
+      } catch (err) {
+        console.warn('⚠️ Could not construct other participant path:', err);
+        // Continue with just the one document we found
+      }
+      
+      // Update all instances
+      const updatePromises = docsToUpdate.map(docRef => {
+        console.log('  → Updating:', docRef.path);
+        return updateDoc(docRef, update);
+      });
+      
+      await Promise.all(updatePromises);
+      
+      console.log('✅ All booking instances updated');
       
       // Update corresponding availability slot status
       if (bookingData.slotId) {
-        try {
-          if (status === 'accepted') {
-            await updateDoc(doc(db, 'availabilitySlots', bookingData.slotId), {
-              status: 'booked',
-              updatedAt: serverTimestamp(),
-            });
-          } else if (status === 'declined' || status === 'cancelled') {
-            // Free up the slot when booking is declined or cancelled
-            await updateDoc(doc(db, 'availabilitySlots', bookingData.slotId), {
-              status: 'available',
-              parentId: null,
-              bookingId: null,
-              updatedAt: serverTimestamp(),
-            });
-          }
-        } catch (slotErr) {
-          // Failed to update slot - continue anyway
+        if (status === 'accepted') {
+          await updateAvailabilitySlot(bookingData.slotId, { status: 'booked' });
+        } else if (status === 'declined' || status === 'cancelled') {
+          await updateAvailabilitySlot(bookingData.slotId, { 
+            status: 'available', 
+            parentId: null, 
+            bookingId: null 
+          });
         }
       }
       
@@ -250,9 +469,9 @@ export const updateBookingStatus = createAsyncThunk(
           
           try {
             // Check how many bookings in this series are now accepted
-            // MUST include teacherId in query for Firestore security rules to work
+            // Use collectionGroup to search across serviceTypes structure
             const recurringQuery = query(
-              collection(db, 'bookings'),
+              collectionGroup(db, 'bookings'),
               where('recurringBookingId', '==', bookingData.recurringBookingId),
               where('teacherId', '==', auth.currentUser.uid),
               where('status', '==', 'accepted')
@@ -260,7 +479,7 @@ export const updateBookingStatus = createAsyncThunk(
             const acceptedSnap = await getDocs(recurringQuery);
             acceptedCount = acceptedSnap.docs.length;
           } catch (queryErr) {
-            // Error querying recurring bookings
+            console.error('❌ Error querying recurring bookings:', queryErr);
           }
           
           // Create a single grouped notification (Redux will handle duplicates)
@@ -411,34 +630,92 @@ export const cancelBooking = createAsyncThunk(
   'bookings/cancelBooking',
   async ({ bookingId, reason }, { rejectWithValue, dispatch }) => {
     try {
+      console.log('🔴 cancelBooking called with:', { bookingId, reason });
+      
       if (!auth?.currentUser) {
         throw new Error('Not authenticated');
       }
       
-      const ref = doc(db, 'bookings', bookingId);
-      const snap = await getDoc(ref);
-      if (!snap.exists()) throw new Error('Booking not found');
-      const data = snap.data();
-      const { teacherId, parentId, date } = data;
+      console.log('🔴 Current user:', auth.currentUser.uid);
+      
+      // Find booking using collectionGroup - try as teacher first, then as parent
+      const bookingQueryAsTeacher = query(
+        collectionGroup(db, 'bookings'),
+        where('bookingId', '==', bookingId),
+        where('teacherId', '==', auth.currentUser.uid)
+      );
+      
+      const bookingQueryAsParent = query(
+        collectionGroup(db, 'bookings'),
+        where('bookingId', '==', bookingId),
+        where('parentId', '==', auth.currentUser.uid)
+      );
+      
+      let querySnapshot;
+      try {
+        // Try as teacher first
+        querySnapshot = await getDocs(bookingQueryAsTeacher);
+        console.log('🔴 Query as teacher found:', querySnapshot.size);
+        
+        if (querySnapshot.empty) {
+          // Try as parent
+          querySnapshot = await getDocs(bookingQueryAsParent);
+          console.log('🔴 Query as parent found:', querySnapshot.size);
+        }
+      } catch (err) {
+        console.error('🔴 Error querying bookings:', err);
+        throw new Error('Failed to find booking: ' + err.message);
+      }
+      
+      console.log('🔴 Found bookings:', querySnapshot.size);
+      
+      if (querySnapshot.empty) {
+        throw new Error('Booking not found');
+      }
+      
+      const bookingDoc = querySnapshot.docs[0];
+      const data = bookingDoc.data();
+      console.log('🔴 Booking data:', data);
+      
+      const { teacherId, parentId, date, teacherRole, clientRole } = data;
       const uid = auth.currentUser.uid;
-      if (uid !== teacherId && uid !== parentId) throw new Error('Not authorized to cancel this booking');
+      
+      if (uid !== teacherId && uid !== parentId) {
+        throw new Error('Not authorized to cancel this booking');
+      }
+      
       const cancelledStatus = uid === teacherId ? 'cancelled_by_teacher' : 'cancelled_by_parent';
       const updatePayload = { status: cancelledStatus };
       if (reason) updatePayload.cancelReason = reason;
-      await updateDoc(ref, updatePayload);
+      
+      console.log('🔴 Update payload:', updatePayload);
+      
+      // Update both teacher and student copies
+      const teacherRoleInfo = getRoleCollectionInfo(teacherRole);
+      const clientRoleInfo = getRoleCollectionInfo(clientRole);
+      
+      console.log('🔴 Teacher role info:', teacherRoleInfo);
+      console.log('🔴 Client role info:', clientRoleInfo);
+      
+      const teacherDocRef = doc(db, 'serviceTypes', teacherRoleInfo.serviceType, teacherRoleInfo.collection, teacherId, 'bookings', bookingId);
+      const clientDocRef = doc(db, 'serviceTypes', clientRoleInfo.serviceType, clientRoleInfo.collection, parentId, 'bookings', bookingId);
+      
+      console.log('🔴 Teacher path:', teacherDocRef.path);
+      console.log('🔴 Client path:', clientDocRef.path);
+      
+      await updateDoc(teacherDocRef, updatePayload);
+      console.log('🔴 Teacher doc updated');
+      
+      await updateDoc(clientDocRef, updatePayload);
+      console.log('🔴 Client doc updated');
 
       // Free up the availability slot if it exists
       if (data.slotId) {
-        try {
-          await updateDoc(doc(db, 'availabilitySlots', data.slotId), {
-            status: 'available',
-            parentId: null,
-            bookingId: null,
-            updatedAt: serverTimestamp(),
-          });
-        } catch (slotErr) {
-          // Failed to free slot - continue anyway
-        }
+        await updateAvailabilitySlot(data.slotId, { 
+          status: 'available', 
+          parentId: null, 
+          bookingId: null 
+        });
       }
 
       // Notify other party
@@ -544,7 +821,7 @@ export const cancelBooking = createAsyncThunk(
  */
 export const createRecurringBooking = createAsyncThunk(
   'bookings/createRecurringBooking',
-  async ({ teacherId, firstDate, notes, frequency = 'weekly', numberOfWeeks = 8, teacherName }, { rejectWithValue, dispatch }) => {
+  async ({ teacherId, firstDate, notes, frequency = 'weekly', numberOfWeeks = 8, teacherName, teacherRole, clientRole }, { rejectWithValue, dispatch, getState }) => {
     try {
       if (!auth?.currentUser) throw new Error('Not authenticated');
       if (!db) throw new Error('Firebase database not initialized');
@@ -553,6 +830,15 @@ export const createRecurringBooking = createAsyncThunk(
       const startDate = new Date(firstDate);
       const dayOfWeek = startDate.getDay(); // 0-6 (Sunday-Saturday)
       const timeSlot = `${startDate.getHours()}:${String(startDate.getMinutes()).padStart(2, '0')}`;
+      
+      // Get user roles from state if not provided
+      const state = getState?.();
+      const userRole = clientRole || state?.auth?.user?.role || state?.auth?.user?.userType || 'parent';
+      const providerRole = teacherRole || 'teacher';
+      
+      // Get role collection info for both teacher and parent
+      const teacherRoleInfo = getRoleCollectionInfo(providerRole);
+      const parentRoleInfo = getRoleCollectionInfo(userRole);
       
       // Create master recurring booking record
       const recurringRef = await addDoc(collection(db, 'recurringBookings'), {
@@ -577,12 +863,12 @@ export const createRecurringBooking = createAsyncThunk(
       
       // Get teacher's available slots to verify each booking date
       const availableSlotsQuery = query(
-        collection(db, 'availabilitySlots'),
+        collectionGroup(db, 'availabilitySlots'),
         where('teacherId', '==', teacherId),
         where('status', '==', 'available')
       );
       const availableSlotsSnap = await getDocs(availableSlotsQuery);
-      const availableSlots = availableSlotsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      const availableSlots = availableSlotsSnap.docs.map(d => ({ id: d.id, ref: d.ref, ...d.data() }));
       
       for (let i = 0; i < numberOfWeeks; i++) {
         const bookingDate = new Date(startDate);
@@ -608,10 +894,16 @@ export const createRecurringBooking = createAsyncThunk(
           continue;
         }
         
-        // Create booking and update slot status atomically
-        const bookingRef = await addDoc(collection(db, 'bookings'), {
+        // Generate unique booking ID
+        const bookingId = doc(collection(db, 'temp')).id;
+        
+        // Create booking data
+        const bookingData = {
+          bookingId, // Add explicit bookingId field for easier querying
           teacherId,
           parentId,
+          teacherRole: providerRole, // Add role information for easier path reconstruction
+          clientRole: userRole,      // Add role information for easier path reconstruction
           status: 'pending',
           date: bookingDate.toISOString(),
           start: matchingSlot.start,
@@ -622,14 +914,38 @@ export const createRecurringBooking = createAsyncThunk(
           isRecurring: true,
           instanceNumber: i + 1,
           createdAt: serverTimestamp(),
-        });
+        };
+        
+        // Save booking to both users' serviceTypes collections for easy querying
+        // Teacher's bookings: serviceTypes/{serviceType}/{collection}/{teacherId}/bookings/{bookingId}
+        const teacherBookingRef = doc(
+          db, 
+          'serviceTypes', 
+          teacherRoleInfo.serviceType, 
+          teacherRoleInfo.collection, 
+          teacherId, 
+          'bookings', 
+          bookingId
+        );
+        await setDoc(teacherBookingRef, { ...bookingData, role: 'provider' });
+        
+        // Parent's bookings: serviceTypes/{serviceType}/{collection}/{parentId}/bookings/{bookingId}
+        const parentBookingRef = doc(
+          db, 
+          'serviceTypes', 
+          parentRoleInfo.serviceType, 
+          parentRoleInfo.collection, 
+          parentId, 
+          'bookings', 
+          bookingId
+        );
+        await setDoc(parentBookingRef, { ...bookingData, role: 'client' });
         
         // Update the slot to mark it as booked (pending approval)
-        const slotRef = doc(db, 'availabilitySlots', matchingSlot.id);
-        await updateDoc(slotRef, {
+        await updateDoc(matchingSlot.ref, {
           status: 'pending', // Mark as pending (not available for others)
           parentId: parentId,
-          bookingId: bookingRef.id,
+          bookingId: bookingId,
           updatedAt: serverTimestamp(),
         });
         
@@ -640,7 +956,7 @@ export const createRecurringBooking = createAsyncThunk(
         }
         
         generatedBookings.push({
-          id: bookingRef.id,
+          id: bookingId,
           date: bookingDate.toISOString(),
           instanceNumber: i + 1,
         });
@@ -728,7 +1044,7 @@ export const addExceptionDate = createAsyncThunk(
       
       // Find and cancel the specific booking instance
       const bookingsQuery = query(
-        collection(db, 'bookings'),
+        collectionGroup(db, 'bookings'),
         where('recurringBookingId', '==', recurringBookingId)
       );
       const bookingsSnap = await getDocs(bookingsQuery);
@@ -740,7 +1056,7 @@ export const addExceptionDate = createAsyncThunk(
         
         // Check if dates match (same day)
         if (bookingDateObj.toDateString() === exceptionDateObj.toDateString()) {
-          await updateDoc(doc(db, 'bookings', bookingDoc.id), {
+          await updateDoc(bookingDoc.ref, {
             status: 'cancelled_by_parent',
             cancelReason: reason || 'Cannot attend this date',
           });
@@ -781,7 +1097,7 @@ export const approveAllRecurringBookings = createAsyncThunk(
       
       // Get all pending bookings for this recurring series
       const q = query(
-        collection(db, 'bookings'),
+        collectionGroup(db, 'bookings'),
         where('recurringBookingId', '==', recurringBookingId),
         where('status', '==', 'pending')
       );
@@ -803,7 +1119,7 @@ export const approveAllRecurringBookings = createAsyncThunk(
         
         try {
           // Update booking status
-          await updateDoc(doc(db, 'bookings', bookingId), {
+          await updateDoc(bookingDoc.ref, {
             status: 'accepted',
             meetingProvider: 'jitsi',
             meetingUrl,
@@ -811,14 +1127,7 @@ export const approveAllRecurringBookings = createAsyncThunk(
           
           // Update corresponding availability slot to 'booked' status
           if (bookingData.slotId) {
-            try {
-              await updateDoc(doc(db, 'availabilitySlots', bookingData.slotId), {
-                status: 'booked',
-                updatedAt: serverTimestamp(),
-              });
-            } catch (slotErr) {
-              // Continue anyway - booking is more important than slot status
-            }
+            await updateAvailabilitySlot(bookingData.slotId, { status: 'booked' });
           }
         } catch (updateErr) {
           throw updateErr;
@@ -996,13 +1305,33 @@ export const startBookingsListener = (userId, isProvider, dispatch) => {
   }
 
   try {
-    // Query based on user role
+    // Query based on user role using collectionGroup to search across serviceTypes structure
     const q = isProvider 
-      ? query(collection(db, 'bookings'), where('teacherId', '==', userId))
-      : query(collection(db, 'bookings'), where('parentId', '==', userId));
+      ? query(collectionGroup(db, 'bookings'), where('teacherId', '==', userId))
+      : query(collectionGroup(db, 'bookings'), where('parentId', '==', userId));
 
-    bookingsUnsubscribe = onSnapshot(q, (snapshot) => {
-      const bookings = snapshot.docs.map(d => {
+    console.log(`🔔 Starting real-time listener for ${isProvider ? 'teacher' : 'parent'} with userId:`, userId);
+    console.log(`🔔 Query type: collectionGroup('bookings'), where('${isProvider ? 'teacherId' : 'parentId'}', '==', '${userId}')`);
+
+    bookingsUnsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        console.log(`🔔 ✅ Real-time listener CALLBACK TRIGGERED: Received ${snapshot.docs.length} bookings for ${isProvider ? 'teacher' : 'parent'} (userId: ${userId})`);
+        
+        if (snapshot.empty) {
+          console.log(`⚠️ Snapshot is EMPTY - no bookings found`);
+        }
+        
+        snapshot.docs.forEach((doc, idx) => {
+          const data = doc.data();
+          console.log(`  ${idx + 1}. Booking ID: ${doc.id}`);
+          console.log(`     Path: ${doc.ref.path}`);
+          console.log(`     Status: ${data?.status}`);
+          console.log(`     teacherId: ${data?.teacherId}`);
+          console.log(`     parentId: ${data?.parentId}`);
+          console.log(`     date: ${data?.date}`);
+        });
+        
+        const bookings = snapshot.docs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
         
@@ -1022,13 +1351,34 @@ export const startBookingsListener = (userId, isProvider, dispatch) => {
         return { id: d.id, ...data, createdAt, date: validDate };
       }).filter(b => b.date); // Only include bookings with valid dates
       
+      // Remove duplicates - same booking ID appears in both teacher's and student's collections
+      // Keep only unique bookings by ID
+      const uniqueBookings = [];
+      const seenIds = new Set();
+      
+      bookings.forEach(booking => {
+        if (!seenIds.has(booking.id)) {
+          seenIds.add(booking.id);
+          uniqueBookings.push(booking);
+        }
+      });
+      
+      console.log(`📊 After deduplication: ${uniqueBookings.length} unique bookings (removed ${bookings.length - uniqueBookings.length} duplicates)`);
+      
       // Update Redux state directly
       dispatch({
         type: isProvider ? 'bookings/fetchTeacherBookings/fulfilled' : 'bookings/fetchParentBookings/fulfilled',
-        payload: bookings
+        payload: uniqueBookings
       });
-    }, (error) => {
+    }, 
+    (error) => {
       // Listener error
+      console.error('❌ Real-time listener ERROR:', error);
+      console.error('❌ Error code:', error.code);
+      console.error('❌ Error message:', error.message);
+      if (error.code === 'failed-precondition') {
+        console.error('⚠️ FIRESTORE INDEX MISSING! Create index at:', error.message);
+      }
     });
 
     return bookingsUnsubscribe;
