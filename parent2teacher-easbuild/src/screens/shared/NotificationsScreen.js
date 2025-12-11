@@ -233,11 +233,11 @@ const NotificationsScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[styles.card, !item.read && styles.unreadCard]}
           onPress={() => {
-            if (!item.read) {
-              handleMarkAsRead(item.id);
-            }
             // Handle booking cancellation and declined notifications specially with modal
             if (item.type === 'booking_cancelled' || item.type === 'booking_declined') {
+              if (!item.read) {
+                handleMarkAsRead(item.id);
+              }
               setSelectedCancellation(item);
               setCancelModalVisible(true);
             } else if (item.navigationTarget) {
@@ -247,7 +247,13 @@ const NotificationsScreen = ({ navigation }) => {
                 : item.navigationTarget;
               
               if (target) {
-                navigation.navigate(target, item.navigationParams);
+                // Navigate immediately for instant response
+                navigation.push(target, item.navigationParams);
+                
+                // Mark as read asynchronously (don't wait)
+                if (!item.read) {
+                  handleMarkAsRead(item.id);
+                }
               }
             }
           }}

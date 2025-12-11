@@ -31,13 +31,11 @@ export const fetchNotifications = createAsyncThunk(
       // Check if user is actually authenticated in Firebase
       if (!auth?.currentUser) {
         // Silent fail - this is normal during app startup
-        console.log('[fetchNotifications] ⏸️ Waiting for Firebase authentication...');
         return rejectWithValue('not_authenticated');
       }
       
-      // Verify the userId matches the authenticated user
+      // Security: Verify the userId matches the authenticated user
       if (auth.currentUser.uid !== userId) {
-        console.warn('[fetchNotifications] ⚠️ userId mismatch! Requested:', userId, 'Authenticated:', auth.currentUser.uid);
         return rejectWithValue('user_mismatch');
       }
       
@@ -60,7 +58,6 @@ export const fetchNotifications = createAsyncThunk(
       notifications.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
       return notifications;
     } catch (error) {
-      console.error('[fetchNotifications] ❌ Error fetching notifications:', error);
       throw error;
     }
   }
@@ -239,8 +236,6 @@ export const startNotificationListener = (userId, dispatch) => {
 
   if (!userId) return;
 
-  console.log('🔔 Starting real-time notification listener for:', userId);
-
   const q = query(
     collection(db, 'notifications'),
     where('userId', '==', userId)
@@ -248,11 +243,8 @@ export const startNotificationListener = (userId, dispatch) => {
 
   activeNotificationListener = onSnapshot(q, 
     (snapshot) => {
-      console.log('🔔 [Listener] Snapshot received, docs:', snapshot.size);
-      
       const notifications = snapshot.docs.map(doc => {
         const data = doc.data();
-        console.log('🔔 [Listener] Notification:', doc.id, 'type:', data.type, 'title:', data.title);
         return {
           id: doc.id,
           ...data,
@@ -263,13 +255,11 @@ export const startNotificationListener = (userId, dispatch) => {
       // Sort newest first
       notifications.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
       
-      console.log('🔔 [Listener] Dispatching', notifications.length, 'notifications to Redux');
-      
       // Update store directly
       dispatch(notificationsSlice.actions.setNotifications(notifications));
     },
     (error) => {
-      console.error('🔔 Notification listener error:', error);
+      // Notification listener error
     }
   );
 
@@ -279,7 +269,6 @@ export const startNotificationListener = (userId, dispatch) => {
 // Stop listener
 export const stopNotificationListener = () => {
   if (activeNotificationListener) {
-    console.log('🔕 Stopping notification listener');
     activeNotificationListener();
     activeNotificationListener = null;
   }

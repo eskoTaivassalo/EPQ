@@ -8,7 +8,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { subscribeToConversation, subscribeToSupportConversation, sendMessage } from '../../services/communicationService';
 
 export default function ConversationThreadScreen({ navigation, route }) {
-  const { teacherId: teacherIdParam, parentId: parentIdParam, recipientName, isSupportConversation, senderId, recipientId, category, subject } = route.params || {};
+  const { teacherId: teacherIdParam, parentId: parentIdParam, recipientName, isSupportConversation, userId1, userId2, senderId, recipientId, category, subject } = route.params || {};
   const { user } = useAuth();
   const role = (user?.userType || user?.type) === 'teacher' ? 'teacher' : 'parent';
   const [messages, setMessages] = useState([]);
@@ -21,8 +21,12 @@ export default function ConversationThreadScreen({ navigation, route }) {
   const parentId = parentIdParam || (role === 'teacher' ? recipientId : null) || (role === 'parent' ? user.uid : null);
 
   useEffect(() => {
-    if (isSupportConversation && senderId && recipientId) {
-      // Support conversation
+    if (isSupportConversation && userId1 && userId2) {
+      // Support conversation (new params)
+      const unsub = subscribeToSupportConversation(userId1, userId2, setMessages);
+      return () => unsub && unsub();
+    } else if (isSupportConversation && senderId && recipientId) {
+      // Support conversation (old params - backward compatibility)
       const unsub = subscribeToSupportConversation(senderId, recipientId, setMessages);
       return () => unsub && unsub();
     } else if (teacherId && parentId) {
@@ -30,7 +34,7 @@ export default function ConversationThreadScreen({ navigation, route }) {
       const unsub = subscribeToConversation(teacherId, parentId, setMessages);
       return () => unsub && unsub();
     }
-  }, [isSupportConversation, senderId, recipientId, teacherId, parentId]);
+  }, [isSupportConversation, userId1, userId2, senderId, recipientId, teacherId, parentId]);
 
   useEffect(() => {
     if (listRef.current && messages.length > 0) {
@@ -46,11 +50,17 @@ export default function ConversationThreadScreen({ navigation, route }) {
       // Send support message
       const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('../../config/firebaseConfig');
+      
+      // Determine recipient: if using new params (userId1/userId2), recipient is the other user
+      const recipientUserId = userId1 && userId2 
+        ? (userId1 === user.uid ? userId2 : userId1)
+        : (senderId === user.uid ? recipientId : senderId);
+      
       await addDoc(collection(db, 'messages'), {
         senderId: user.uid,
-        recipientId: senderId === user.uid ? recipientId : senderId,
-        senderRole: user.role || 'admin',
-        recipientRole: senderId === user.uid ? 'guest' : (user.role || 'admin'),
+        recipientId: recipientUserId,
+        senderRole: user.role || role || 'guest',
+        recipientRole: 'admin', // Assuming support messages go to admin
         type: 'support',
         category: category || 'general',
         subject: subject || 'Re: Support Request',

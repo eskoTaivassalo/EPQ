@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -30,10 +30,11 @@ import { SUBJECTS, LANGUAGES, TEACHING_METHODS, AVAILABILITY } from '../../const
  */
 const ProfileScreen = ({ navigation }) => {
   const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [profileData, setProfileData] = useState(null);
+  const hasLoadedRef = useRef(false);
 
   // Määritä käyttäjän rooli
   const userRole = user?.userType || user?.role || 'client';
@@ -41,7 +42,9 @@ const ProfileScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      loadProfile();
+      if (!hasLoadedRef.current) {
+        loadProfile();
+      }
     }, [user?.uid])
   );
 
@@ -59,7 +62,6 @@ const ProfileScreen = ({ navigation }) => {
 
       if (docSnap.exists()) {
         const data = docSnap.data();
-        console.log('📋 Profile loaded:', Object.keys(data));
         
         // Yhdistä nested profile data jos olemassa
         const merged = {
@@ -96,7 +98,6 @@ const ProfileScreen = ({ navigation }) => {
         setProfileData(merged);
       } else {
         // Uusi käyttäjä, aseta oletustiedot
-        console.log('📝 New user, setting default profile data');
         const defaultData = {
           name: user.name || user.displayName || '',
           email: user.email || '',
@@ -120,6 +121,7 @@ const ProfileScreen = ({ navigation }) => {
         
         setProfileData(defaultData);
       }
+      hasLoadedRef.current = true;
     } catch (error) {
       console.error('Error loading profile:', error);
       Alert.alert('Virhe', 'Profiilin lataaminen epäonnistui');

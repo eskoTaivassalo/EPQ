@@ -14,21 +14,41 @@ import { colors } from '../../styles/commonStyles';
  */
 export default function ManageSlotsScreen({ navigation }) {
   const { user } = useAuth();
+  const [allSlots, setAllSlots] = useState([]);
   const [slots, setSlots] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('upcoming'); // 'upcoming', 'booked', 'all'
 
   useEffect(() => {
     loadSlots();
-  }, [user?.uid, filter]);
+  }, [user?.uid]);
+
+  // Apply filter locally instead of refetching from Firestore
+  useEffect(() => {
+    applyFilter();
+  }, [filter, allSlots]);
+
+  const applyFilter = () => {
+    const now = new Date().toISOString();
+    let filtered = [...allSlots];
+    
+    if (filter === 'upcoming') {
+      filtered = filtered.filter(s => 
+        s.status === 'available' && s.start > now
+      );
+    } else if (filter === 'booked') {
+      filtered = filtered.filter(s => s.status === 'booked');
+    }
+    
+    setSlots(filtered);
+  };
 
   const loadSlots = async () => {
     if (!user?.uid) return;
     
     try {
       setLoading(true);
-      const now = new Date().toISOString();
       
       let q = query(
         collection(db, 'availabilitySlots'),
@@ -37,51 +57,40 @@ export default function ManageSlotsScreen({ navigation }) {
       );
 
       const snapshot = await getDocs(q);
-      console.log(`📊 ManageSlots: Fetched ${snapshot.docs.length} slots from Firestore`);
       
-      let invalidCount = 0;
       let fetchedSlots = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       })).filter(slot => {
         // Filter out slots with invalid dates
-        if (!slot.start || !slot.end) {
-          console.warn('❌ Slot missing start/end:', slot.id);
-          invalidCount++;
-          return false;
-        }
+        if (!slot.start || !slot.end) return false;
         try {
           const testStart = new Date(slot.start);
           const testEnd = new Date(slot.end);
           if (isNaN(testStart.getTime()) || isNaN(testEnd.getTime())) {
-            console.warn('❌ Slot has invalid date:', slot.id, 'start:', slot.start, 'end:', slot.end);
-            invalidCount++;
             return false;
           }
           return true;
         } catch (e) {
-          console.warn('❌ Error parsing slot date:', slot.id, e);
-          invalidCount++;
           return false;
         }
       });
       
-      if (invalidCount > 0) {
-        console.warn(`⚠️ ManageSlots: Filtered out ${invalidCount} invalid slots`);
-      }
-      console.log(`✅ ManageSlots: Loaded ${fetchedSlots.length} valid slots`);
-
-      // Filter based on selected filter
+      setAllSlots(fetchedSlots);
+      
+      // Apply filter immediately to show data
+      const now = new Date().toISOString();
+      let filtered = [...fetchedSlots];
+      
       if (filter === 'upcoming') {
-        fetchedSlots = fetchedSlots.filter(s => 
+        filtered = filtered.filter(s => 
           s.status === 'available' && s.start > now
         );
       } else if (filter === 'booked') {
-        fetchedSlots = fetchedSlots.filter(s => s.status === 'booked');
+        filtered = filtered.filter(s => s.status === 'booked');
       }
-      // 'all' shows everything
-
-      setSlots(fetchedSlots);
+      
+      setSlots(filtered);
     } catch (error) {
       console.error('Error loading slots:', error);
       Alert.alert('Error', 'Failed to load time slots');
@@ -112,7 +121,7 @@ export default function ManageSlotsScreen({ navigation }) {
           onPress: async () => {
             try {
               await deleteDoc(doc(db, 'availabilitySlots', slot.id));
-              setSlots(prev => prev.filter(s => s.id !== slot.id));
+              setAllSlots(prev => prev.filter(s => s.id !== slot.id));
               Alert.alert('Deleted', 'Time slot removed');
             } catch (error) {
               console.error('Error deleting slot:', error);
@@ -147,7 +156,7 @@ export default function ManageSlotsScreen({ navigation }) {
               });
               await batch.commit();
               
-              setSlots(prev => prev.filter(s => s.status !== 'available'));
+              setAllSlots(prev => prev.filter(s => s.status !== 'available'));
               Alert.alert('Success', `${availableSlots.length} slots deleted`);
             } catch (error) {
               console.error('Error bulk deleting:', error);
@@ -206,7 +215,7 @@ export default function ManageSlotsScreen({ navigation }) {
                       });
                       await batch.commit();
                       
-                      setSlots(prev => prev.filter(s => !slotsToDelete.find(ds => ds.id === s.id)));
+                      setAllSlots(prev => prev.filter(s => !slotsToDelete.find(ds => ds.id === s.id)));
                       Alert.alert('Success', `${slotsToDelete.length} slots deleted`);
                     } catch (error) {
                       console.error('Error deleting range:', error);

@@ -27,14 +27,10 @@ export const createBooking = createAsyncThunk(
   'bookings/createBooking',
   async ({ teacherId, date, notes, teacherName }, { rejectWithValue, dispatch }) => {
     try {
-      console.log('[createBooking] Starting booking creation...', { teacherId, date, notes });
-      
       if (!auth?.currentUser) {
-        console.error('[createBooking] Not authenticated');
         throw new Error('Not authenticated');
       }
       if (!db) {
-        console.error('[createBooking] Firebase database not initialized');
         throw new Error('Firebase database not initialized');
       }
 
@@ -49,9 +45,7 @@ export const createBooking = createAsyncThunk(
         createdAt: serverTimestamp(),
       };
       
-      console.log('[createBooking] Payload to DB:', payloadToDB);
       const ref = await addDoc(collection(db, 'bookings'), payloadToDB);
-      console.log('[createBooking] Booking created with ID:', ref.id);
 
       // Read back (or compute) a serializable createdAt for Redux state
       let createdAtISO = new Date().toISOString();
@@ -62,11 +56,10 @@ export const createBooking = createAsyncThunk(
           createdAtISO = data.createdAt.toDate().toISOString();
         }
       } catch (err) {
-        console.warn('[createBooking] Failed to read back document:', err);
+        // Failed to read back document
       }
 
       // Create notification for teacher
-      console.log('[createBooking] Creating notification for teacher:', teacherId);
       dispatch(createNotification({
         userId: teacherId,
         type: 'booking_request',
@@ -75,12 +68,9 @@ export const createBooking = createAsyncThunk(
         navigationTarget: 'TeacherBookings',
         navigationParams: { bookingId: ref.id }
       }));
-      
-      console.log('[createBooking] Booking creation successful');
 
       return { id: ref.id, ...payloadToDB, createdAt: createdAtISO };
     } catch (err) {
-      console.error('[createBooking] Error creating booking:', err);
       return rejectWithValue(err.message);
     }
   }
@@ -90,8 +80,6 @@ export const fetchParentBookings = createAsyncThunk(
   'bookings/fetchParentBookings',
   async (_, { rejectWithValue, getState }) => {
     try {
-      console.log('[fetchParentBookings] Starting fetch...');
-      
       // Prefer Firebase auth, but fall back to Redux user if needed
       let uid = auth?.currentUser?.uid;
       if (!uid) {
@@ -101,17 +89,14 @@ export const fetchParentBookings = createAsyncThunk(
 
       // Small retry window to allow auth hydration
       if (!uid) {
-        console.log('[fetchParentBookings] Auth not ready, waiting...');
         await new Promise(resolve => setTimeout(resolve, 150));
         uid = auth?.currentUser?.uid || getState?.()?.auth?.user?.uid;
       }
 
       if (!uid) {
-        console.error('[fetchParentBookings] Still not authenticated after wait');
         return rejectWithValue('Not authenticated');
       }
       
-      console.log('[fetchParentBookings] Fetching for parentId:', uid);
       const q = query(collection(db, 'bookings'), where('parentId', '==', uid));
       const snap = await getDocs(q);
       
@@ -125,11 +110,9 @@ export const fetchParentBookings = createAsyncThunk(
           try {
             const testDate = new Date(validDate);
             if (isNaN(testDate.getTime())) {
-              console.warn('[fetchParentBookings] Invalid date in booking:', d.id, validDate);
               validDate = null;
             }
           } catch (e) {
-            console.warn('[fetchParentBookings] Error parsing date:', d.id, e);
             validDate = null;
           }
         }
@@ -137,10 +120,8 @@ export const fetchParentBookings = createAsyncThunk(
         return { id: d.id, ...data, createdAt, date: validDate };
       }).filter(b => b.date); // Only include bookings with valid dates
       
-      console.log('[fetchParentBookings] Found bookings:', bookings.length);
       return bookings;
     } catch (err) {
-      console.error('[fetchParentBookings] Error:', err);
       return rejectWithValue(err.message);
     }
   }
@@ -150,8 +131,6 @@ export const fetchTeacherBookings = createAsyncThunk(
   'bookings/fetchTeacherBookings',
   async (_, { rejectWithValue, getState }) => {
     try {
-      console.log('[fetchTeacherBookings] Starting fetch...');
-      
       // Prefer Firebase auth, but fall back to Redux user if needed
       let uid = auth?.currentUser?.uid;
       if (!uid) {
@@ -160,21 +139,17 @@ export const fetchTeacherBookings = createAsyncThunk(
       }
 
       if (!uid) {
-        console.log('[fetchTeacherBookings] Auth not ready, waiting...');
         await new Promise(resolve => setTimeout(resolve, 150));
         uid = auth?.currentUser?.uid || getState?.()?.auth?.user?.uid;
       }
 
       if (!uid) {
-        console.error('[fetchTeacherBookings] Still not authenticated after wait');
         return rejectWithValue('Not authenticated');
       }
       
-      console.log('[fetchTeacherBookings] Current user:', uid);
       const q = query(collection(db, 'bookings'), where('teacherId', '==', uid));
       const snap = await getDocs(q);
       const docs = Array.isArray(snap?.docs) ? snap.docs : [];
-      console.log('[fetchTeacherBookings] Found', docs.length, 'bookings');
       const bookings = docs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
@@ -185,21 +160,17 @@ export const fetchTeacherBookings = createAsyncThunk(
           try {
             const testDate = new Date(validDate);
             if (isNaN(testDate.getTime())) {
-              console.warn('[fetchTeacherBookings] Invalid date in booking:', d.id, validDate);
               validDate = null;
             }
           } catch (e) {
-            console.warn('[fetchTeacherBookings] Error parsing date:', d.id, e);
             validDate = null;
           }
         }
         
         return { id: d.id, ...data, createdAt, date: validDate };
       }).filter(b => b.date); // Only include bookings with valid dates
-      console.log('[fetchTeacherBookings] Returning', bookings.length, 'bookings');
       return bookings;
     } catch (err) {
-      console.error('[fetchTeacherBookings] Error:', err);
       return rejectWithValue(err.message);
     }
   }
@@ -209,19 +180,15 @@ export const updateBookingStatus = createAsyncThunk(
   'bookings/updateBookingStatus',
   async ({ bookingId, status, parentId, teacherName, date, declineReason, suggestedDate, suggestedDateFormatted, cancelledBy }, { rejectWithValue, dispatch }) => {
     try {
-      console.log('[updateBookingStatus] Starting:', { bookingId, status, parentId, cancelledBy });
-      
       if (!auth?.currentUser) throw new Error('Not authenticated');
       const ref = doc(db, 'bookings', bookingId);
       
       // Check if this is a recurring booking BEFORE updating
-      console.log('[updateBookingStatus] Fetching booking data...');
       const bookingSnap = await getDoc(ref);
       if (!bookingSnap.exists()) {
         throw new Error('Booking not found');
       }
       const bookingData = bookingSnap.data();
-      console.log('[updateBookingStatus] Booking data:', { isRecurring: bookingData?.isRecurring, recurringBookingId: bookingData?.recurringBookingId });
       const isRecurringBooking = bookingData?.isRecurring && bookingData?.recurringBookingId;
       
       // When accepting, create a Jitsi Meet link (free, no API needed)
@@ -251,9 +218,7 @@ export const updateBookingStatus = createAsyncThunk(
         update.cancelledBy = cancelledBy;
       }
       
-      console.log('[updateBookingStatus] Updating booking with:', update);
       await updateDoc(ref, update);
-      console.log('[updateBookingStatus] ✅ Booking updated successfully');
       
       // Update corresponding availability slot status
       if (bookingData.slotId) {
@@ -263,7 +228,6 @@ export const updateBookingStatus = createAsyncThunk(
               status: 'booked',
               updatedAt: serverTimestamp(),
             });
-            console.log('[updateBookingStatus] ✅ Updated slot to booked:', bookingData.slotId);
           } else if (status === 'declined' || status === 'cancelled') {
             // Free up the slot when booking is declined or cancelled
             await updateDoc(doc(db, 'availabilitySlots', bookingData.slotId), {
@@ -272,11 +236,9 @@ export const updateBookingStatus = createAsyncThunk(
               bookingId: null,
               updatedAt: serverTimestamp(),
             });
-            console.log('[updateBookingStatus] ✅ Freed up slot:', bookingData.slotId);
           }
         } catch (slotErr) {
-          console.error('[updateBookingStatus] ⚠️ Failed to update slot:', bookingData.slotId, slotErr);
-          // Continue anyway - booking status is more important
+          // Failed to update slot - continue anyway
         }
       }
       
@@ -284,8 +246,6 @@ export const updateBookingStatus = createAsyncThunk(
       if (parentId) {
         // For recurring bookings, create a grouped notification
         if (isRecurringBooking && status === 'accepted' && bookingData.recurringBookingId) {
-          console.log('[updateBookingStatus] Creating grouped recurring notification for:', bookingData.recurringBookingId);
-          
           let acceptedCount = 1; // Default to 1 if query fails
           
           try {
@@ -299,15 +259,12 @@ export const updateBookingStatus = createAsyncThunk(
             );
             const acceptedSnap = await getDocs(recurringQuery);
             acceptedCount = acceptedSnap.docs.length;
-            
-            console.log('[updateBookingStatus] Found', acceptedCount, 'accepted recurring bookings');
           } catch (queryErr) {
-            console.error('[updateBookingStatus] Error querying recurring bookings:', queryErr);
+            // Error querying recurring bookings
           }
           
           // Create a single grouped notification (Redux will handle duplicates)
           try {
-            console.log('[updateBookingStatus] 🔔 Creating notification FOR PARENT:', parentId, '(current user:', auth.currentUser.uid, ')');
             dispatch(createNotification({
               userId: parentId, // IMPORTANT: This goes to PARENT, not teacher
               type: 'recurring_booking_accepted',
@@ -315,9 +272,8 @@ export const updateBookingStatus = createAsyncThunk(
               message: `${teacherName || 'Teacher'} has approved ${acceptedCount} of your recurring booking sessions. Check your bookings for meeting links.`,
               navigationTarget: 'ParentBookings'
             }));
-            console.log('[updateBookingStatus] ✅ Notification created for parent:', parentId);
           } catch (notifErr) {
-            console.error('[updateBookingStatus] Error creating recurring notification:', notifErr);
+            // Error creating recurring notification
           }
           
           // Send ONE push notification for the group (but not if testing with same user)
@@ -336,29 +292,21 @@ export const updateBookingStatus = createAsyncThunk(
                     `${acceptedCount} recurring session${acceptedCount > 1 ? 's' : ''} confirmed`,
                     { type: 'recurring_booking_accepted', count: acceptedCount }
                   );
-                  console.log('[push] ✅ Recurring push sent successfully');
                 }
               } catch (pushErr) {
-                console.error('[push] ❌ Failed to send recurring approval push:', pushErr?.message || pushErr);
+                // Failed to send push
               }
             })();
-          } else {
-            console.log('[push] ⏭️ Skipping recurring push - same user testing');
           }
           
           return { bookingId, status, update };
         }
         
         // For non-recurring or declined bookings, use individual notifications
-        console.log('[updateBookingStatus] 📋 Preparing notification - parentId from param:', parentId);
-        console.log('[updateBookingStatus] 📋 Preparing notification - parentId from booking:', bookingData.parentId);
-        
         // Use parentId from booking data if not provided in params
         const targetParentId = parentId || bookingData.parentId;
         
         if (!targetParentId) {
-          console.error('[updateBookingStatus] ❌ ERROR: No parentId available! Cannot send notification!');
-          console.error('[updateBookingStatus] Booking data:', bookingData);
           return { bookingId, status };
         }
         
@@ -373,36 +321,28 @@ export const updateBookingStatus = createAsyncThunk(
           notificationData.title = 'Booking Confirmed! 🎉';
           notificationData.message = `${teacherName || 'Teacher'} accepted your booking${date ? ' for ' + new Date(date).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}\n\n📹 Video meeting link available in Dashboard → Upcoming Sessions`;
           
-          console.log('[updateBookingStatus] 🔔 Creating notification FOR PARENT:', targetParentId, '(current user:', auth.currentUser.uid, ')');
-          
           // Send push notification to parent (but not if it's the same user testing)
           (async () => {
             try {
               // Don't send push to yourself when testing with same device
               if (auth.currentUser.uid === targetParentId) {
-                console.log('[push] ⏭️ Skipping push notification - same user testing');
                 return;
               }
               
               const { sendExpoPushNotification } = await import('../../services/pushService');
-              console.log('[push] Fetching parent push token for:', targetParentId);
               const userDoc = await getDoc(doc(db, 'users', targetParentId));
               const token = userDoc.exists() ? userDoc.data()?.push?.expo?.token : null;
               
               if (token) {
-                console.log('[push] Found token, sending push notification to parent...');
-                const result = await sendExpoPushNotification(
+                await sendExpoPushNotification(
                   token,
                   '✅ Booking confirmed!',
                   `${teacherName || 'Teacher'} accepted your booking${date ? ' for ' + new Date(date).toLocaleDateString() : ''}`,
                   { bookingId, type: 'booking_accepted', meetingUrl: update.meetingUrl }
                 );
-                console.log('[push] ✅ Push notification sent to parent:', result);
-              } else {
-                console.warn('[push] ⚠️ No push token found for parent:', targetParentId);
               }
             } catch (pushErr) {
-              console.error('[push] ❌ Failed to send push to parent:', pushErr?.message || pushErr);
+              // Failed to send push
             }
           })();
         } else if (status === 'declined') {
@@ -429,7 +369,6 @@ export const updateBookingStatus = createAsyncThunk(
           (async () => {
             try {
               if (auth.currentUser.uid === targetParentId) {
-                console.log('[push] ⏭️ Skipping decline push - same user testing');
                 return;
               }
               
@@ -450,26 +389,18 @@ export const updateBookingStatus = createAsyncThunk(
                 );
               }
             } catch (pushErr) {
-              console.error('[push] Failed to send decline notification:', pushErr);
+              // Failed to send decline notification
             }
           })();
         }
 
         if (notificationData.type) {
-          console.log('[updateBookingStatus] 🔔 Creating notification with data:', { ...notificationData, targetUser: notificationData.userId });
-          console.log('[updateBookingStatus] ⚠️ If notification appears for teacher, check that parentId is correct!');
           dispatch(createNotification(notificationData));
         }
       }
       
       return { bookingId, status };
     } catch (err) {
-      console.error('[updateBookingStatus] ❌ Error:', err);
-      console.error('[updateBookingStatus] Error details:', {
-        message: err.message,
-        code: err.code,
-        stack: err.stack
-      });
       return rejectWithValue(err.message);
     }
   }
@@ -479,17 +410,12 @@ export const updateBookingStatus = createAsyncThunk(
 export const cancelBooking = createAsyncThunk(
   'bookings/cancelBooking',
   async ({ bookingId, reason }, { rejectWithValue, dispatch }) => {
-    console.log('[cancelBooking] 🎬 FUNCTION CALLED with:', { bookingId, reason });
-    console.log('[cancelBooking] 🎬 Current user:', auth?.currentUser?.uid);
-    
     try {
       if (!auth?.currentUser) {
-        console.error('[cancelBooking] ❌ Not authenticated!');
         throw new Error('Not authenticated');
       }
       
       const ref = doc(db, 'bookings', bookingId);
-      console.log('[cancelBooking] 📋 Fetching booking document...');
       const snap = await getDoc(ref);
       if (!snap.exists()) throw new Error('Booking not found');
       const data = snap.data();
@@ -510,22 +436,13 @@ export const cancelBooking = createAsyncThunk(
             bookingId: null,
             updatedAt: serverTimestamp(),
           });
-          console.log('[cancelBooking] ✅ Freed up slot:', data.slotId);
         } catch (slotErr) {
-          console.error('[cancelBooking] ⚠️ Failed to free slot:', data.slotId, slotErr);
-          // Continue anyway
+          // Failed to free slot - continue anyway
         }
       }
 
       // Notify other party
       const otherUserId = uid === teacherId ? parentId : teacherId;
-      console.log('[cancelBooking] 📬 Preparing notification:', { 
-        currentUserId: uid, 
-        teacherId, 
-        parentId, 
-        otherUserId,
-        isTeacherCancelling: uid === teacherId
-      });
       
       if (otherUserId) {
         let title = 'Session Cancelled';
@@ -535,7 +452,6 @@ export const cancelBooking = createAsyncThunk(
         try {
           // If teacher cancelled, notify parent with rebooking option
           if (uid === teacherId) {
-            console.log('[cancelBooking] 👨‍🏫 Teacher cancelled - notifying parent:', otherUserId);
             const parentMessage = message + ` Would you like to book a new time?`;
             await dispatch(createNotification({
               userId: otherUserId,
@@ -545,13 +461,11 @@ export const cancelBooking = createAsyncThunk(
               navigationTarget: 'FindProviders',
               navigationParams: { teacherId }
             })).unwrap();
-            console.log('[cancelBooking] ✅ Notification sent to parent');
             
             // Send push notification to parent
             (async () => {
               try {
                 if (auth.currentUser.uid === otherUserId) {
-                  console.log('[cancelBooking] ⏭️ Skipping push - same user testing');
                   return;
                 }
                 
@@ -566,17 +480,13 @@ export const cancelBooking = createAsyncThunk(
                     `Your booking for ${date ? new Date(date).toLocaleDateString() : ''} has been cancelled. ${reason ? 'Reason: ' + reason : ''}`,
                     { bookingId, type: 'booking_cancelled', teacherId }
                   );
-                  console.log('[cancelBooking] ✅ Push notification sent to parent');
-                } else {
-                  console.warn('[cancelBooking] ⚠️ No push token found for parent');
                 }
               } catch (pushErr) {
-                console.error('[cancelBooking] ❌ Failed to send push notification:', pushErr);
+                // Failed to send push notification
               }
             })();
           } else {
             // Student/parent cancelled - notify teacher
-            console.log('[cancelBooking] 👨‍🎓 Student/parent cancelled - notifying teacher:', otherUserId);
             await dispatch(createNotification({
               userId: otherUserId,
               type: 'booking_cancelled',
@@ -585,13 +495,11 @@ export const cancelBooking = createAsyncThunk(
               navigationTarget: 'Bookings',
               navigationParams: { bookingId }
             })).unwrap();
-            console.log('[cancelBooking] ✅ Notification sent to teacher');
             
             // Send push notification to teacher
             (async () => {
               try {
                 if (auth.currentUser.uid === otherUserId) {
-                  console.log('[cancelBooking] ⏭️ Skipping push - same user testing');
                   return;
                 }
                 
@@ -606,21 +514,15 @@ export const cancelBooking = createAsyncThunk(
                     `Booking for ${date ? new Date(date).toLocaleDateString() : ''} was cancelled. ${reason ? 'Reason: ' + reason : ''}`,
                     { bookingId, type: 'booking_cancelled' }
                   );
-                  console.log('[cancelBooking] ✅ Push notification sent to teacher');
-                } else {
-                  console.warn('[cancelBooking] ⚠️ No push token found for teacher');
                 }
               } catch (pushErr) {
-                console.error('[cancelBooking] ❌ Failed to send push notification:', pushErr);
+                // Failed to send push notification
               }
             })();
           }
         } catch (notifErr) {
-          console.error('[cancelBooking] ❌ Failed to send notification:', notifErr);
           // Don't fail the whole cancellation if notification fails
         }
-      } else {
-        console.warn('[cancelBooking] ⚠️ No otherUserId found - cannot send notification');
       }
       return { bookingId, status: cancelledStatus, cancelReason: reason || null };
     } catch (err) {
@@ -644,8 +546,6 @@ export const createRecurringBooking = createAsyncThunk(
   'bookings/createRecurringBooking',
   async ({ teacherId, firstDate, notes, frequency = 'weekly', numberOfWeeks = 8, teacherName }, { rejectWithValue, dispatch }) => {
     try {
-      console.log('[createRecurringBooking] Starting...', { teacherId, firstDate, frequency, numberOfWeeks });
-      
       if (!auth?.currentUser) throw new Error('Not authenticated');
       if (!db) throw new Error('Firebase database not initialized');
 
@@ -669,8 +569,6 @@ export const createRecurringBooking = createAsyncThunk(
         exceptions: [], // Dates when student cannot attend
         createdAt: serverTimestamp(),
       });
-      
-      console.log('[createRecurringBooking] Master record created:', recurringRef.id);
       
       // Generate individual bookings
       const generatedBookings = [];
@@ -706,7 +604,6 @@ export const createRecurringBooking = createAsyncThunk(
         });
         
         if (!matchingSlot) {
-          console.log(`[createRecurringBooking] No available slot for ${bookingDateISO}, skipping`);
           skippedBookings.push({ date: bookingDateISO, reason: 'no available slot' });
           continue;
         }
@@ -749,12 +646,6 @@ export const createRecurringBooking = createAsyncThunk(
         });
       }
       
-      if (skippedBookings.length > 0) {
-        console.log('[createRecurringBooking] Skipped', skippedBookings.length, 'bookings:', skippedBookings);
-      }
-      
-      console.log('[createRecurringBooking] Generated', generatedBookings.length, 'bookings');
-      
       // Throw error if no bookings were created (all were skipped)
       if (generatedBookings.length === 0) {
         throw new Error('No available time slots found for the requested dates. Please check teacher\'s availability.');
@@ -790,7 +681,7 @@ export const createRecurringBooking = createAsyncThunk(
             );
           }
         } catch (pushErr) {
-          console.error('[push] Failed to send recurring booking notification:', pushErr);
+          // Failed to send push notification
         }
       })();
       
@@ -802,7 +693,6 @@ export const createRecurringBooking = createAsyncThunk(
         numberOfWeeks,
       };
     } catch (err) {
-      console.error('[createRecurringBooking] Error:', err);
       return rejectWithValue(err.message);
     }
   }
@@ -816,24 +706,14 @@ export const addExceptionDate = createAsyncThunk(
   'bookings/addExceptionDate',
   async ({ recurringBookingId, exceptionDate, reason }, { rejectWithValue, dispatch }) => {
     try {
-      console.log('[addExceptionDate] Starting...');
-      console.log('[addExceptionDate] User:', auth?.currentUser?.uid);
-      
       if (!auth?.currentUser) throw new Error('Not authenticated');
       
       const ref = doc(db, 'recurringBookings', recurringBookingId);
       const snap = await getDoc(ref);
       
-      console.log('[addExceptionDate] Doc exists:', snap.exists());
       if (!snap.exists()) throw new Error('Recurring booking not found');
       
       const data = snap.data();
-      console.log('[addExceptionDate] Doc data:', {
-        parentId: data.parentId,
-        teacherId: data.teacherId,
-        status: data.status,
-        hasExceptions: !!data.exceptions
-      });
       
       const exceptions = data.exceptions || [];
       
@@ -866,9 +746,6 @@ export const addExceptionDate = createAsyncThunk(
           });
           
           // Notify teacher
-          console.log('[addExceptionDate] Creating notification for teacher:', data.teacherId);
-          console.log('[addExceptionDate] Current user (parent):', auth?.currentUser?.uid);
-          
           dispatch(createNotification({
             userId: data.teacherId,
             type: 'booking_exception',
@@ -887,7 +764,6 @@ export const addExceptionDate = createAsyncThunk(
       
       return { recurringBookingId, exceptions };
     } catch (err) {
-      console.error('[addExceptionDate] Error:', err);
       return rejectWithValue(err.message);
     }
   }
@@ -901,13 +777,9 @@ export const approveAllRecurringBookings = createAsyncThunk(
   'bookings/approveAllRecurringBookings',
   async ({ recurringBookingId }, { rejectWithValue, dispatch }) => {
     try {
-      console.log('[approveAllRecurringBookings] Starting with recurringBookingId:', recurringBookingId);
-      console.log('[approveAllRecurringBookings] Current user:', auth?.currentUser?.uid);
-      
       if (!auth?.currentUser) throw new Error('Not authenticated');
       
       // Get all pending bookings for this recurring series
-      console.log('[approveAllRecurringBookings] Querying bookings...');
       const q = query(
         collection(db, 'bookings'),
         where('recurringBookingId', '==', recurringBookingId),
@@ -917,21 +789,15 @@ export const approveAllRecurringBookings = createAsyncThunk(
       let snap;
       try {
         snap = await getDocs(q);
-        console.log('[approveAllRecurringBookings] ✅ Query successful, found', snap.docs.length, 'bookings');
       } catch (queryErr) {
-        console.error('[approveAllRecurringBookings] ❌ Query failed:', queryErr.code, queryErr.message);
         throw queryErr;
       }
       
-      console.log('[approveAllRecurringBookings] Found', snap.docs.length, 'pending bookings');
-      
       // Approve each booking
       const approvedBookings = [];
-      console.log('[approveAllRecurringBookings] Approving bookings...');
       for (const bookingDoc of snap.docs) {
         const bookingId = bookingDoc.id;
         const bookingData = bookingDoc.data();
-        console.log('[approveAllRecurringBookings] Approving booking:', bookingId, 'teacherId:', bookingData.teacherId, 'currentUser:', auth.currentUser.uid);
         
         const meetingUrl = `https://meet.jit.si/PTA-${bookingId}`;
         
@@ -942,7 +808,6 @@ export const approveAllRecurringBookings = createAsyncThunk(
             meetingProvider: 'jitsi',
             meetingUrl,
           });
-          console.log('[approveAllRecurringBookings] ✅ Approved booking:', bookingId);
           
           // Update corresponding availability slot to 'booked' status
           if (bookingData.slotId) {
@@ -951,14 +816,11 @@ export const approveAllRecurringBookings = createAsyncThunk(
                 status: 'booked',
                 updatedAt: serverTimestamp(),
               });
-              console.log('[approveAllRecurringBookings] ✅ Updated slot:', bookingData.slotId);
             } catch (slotErr) {
-              console.error('[approveAllRecurringBookings] ⚠️ Failed to update slot:', bookingData.slotId, slotErr);
               // Continue anyway - booking is more important than slot status
             }
           }
         } catch (updateErr) {
-          console.error('[approveAllRecurringBookings] ❌ Failed to approve booking:', bookingId, updateErr);
           throw updateErr;
         }
         
@@ -980,13 +842,10 @@ export const approveAllRecurringBookings = createAsyncThunk(
       }
       
       // Get recurring booking details for notification
-      console.log('[approveAllRecurringBookings] Getting recurring booking details...');
       let recurringDoc;
       try {
         recurringDoc = await getDoc(doc(db, 'recurringBookings', recurringBookingId));
-        console.log('[approveAllRecurringBookings] ✅ RecurringBookings read successful');
       } catch (recurringErr) {
-        console.error('[approveAllRecurringBookings] ❌ RecurringBookings read failed:', recurringErr.code, recurringErr.message);
         throw recurringErr;
       }
       
@@ -994,7 +853,6 @@ export const approveAllRecurringBookings = createAsyncThunk(
         throw new Error('Recurring booking not found');
       }
       const recurringData = recurringDoc.data();
-      console.log('[approveAllRecurringBookings] Recurring data:', recurringData);
       
       // Notify parent
       if (recurringData?.parentId) {
@@ -1022,14 +880,13 @@ export const approveAllRecurringBookings = createAsyncThunk(
               );
             }
           } catch (pushErr) {
-            console.error('[push] Failed to send approval notification:', pushErr);
+            // Failed to send push notification
           }
         })();
       }
       
       return { recurringBookingId, approvedBookings };
     } catch (err) {
-      console.error('[approveAllRecurringBookings] Error:', err);
       return rejectWithValue(err.message);
     }
   }
@@ -1040,7 +897,6 @@ const bookingsSlice = createSlice({
   initialState,
   reducers: {
     clearBookings: (state) => {
-      console.log('🧹 [bookingsSlice] Clearing all bookings data');
       state.myBookings = [];
       state.recurringBookings = [];
       state.loading = false;
@@ -1134,11 +990,8 @@ export const selectBookingsError = (state) => state.bookings.error;
 let bookingsUnsubscribe = null;
 
 export const startBookingsListener = (userId, isProvider, dispatch) => {
-  console.log('🔔 [Bookings] Starting real-time listener for:', userId, isProvider ? '(teacher)' : '(parent)');
-  
   // Stop any existing listener
   if (bookingsUnsubscribe) {
-    console.log('🔕 [Bookings] Stopping previous listener');
     bookingsUnsubscribe();
   }
 
@@ -1149,8 +1002,6 @@ export const startBookingsListener = (userId, isProvider, dispatch) => {
       : query(collection(db, 'bookings'), where('parentId', '==', userId));
 
     bookingsUnsubscribe = onSnapshot(q, (snapshot) => {
-      console.log('📦 [Bookings] Real-time update received:', snapshot.size, 'bookings');
-      
       const bookings = snapshot.docs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
@@ -1161,11 +1012,9 @@ export const startBookingsListener = (userId, isProvider, dispatch) => {
           try {
             const testDate = new Date(validDate);
             if (isNaN(testDate.getTime())) {
-              console.warn('[Bookings listener] Invalid date:', d.id, validDate);
               validDate = null;
             }
           } catch (e) {
-            console.warn('[Bookings listener] Error parsing date:', d.id, e);
             validDate = null;
           }
         }
@@ -1179,19 +1028,17 @@ export const startBookingsListener = (userId, isProvider, dispatch) => {
         payload: bookings
       });
     }, (error) => {
-      console.error('❌ [Bookings] Listener error:', error);
+      // Listener error
     });
 
     return bookingsUnsubscribe;
   } catch (error) {
-    console.error('❌ [Bookings] Failed to start listener:', error);
     return null;
   }
 };
 
 export const stopBookingsListener = () => {
   if (bookingsUnsubscribe) {
-    console.log('🔕 [Bookings] Stopping listener');
     bookingsUnsubscribe();
     bookingsUnsubscribe = null;
   }

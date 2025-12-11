@@ -52,10 +52,8 @@ const BookingsScreen = ({ navigation }) => {
   const roleColors = getRoleColors(role);
   const isProvider = isServiceProvider(role);
 
-  useEffect(() => {
-    loadBookings();
-  }, [user?.uid]);
-
+  // loadBookings now only used for manual refresh (pull-to-refresh)
+  // Data is already loaded by real-time listener in RoleDashboard
   const loadBookings = async () => {
     if (!user?.uid) return;
     
@@ -67,7 +65,7 @@ const BookingsScreen = ({ navigation }) => {
         await dispatch(fetchParentBookings()).unwrap();
       }
     } catch (error) {
-      console.error('Error loading bookings:', error);
+      // Error loading bookings
     } finally {
       setRefreshing(false);
     }
@@ -134,7 +132,6 @@ const BookingsScreen = ({ navigation }) => {
   };
 
   const handleBookingAction = async (bookingId, action) => {
-    console.log('[BookingsScreen] 🎬 handleBookingAction called:', { bookingId, action });
     
     try {
       // For other status changes (accept, decline, etc.)
@@ -147,7 +144,6 @@ const BookingsScreen = ({ navigation }) => {
       
       loadBookings();
     } catch (error) {
-      console.error('[BookingsScreen] ❌ Error updating booking:', error);
       Alert.alert('Error', error?.message || 'Failed to update booking');
     }
   };
@@ -262,12 +258,8 @@ const BookingsScreen = ({ navigation }) => {
 
   const formatTime = (dateString) => {
     if (!dateString) return '';
-    console.log('[BookingsScreen] 🕐 formatTime input:', dateString);
     const date = new Date(dateString);
-    console.log('[BookingsScreen] 🕐 Parsed Date object:', date.toString());
-    console.log('[BookingsScreen] 🕐 Hours:', date.getHours(), 'Minutes:', date.getMinutes());
     const formatted = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    console.log('[BookingsScreen] 🕐 Formatted time:', formatted);
     return formatted;
   };
 
@@ -380,7 +372,6 @@ const BookingsScreen = ({ navigation }) => {
               style={[styles.meetingButton, { backgroundColor: roleColors.primary }]}
               onPress={() => {
                 // Open meeting URL
-                console.log('Opening meeting:', booking.meetingUrl);
               }}
             >
               <Ionicons name="videocam" size={20} color="#FFFFFF" />

@@ -126,8 +126,6 @@ export const fetchTeachers = createAsyncThunk(
         return state.teachers;
       }
       
-      console.log('📊 Redux: Fetching teachers from Firebase...');
-      
       if (!db) {
         throw new Error('Firebase database not initialized');
       }
@@ -137,8 +135,6 @@ export const fetchTeachers = createAsyncThunk(
         console.log('⚠️ Redux: User not authenticated, returning empty array');
         return [];
       }
-      
-      console.log('📊 Redux: User authenticated, fetching teachers...');
       
       const teachersCollection = collection(db, 'teachers');
       const teachersSnapshot = await getDocs(teachersCollection);
@@ -197,7 +193,6 @@ export const fetchTeachers = createAsyncThunk(
         };
       });
 
-      console.log(`📊 Redux: Fetched ${teachersData.length} teachers from Firestore (normalized)`);
       return teachersData;
       
     } catch (error) {
@@ -417,7 +412,6 @@ export const loadFavoritesForCurrentUser = createAsyncThunk(
       }
       const data = snapshot.data() || {};
       const favorites = data.favoriteTeacherIds || [];
-      console.log(`❤️ Favorites: Loaded ${favorites.length} favorites from Firestore`);
       return favorites;
     } catch (error) {
       console.error('❌ Favorites: Load error', error);
@@ -524,7 +518,6 @@ const appDataSlice = createSlice({
     
     // Clear all data (for logout)
     clearData: (state) => {
-      console.log('🧹 [appDataSlice] Clearing all app data');
       state.teachers = [];
       state.parents = [];
       state.searchResults = [];

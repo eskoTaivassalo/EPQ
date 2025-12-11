@@ -30,10 +30,9 @@ export default function SimpleDrawer({ visible, onClose, navigation, menuItems, 
 
   const handleNavigate = (screenName) => {
     onClose();
-    // Pieni viive jotta drawer sulkeutuu ensin
-    setTimeout(() => {
-      navigation.navigate(screenName);
-    }, 100);
+    requestAnimationFrame(() => {
+      navigation.push(screenName);
+    });
   };
 
   return (

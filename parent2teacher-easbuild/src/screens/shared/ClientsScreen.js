@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { doc, getDoc } from 'firebase/firestore';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { listStudentsForTeacher } from '../../services/availabilityService';
+import { db } from '../../config/firebaseConfig';
 import FeedbackModal from '../../components/FeedbackModal';
 
 /**
@@ -19,14 +21,24 @@ export default function ClientsScreen({ navigation }) {
   const [students, setStudents] = useState([]); // TODO: rename to "clients"
   const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null); // TODO: rename to "selectedClient"
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [teacherSubjects, setTeacherSubjects] = useState([]);
 
   const load = useCallback(async () => {
     if (!user?.uid) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await listStudentsForTeacher(user.uid); // TODO: rename service function
+      // Fetch students
+      const data = await listStudentsForTeacher(user.uid);
       setStudents(data);
+      
+      // Fetch teacher's subjects from Firestore
+      const teacherDoc = await getDoc(doc(db, 'teachers', user.uid));
+      if (teacherDoc.exists()) {
+        const teacherData = teacherDoc.data();
+        setTeacherSubjects(teacherData.subjects || []);
+      }
     } catch (e) {
       setError(e.message || 'Failed to load students');
     } finally {
@@ -46,11 +58,21 @@ export default function ClientsScreen({ navigation }) {
     setSelectedStudent(null);
   };
 
+  const openProfileModal = (student) => {
+    setSelectedStudent(student);
+    setProfileModalVisible(true);
+  };
+
+  const closeProfileModal = () => {
+    setProfileModalVisible(false);
+    setSelectedStudent(null);
+  };
+
   const renderItem = ({ item }) => (
     <View style={styles.card}>
       <TouchableOpacity 
         style={styles.cardMain}
-        onPress={() => alert('Parent/Student profile view coming soon!')}
+        onPress={() => openProfileModal(item)}
       >
         <View style={styles.avatar}> 
           <Ionicons name="person" size={30} color={colors.white} />
@@ -122,6 +144,116 @@ export default function ClientsScreen({ navigation }) {
         />
       )}
 
+      {/* Student Profile Modal */}
+      <Modal
+        visible={profileModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={closeProfileModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Student Profile</Text>
+              <TouchableOpacity onPress={closeProfileModal}>
+                <Ionicons name="close" size={24} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+            
+            <ScrollView style={styles.modalBody}>
+              {selectedStudent && (
+                <>
+                  {/* Basic Info */}
+                  <View style={styles.profileSection}>
+                    <View style={styles.profileAvatar}>
+                      <Ionicons name="person" size={50} color={colors.white} />
+                    </View>
+                    <Text style={styles.profileName}>
+                      {selectedStudent.name || selectedStudent.fullName || 'Unnamed'}
+                    </Text>
+                  </View>
+
+                  {/* Contact Information */}
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Contact Information</Text>
+                    {selectedStudent.email && (
+                      <View style={styles.infoRow}>
+                        <Ionicons name="mail" size={18} color={colors.primary} />
+                        <Text style={styles.infoText}>{selectedStudent.email}</Text>
+                      </View>
+                    )}
+                    {selectedStudent.phone && (
+                      <View style={styles.infoRow}>
+                        <Ionicons name="call" size={18} color={colors.primary} />
+                        <Text style={styles.infoText}>{selectedStudent.phone}</Text>
+                      </View>
+                    )}
+                    {selectedStudent.location && (
+                      <View style={styles.infoRow}>
+                        <Ionicons name="location" size={18} color={colors.primary} />
+                        <Text style={styles.infoText}>
+                          {Array.isArray(selectedStudent.location) 
+                            ? selectedStudent.location.join(', ') 
+                            : selectedStudent.location}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Study Information */}
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Study Information</Text>
+                    {selectedStudent.childrenAges && (
+                      <View style={styles.infoRow}>
+                        <Ionicons name="people" size={18} color={colors.primary} />
+                        <Text style={styles.infoText}>Children: {selectedStudent.childrenAges}</Text>
+                      </View>
+                    )}
+                    {selectedStudent.needs && selectedStudent.needs.length > 0 && (
+                      <View style={styles.infoRow}>
+                        <Ionicons name="book" size={18} color={colors.primary} />
+                        <Text style={styles.infoText}>
+                          Needs: {Array.isArray(selectedStudent.needs) 
+                            ? selectedStudent.needs.join(', ') 
+                            : selectedStudent.needs}
+                        </Text>
+                      </View>
+                    )}
+                    {selectedStudent.preferences && (
+                      <View style={styles.infoRow}>
+                        <Ionicons name="star" size={18} color={colors.primary} />
+                        <Text style={styles.infoText}>Preferences: {selectedStudent.preferences}</Text>
+                      </View>
+                    )}
+                    {selectedStudent.gradeLevel && (
+                      <View style={styles.infoRow}>
+                        <Ionicons name="school" size={18} color={colors.primary} />
+                        <Text style={styles.infoText}>Grade Level: {selectedStudent.gradeLevel}</Text>
+                      </View>
+                    )}
+                  </View>
+
+                  {/* Additional Notes */}
+                  {selectedStudent.notes && (
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Notes</Text>
+                      <Text style={styles.notesText}>{selectedStudent.notes}</Text>
+                    </View>
+                  )}
+                </>
+              )}
+            </ScrollView>
+
+            <TouchableOpacity 
+              style={styles.closeButton} 
+              onPress={closeProfileModal}
+            >
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {selectedStudent && (
         <FeedbackModal
           visible={feedbackModalVisible}
@@ -133,6 +265,7 @@ export default function ClientsScreen({ navigation }) {
           roleFrom="teacher"
           roleTo="parent"
           subject="General"
+          subjects={teacherSubjects}
         />
       )}
     </SafeAreaView>
@@ -187,5 +320,97 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.primary,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    width: '100%',
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  modalBody: {
+    padding: 16,
+  },
+  profileSection: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    marginBottom: 16,
+  },
+  profileAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  infoText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: colors.text,
+    flex: 1,
+  },
+  notesText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  closeButton: {
+    backgroundColor: colors.primary,
+    padding: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

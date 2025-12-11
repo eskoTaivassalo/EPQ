@@ -48,10 +48,6 @@ const LoginScreen = ({ route, navigation }) => {
   }, []);
 
   const handleLogin = async () => {
-    console.log('🔑 LOGIN BUTTON PRESSED!');
-    console.log('🔑 UserType:', userType);
-    console.log('🔑 Form data:', { email: formData.email, hasPassword: !!formData.password });
-    
     if (!formData.email.trim() || !formData.password.trim()) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -65,16 +61,12 @@ const LoginScreen = ({ route, navigation }) => {
     setLoading(true);
     
     try {
-      console.log('🔑 Calling Redux login function...');
       const result = await login({
         email: formData.email,
         password: formData.password
       });
 
-      console.log('🔑 Login result:', result);
-
       if (result.success) {
-        console.log('🔑 Login successful!');
         // Navigation happens automatically in App.js when user state changes
       } else {
         // Show user-friendly error message (already translated in authSlice)
@@ -82,7 +74,6 @@ const LoginScreen = ({ route, navigation }) => {
         Alert.alert('Kirjautuminen epäonnistui', errorMessage);
       }
     } catch (error) {
-      console.error('🔑 Login error:', error);
       // Generic fallback for unexpected errors
       Alert.alert('Virhe', 'Kirjautuminen epäonnistui. Yritä uudelleen.');
     } finally {
@@ -142,7 +133,6 @@ const LoginScreen = ({ route, navigation }) => {
   // ✅ Existing account Google sign-in (no signup redirection)
   const handleGoogleExistingLogin = async () => {
     try {
-      console.log('🔵 Existing Google Sign-In button pressed');
       setGoogleExistingLoading(true);
       // Attempt direct Firebase auth
       const userCredential = await AuthService.signInWithGoogle();
@@ -151,7 +141,6 @@ const LoginScreen = ({ route, navigation }) => {
       }
       const { user } = userCredential;
       const uid = user.uid;
-      console.log('✅ Google user authenticated:', user.email);
       // Fetch both possible profile docs
       const teacherDocRef = doc(db, 'teachers', uid);
       const parentDocRef = doc(db, 'parents', uid);
@@ -162,7 +151,6 @@ const LoginScreen = ({ route, navigation }) => {
 
       const teacherData = teacherSnap.exists() ? teacherSnap.data() : null;
       const parentData = parentSnap.exists() ? parentSnap.data() : null;
-      console.log('🔍 Role presence -> teacher:', !!teacherData, 'parent:', !!parentData, 'requested screen userType:', userType);
 
       const normalizeUser = (firebaseUser, roleValue, firestoreData) => {
         if (!firebaseUser) return null;
@@ -209,7 +197,6 @@ const LoginScreen = ({ route, navigation }) => {
       const finalizeRoleLogin = async (chosenRole, data) => {
         try {
           const normalizedUser = normalizeUser(user, chosenRole, data);
-          console.log('✅ Finalizing login as', chosenRole, 'keys:', Object.keys(normalizedUser));
           dispatch(setUser(normalizedUser));
           await AsyncStorage.setItem('user', JSON.stringify(normalizedUser));
           await AsyncStorage.setItem('userRole', normalizedUser.role);

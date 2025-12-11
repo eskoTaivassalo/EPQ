@@ -57,7 +57,7 @@ const WelcomeScreen = ({ navigation }) => {
         }));
         setFeaturedTeachers(teachers);
       } catch (error) {
-        console.log('Could not load featured teachers:', error);
+        // Silent fail - user not authenticated or insufficient permissions
       }
     };
     

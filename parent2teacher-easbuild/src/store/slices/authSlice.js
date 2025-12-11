@@ -67,20 +67,12 @@ export const loginUser = createAsyncThunk(
   'auth/loginUser',
   async ({ email, password }, { rejectWithValue, dispatch }) => {
     try {
-      console.log('🔐 Redux: Login attempt for:', email);
-      
       // Clear all previous user data before login (CRITICAL for device reuse!)
-      console.log('🧹 Redux: ========================================');
-      console.log('🧹 Redux: CLEARING ALL DATA FROM PREVIOUS USER');
-      console.log('🧹 Redux: (This prevents notifications/bookings from showing to wrong user)');
-      console.log('🧹 Redux: ========================================');
       dispatch({ type: 'notifications/clearNotifications' });
       dispatch({ type: 'bookings/clearBookings' });
       dispatch({ type: 'appData/clearData' });
-      console.log('✅ Redux: Previous user data cleared - ready for new login');
       
       if (!auth || !db) {
-        console.log('🔐 Redux: No Firebase, using fallback login');
         const fallbackResult = await AuthService.fallbackLogin('parent', { email });
         if (fallbackResult.success) {
           return {
@@ -129,21 +121,14 @@ export const loginUser = createAsyncThunk(
         const firestoreData = serializeFirestoreData(userDoc.data());
         
         // 🚫 CHECK IF ACCOUNT IS DELETED
-        if (firestoreData.deleted === true) {
-          console.error('❌ Redux: Account is deleted, preventing login');
+        if (firestoreData.isDeleted) {
           throw new Error('This account has been deleted. Please contact support if this is an error.');
         }
         
         userData = { ...userData, ...firestoreData };
-        console.log(`✅ Redux: User data found in ${userCollection} collection`);
         
         // 🔄 SYNC EMAIL: Check if Firebase Auth email differs from Firestore email
         if (firebaseUser.email !== firestoreData.email) {
-          console.log(`🔄 Redux: Email mismatch detected!`);
-          console.log(`   Firebase Auth email: ${firebaseUser.email}`);
-          console.log(`   Firestore email: ${firestoreData.email}`);
-          console.log(`   Updating Firestore with new email...`);
-          
           try {
             const userDocRef = doc(db, userCollection, firebaseUser.uid);
             await updateDoc(userDocRef, {
@@ -153,33 +138,24 @@ export const loginUser = createAsyncThunk(
             
             // Update userData to reflect the new email
             userData.email = firebaseUser.email;
-            
-            console.log(`✅ Redux: Firestore email updated to ${firebaseUser.email}`);
           } catch (updateError) {
-            console.error('❌ Redux: Failed to update Firestore email:', updateError);
             // Continue with login even if update fails
           }
         }
-      } else {
-        console.warn('⚠️ Redux: User authenticated but no profile data found in teachers or parents collections');
       }
 
       // 🛡️ CHECK ADMIN STATUS
-      console.log('🛡️ Redux: Checking admin status for:', email);
       const adminStatus = await isAdmin(email);
       if (adminStatus) {
-        console.log('✅ Redux: User is ADMIN');
         userData.isAdmin = true;
         userData.role = 'admin';
       } else {
-        console.log('ℹ️ Redux: User is not admin');
         userData.isAdmin = false;
       }
 
       // Tallenna AsyncStorage:een (already serialized)
       await AsyncStorage.setItem('user', JSON.stringify(userData));
       
-      console.log('✅ Redux: Login successful for:', email);
       return serializeFirestoreData(userData);
       
     } catch (error) {
@@ -207,13 +183,9 @@ export const loginUser = createAsyncThunk(
 
 export const registerUser = createAsyncThunk(
   'auth/registerUser',
-  async (userData, { rejectWithValue }) => {
+  async ({ userData }, { rejectWithValue, dispatch }) => {
     try {
-      console.log('📝 Redux: Registration attempt for:', userData.email);
-      console.log('📝 Redux: isGoogleAuth:', userData.isGoogleAuth);
-      
       if (!auth || !db) {
-        console.log('📝 Redux: No Firebase, using fallback registration');
         const fallbackResult = await AuthService.fallbackLogin(userData.role || 'parent', userData);
         if (fallbackResult.success) {
           return {
@@ -228,24 +200,19 @@ export const registerUser = createAsyncThunk(
 
       // 🔵 JOS GOOGLE-KÄYTTÄJÄ: Käytä nykyistä auth.currentUser (jo kirjautunut)
       if (userData.isGoogleAuth) {
-        console.log('📝 Redux: Google user - using existing Firebase auth');
         firebaseUser = auth.currentUser;
         
         if (!firebaseUser) {
           throw new Error('Google-autentikointi epäonnistui - käyttäjää ei löydy');
         }
-        
-        console.log('✅ Redux: Using existing Google user:', firebaseUser.email);
       } else {
         // 📧 EMAIL/PASSWORD REKISTERÖINTI
         // Tarkista onko käyttäjä jo kirjautunut samalla sähköpostilla
         if (auth.currentUser && auth.currentUser.email.toLowerCase() === userData.email.toLowerCase()) {
-          console.log('📝 Redux: User already authenticated, adding new role profile');
           firebaseUser = auth.currentUser;
         } else {
           // Luo uusi Firebase Auth käyttäjä
           try {
-            console.log('📝 Redux: Creating new email/password user');
             const userCredential = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
             firebaseUser = userCredential.user;
             
@@ -256,8 +223,6 @@ export const registerUser = createAsyncThunk(
           } catch (authError) {
             // Jos sähköposti on jo käytössä, yritä kirjautua sisään
             if (authError.code === 'auth/email-already-in-use') {
-              console.log('📝 Redux: Email exists, attempting sign in to add new role');
-              
               if (!userData.password) {
                 throw new Error('Sähköposti on jo käytössä. Kirjaudu ensin sisään lisätäksesi uuden roolin.');
               }
@@ -265,7 +230,6 @@ export const registerUser = createAsyncThunk(
               try {
                 const signInResult = await signInWithEmailAndPassword(auth, userData.email, userData.password);
                 firebaseUser = signInResult.user;
-                console.log('✅ Redux: Signed in existing user to add new role');
               } catch (signInError) {
                 throw new Error('Sähköposti on jo käytössä eri salasanalla. Kirjaudu ensin sisään olemassa olevalla tilillä.');
               }
@@ -289,17 +253,13 @@ export const registerUser = createAsyncThunk(
       // Tallenna vain oikeaan kokoelmaan roolin perusteella
       const collectionName = userData.role === 'teacher' ? 'teachers' : 'parents';
       await setDoc(doc(db, collectionName, firebaseUser.uid), firestoreData);
-      
-      console.log(`✅ Redux: User saved to ${collectionName} collection`);
 
       // 📧 Lähetä vahvistussähköposti (vain email/password rekisteröinnille, ei Google-käyttäjille)
       if (!userData.isGoogleAuth && !firebaseUser.emailVerified) {
         try {
           await sendEmailVerification(firebaseUser);
-          console.log('📧 Redux: Email verification sent to:', firebaseUser.email);
         } catch (emailError) {
-          console.error('⚠️ Redux: Failed to send verification email:', emailError);
-          // Älä estä rekisteröintiä vaikka sähköpostin lähetys epäonnistuisi
+          // Jätkä rekisteröintiä vaikka sähköposti epäonnistuu
         }
       }
 
@@ -317,11 +277,9 @@ export const registerUser = createAsyncThunk(
       // Tallenna AsyncStorage:een
       await AsyncStorage.setItem('user', JSON.stringify(finalUserData));
       
-      console.log('✅ Redux: Registration successful for:', userData.email);
       return finalUserData;
       
     } catch (error) {
-      console.error('❌ Redux: Registration error:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -331,34 +289,25 @@ export const logoutUser = createAsyncThunk(
   'auth/logoutUser',
   async (_, { rejectWithValue, dispatch }) => {
     try {
-      console.log('🚪 Redux: Logout attempt');
-      
       // 1. Sign out from Firebase
       if (auth) {
         await signOut(auth);
-        console.log('✅ Redux: Firebase signOut successful');
       }
       
       // 2. Clear AsyncStorage
       await AsyncStorage.removeItem('user');
-      console.log('✅ Redux: AsyncStorage user removed');
       
       // 3. Clear session data
       await SessionManager.clearSession();
-      console.log('✅ Redux: Session cleared');
       
       // 4. Clear all Redux slices (CRITICAL for device reuse!)
-      console.log('🧹 Redux: Clearing all slices...');
       dispatch({ type: 'notifications/clearNotifications' });
       dispatch({ type: 'bookings/clearBookings' });
       dispatch({ type: 'appData/clearData' });
-      console.log('✅ Redux: All slices cleared');
       
-      console.log('✅ Redux: Logout successful');
       return null;
       
     } catch (error) {
-      console.error('❌ Redux: Logout error:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -372,11 +321,9 @@ export const refreshUser = createAsyncThunk(
       
       // Jos ei ole currentUser:ia Redux:ssa, yritä ladata AsyncStorage:sta
       if (!currentUser) {
-        console.log('🔄 Redux: No current user in state, trying to load from storage');
         const storedUser = await AsyncStorage.getItem('user');
         if (storedUser) {
           const userData = JSON.parse(storedUser);
-          console.log('✅ Redux: Loaded user from storage for refresh');
           return userData;
         }
         throw new Error('No user to refresh');
@@ -393,7 +340,6 @@ export const refreshUser = createAsyncThunk(
           timestamp: Date.now()
         });
         
-        console.log('✅ Redux: User refreshed from Firebase, emailVerified:', refreshedUser.emailVerified);
         return updatedUserData;
       }
       
@@ -408,14 +354,12 @@ export const refreshUser = createAsyncThunk(
         return serializeFirestoreData(currentUser); // Palauta ilman loggausta jos data on tuoretta
       }
       
-      console.log('🔄 Redux: Firebase not available, data older than 5 minutes, updating timestamp');
       return serializeFirestoreData({
         ...currentUser,
         timestamp: now
       });
       
     } catch (error) {
-      console.error('❌ Redux: Refresh error:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -425,11 +369,9 @@ export const loadStoredAuth = createAsyncThunk(
   'auth/loadStoredAuth',
   async (_, { rejectWithValue, dispatch }) => {
     try {
-      console.log('💾 Redux: Loading stored auth from AsyncStorage');
       const storedUser = await AsyncStorage.getItem('user');
       
       if (storedUser) {
-        console.log('💾 Redux: Found stored user data');
         const userData = serializeFirestoreData(JSON.parse(storedUser));
         
         // Wait a moment for Firebase to initialize
@@ -437,10 +379,6 @@ export const loadStoredAuth = createAsyncThunk(
         
         // Check if Firebase Auth session exists
         if (!auth?.currentUser) {
-          console.error('⚠️ CRITICAL: Firebase Auth session expired!');
-          console.error('⚠️ User is in Redux but not in Firebase Auth');
-          console.error('⚠️ Clearing stored data and requiring re-login');
-          
           // Clear everything and force re-login
           await AsyncStorage.removeItem('user');
           
@@ -448,7 +386,7 @@ export const loadStoredAuth = createAsyncThunk(
             try {
               await signOut(auth);
             } catch (e) {
-              console.log('Signout error (expected):', e.message);
+              // Signout error (expected)
             }
           }
           
@@ -456,15 +394,12 @@ export const loadStoredAuth = createAsyncThunk(
           return null; // This will log the user out
         }
         
-        console.log('✅ Firebase Auth session verified for:', auth.currentUser.email);
         return userData;
       }
       
-      console.log('💾 Redux: No stored user data found');
       return null;
       
     } catch (error) {
-      console.error('❌ Redux: Error loading stored auth:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -474,8 +409,6 @@ export const clearAllAuthData = createAsyncThunk(
   'auth/clearAllAuthData',
   async (_, { rejectWithValue }) => {
     try {
-      console.log('🧹 Redux: Clearing all authentication data');
-      
       // Stop session tracking
       SessionManager.cleanup();
       
@@ -494,11 +427,9 @@ export const clearAllAuthData = createAsyncThunk(
       // Reset session manager
       await SessionManager.reset();
       
-      console.log('✅ Redux: All auth data cleared successfully');
       return null;
       
     } catch (error) {
-      console.error('❌ Redux: Error clearing auth data:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -509,22 +440,17 @@ export const initializeSession = createAsyncThunk(
   'auth/initializeSession',
   async (onSessionExpired, { rejectWithValue }) => {
     try {
-      console.log('🕐 Redux: Initializing session tracking');
-      
       const isValid = await SessionManager.initialize(onSessionExpired);
       
       if (!isValid) {
-        console.log('⏰ Redux: Session expired during initialization');
         return { expired: true };
       }
       
       const sessionInfo = await SessionManager.getSessionInfo();
-      console.log('✅ Redux: Session initialized:', sessionInfo);
       
       return sessionInfo;
       
     } catch (error) {
-      console.error('❌ Redux: Session initialization error:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -539,7 +465,6 @@ export const updateActivity = createAsyncThunk(
       const sessionInfo = await SessionManager.getSessionInfo();
       return sessionInfo;
     } catch (error) {
-      console.error('❌ Redux: Activity update error:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -550,12 +475,10 @@ export const setRememberMe = createAsyncThunk(
   'auth/setRememberMe',
   async (enabled, { rejectWithValue }) => {
     try {
-      console.log(`🕐 Redux: Setting remember me to: ${enabled}`);
       await SessionManager.setRememberMe(enabled);
       const sessionInfo = await SessionManager.getSessionInfo();
       return { enabled, sessionInfo };
     } catch (error) {
-      console.error('❌ Redux: Remember me error:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -569,7 +492,6 @@ export const getSessionInfo = createAsyncThunk(
       const sessionInfo = await SessionManager.getSessionInfo();
       return sessionInfo;
     } catch (error) {
-      console.error('❌ Redux: Get session info error:', error);
       return rejectWithValue(error.message);
     }
   }

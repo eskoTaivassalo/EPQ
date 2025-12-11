@@ -306,8 +306,6 @@ export class SecurityService {
       url: typeof window !== 'undefined' ? window.location.href : 'unknown'
     };
     
-    console.warn('[SECURITY]', logEntry);
-    
     // Tuotannossa lähetettäisiin security-monitorointiin
     // await sendToSecurityMonitoring(logEntry);
   }

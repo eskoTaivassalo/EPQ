@@ -39,29 +39,21 @@ export default function TeacherAvailabilityScreen({ navigation }) {
     async function fetchSubjects() {
       if (!user?.uid) return;
       try {
-        console.log('🔍 Fetching subjects for UID:', user.uid);
         const docRef = doc(db, 'teachers', user.uid);
         const snap = await getDoc(docRef);
-        console.log('📄 Document exists:', snap.exists());
         if (snap.exists()) {
           const data = snap.data();
-          console.log('📦 Full document data keys:', Object.keys(data));
-          console.log('📚 data.subjects:', data.subjects);
-          console.log('📚 data.profile?.subjects:', data.profile?.subjects);
           
           // Try both root and nested profile
           const subjects = data.subjects || data.profile?.subjects || [];
-          console.log('✅ Final subjects array:', subjects);
           
           if (Array.isArray(subjects) && subjects.length > 0) {
             setProfileSubjects(subjects);
           } else {
-            console.warn('⚠️ No valid subjects found');
             setProfileSubjects([]);
           }
         }
       } catch (e) {
-        console.error('❌ Error fetching subjects:', e);
         setProfileSubjects([]);
       }
     }

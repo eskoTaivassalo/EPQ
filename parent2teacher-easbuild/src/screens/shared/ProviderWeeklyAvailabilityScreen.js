@@ -10,6 +10,8 @@ import { useAuth } from '../../hooks/useAuth';
 import RecurringBookingModal from '../../components/RecurringBookingModal';
 import { useDispatch } from 'react-redux';
 import { createRecurringBooking } from '../../store/slices/bookingsSlice';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../../config/firebaseConfig';
 
 function startOfWeek(date) {
   const d = new Date(date);
@@ -43,6 +45,7 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
   const autoJumpedRef = useRef(false);
   const [showRecurringModal, setShowRecurringModal] = useState(false);
   const [bookedSlotData, setBookedSlotData] = useState(null);
+  const [bookingInProgress, setBookingInProgress] = useState(false);
   const dispatch = useDispatch();
 
   const weekStart = useMemo(() => startOfWeek(currentDate), [currentDate]);
@@ -51,23 +54,8 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      console.log('🔍 Weekly view loading:', {
-        weekStart: weekStart.toLocaleString(),
-        weekEnd: weekEnd.toLocaleString(),
-        weekStartDay: weekStart.getDay(),
-        weekEndDay: weekEnd.getDay()
-      });
       
       const data = await listAvailableSlots(teacherId, weekStart, weekEnd);
-      
-      console.log(`📦 Loaded ${data.length} slots from Firestore`);
-      if (data.length > 0) {
-        console.log('Sample slots:', data.slice(0, 3).map(s => ({
-          date: s.date,
-          start: s.start,
-          dayOfWeek: new Date(s.start).getDay()
-        })));
-      }
       
       // Filter out past slots and slots less than 2 hours from now
       const now = new Date();
@@ -75,18 +63,8 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       
       const validSlots = data.filter(s => {
         const slotStart = new Date(s.start);
-        const isValid = slotStart > twoHoursFromNow;
-        if (!isValid && slotStart.getDay() === 0) {
-          console.log('⚠️ Filtering out Sunday slot (too soon):', {
-            start: slotStart.toLocaleString(),
-            now: now.toLocaleString(),
-            twoHoursFromNow: twoHoursFromNow.toLocaleString()
-          });
-        }
-        return isValid;
+        return slotStart > twoHoursFromNow;
       });
-      
-      console.log(`✅ After time filter: ${validSlots.length} slots (removed ${data.length - validSlots.length})`);
       
       const mapped = validSlots.map(s => {
         const startDate = new Date(s.start);
@@ -100,18 +78,6 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
         const endTime = endDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
         const title = durationMinutes <= 30 ? `${startTime}` : `${startTime}-${endTime}`;
         
-        // CRITICAL FIX: react-native-big-calendar filters events by comparing Date objects
-        // Ensure Sunday events are within the week bounds by logging what we're creating
-        if (startDate.getDay() === 0) {
-          console.log('📅 Creating Sunday event for calendar:', {
-            id: s.id,
-            start: startDate.toLocaleString(),
-            end: endDate.toLocaleString(),
-            startDay: startDate.getDay(),
-            withinWeek: startDate >= weekStart && startDate <= weekEnd
-          });
-        }
-        
         return {
           id: s.id,
           title: title,
@@ -122,10 +88,6 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       });
       
       setEvents(mapped);
-      
-      // Count how many Sunday events we're setting
-      const sundayEvents = mapped.filter(e => e.start.getDay() === 0);
-      console.log(`📅 Weekly view: Set ${mapped.length} events (${sundayEvents.length} on Sunday)`);
       
       // Reset next-available hint when current week has events
       if (mapped.length > 0) {
@@ -184,8 +146,10 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
     findNext();
   }, [events, loading, teacherId, weekEnd, searchingNext]);
 
-  const onPressEvent = async (evt) => {
-    const s = evt.slot;
+  const onPressEvent = async (ev) => {
+    if (bookingInProgress) return;
+    
+    const s = ev.slot;
     if (!user?.uid) return Alert.alert('Error', 'Not authenticated');
 
     // Double-check that slot is still valid (at least 2 hours from now)
@@ -226,42 +190,96 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       return;
     }
 
-    const ok = await new Promise(resolve => {
-      Alert.alert(
-        'Vahvista varaus',
-        `${new Date(s.start).toLocaleString()} - ${new Date(s.end).toLocaleTimeString()}\nAine: ${selectedSubject}`,
-        [
-          { text: 'Peruuta', style: 'cancel', onPress: () => resolve(false) },
-          { text: 'Varaa', onPress: () => resolve(true) },
-        ]
-      );
+    // DON'T ask for confirmation here - just show recurring modal
+    // Store data and show recurring modal first
+    setBookedSlotData({
+      teacherId,
+      teacherName: teacherName || 'Teacher',
+      date: new Date(s.start),
+      notes: `Subject: ${selectedSubject}`,
+      slotStart: new Date(s.start),
+      slotId: s.id,
+      subject: selectedSubject,
     });
-    if (!ok) return;
-
-    try {
-      // DON'T book yet - store data and show recurring modal first
-      setBookedSlotData({
-        teacherId,
-        teacherName: teacherName || 'Teacher',
-        date: new Date(s.start),
-        notes: `Subject: ${selectedSubject}`,
-        slotStart: new Date(s.start),
-        slotId: s.id, // Store slot ID for single booking
-      });
-      
-      // Show recurring modal first
-      setShowRecurringModal(true);
-      
-      setEvents(prev => prev.filter(e => e.id !== s.id));
-    } catch (e) {
-      console.error('Book slot error', e);
-      Alert.alert('Virhe', e.message || 'Varauksen tekeminen epäonnistui');
-    }
+    
+    // Show recurring modal first
+    setShowRecurringModal(true);
   };
 
   const handleRecurringConfirm = async ({ frequency, numberOfWeeks }) => {
     try {
       if (!bookedSlotData) return;
+      
+      // First, check how many slots are actually available
+      const startDate = new Date(bookedSlotData.slotStart);
+      const interval = frequency === 'weekly' ? 7 : 14;
+      
+      // Get teacher's available slots
+      const availableSlotsQuery = query(
+        collection(db, 'availabilitySlots'),
+        where('teacherId', '==', bookedSlotData.teacherId),
+        where('status', '==', 'available')
+      );
+      const availableSlotsSnap = await getDocs(availableSlotsQuery);
+      const availableSlots = availableSlotsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      // Check which dates have available slots
+      let availableCount = 0;
+      const availableDates = [];
+      const unavailableDates = [];
+      
+      for (let i = 0; i < numberOfWeeks; i++) {
+        const bookingDate = new Date(startDate);
+        bookingDate.setDate(bookingDate.getDate() + (i * interval));
+        
+        // Skip past dates
+        if (bookingDate < new Date()) {
+          unavailableDates.push(bookingDate);
+          continue;
+        }
+        
+        // Check if teacher has an available slot for this date/time
+        const matchingSlot = availableSlots.find(slot => {
+          const slotStart = new Date(slot.start);
+          const timeDiff = Math.abs(slotStart.getTime() - bookingDate.getTime());
+          return timeDiff < 30 * 60 * 1000 && slot.status === 'available';
+        });
+        
+        if (matchingSlot) {
+          availableCount++;
+          availableDates.push(bookingDate);
+        } else {
+          unavailableDates.push(bookingDate);
+        }
+      }
+      
+      // Show confirmation with actual availability info
+      const endTime = new Date(startDate.getTime() + 45 * 60 * 1000);
+      const frequencyText = frequency === 'weekly' ? 'viikoittain' : 'joka toinen viikko';
+      
+      let confirmMessage = `Ensimmäinen varaus:\n${startDate.toLocaleDateString('fi-FI')} klo ${startDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}\n\nAine: ${bookedSlotData.subject || 'N/A'}\nToistuvuus: ${frequencyText}\n\n`;
+      
+      if (availableCount === numberOfWeeks) {
+        confirmMessage += `✅ Kaikki ${numberOfWeeks} varausta voidaan luoda.`;
+      } else if (availableCount > 0) {
+        confirmMessage += `⚠️ Vain ${availableCount}/${numberOfWeeks} varausta voidaan luoda.\nOpettajalla ei ole vapaita aikoja ${unavailableDates.length} päivämäärälle.`;
+      } else {
+        Alert.alert('Ei vapaita aikoja', 'Opettajalla ei ole vapaita aikoja yhdelläkään pyydetyllä päivämäärällä.');
+        return;
+      }
+      
+      const ok = await new Promise(resolve => {
+        Alert.alert(
+          'Vahvista toistuva varaus',
+          confirmMessage,
+          [
+            { text: 'Peruuta', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Luo varaukset', onPress: () => resolve(true) },
+          ]
+        );
+      });
+      
+      if (!ok) return;
       
       const result = await dispatch(createRecurringBooking({
         teacherId: bookedSlotData.teacherId,
@@ -274,15 +292,20 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       
       setShowRecurringModal(false);
       
-      // Show appropriate message based on results
+      // Show detailed results with all booked dates
       const { bookings, skippedBookings } = result;
+      
+      let successMessage = `Luodut varaukset (${bookings.length} kpl):\n\n`;
+      bookings.forEach((booking, index) => {
+        const date = new Date(booking.date);
+        successMessage += `${index + 1}. ${date.toLocaleDateString('fi-FI')} klo ${date.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}\n`;
+      });
+      
       if (skippedBookings && skippedBookings.length > 0) {
-        Alert.alert(
-          'Partially Created 📅', 
-          `${bookings.length} bookings created successfully.\n${skippedBookings.length} dates were skipped because the teacher has no available slots for those times.`
-        );
+        successMessage += `\n⚠️ Ohitetut päivämäärät (${skippedBookings.length} kpl):\nOpettajalla ei ollut vapaita aikoja näille ajoille.`;
+        Alert.alert('Varaukset luotu 📅', successMessage);
       } else {
-        Alert.alert('Success! 🎉', `${bookings.length} ${frequency} bookings created. Your teacher will review them.`);
+        Alert.alert('Onnistui! 🎉', successMessage);
       }
       
       // Reload to show updated calendar
@@ -294,7 +317,30 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
   };
 
   const handleRecurringSkip = async () => {
-    // User chose single booking - book it now
+    // User chose single booking - show confirmation first
+    if (bookingInProgress) return;
+    
+    if (!bookedSlotData) return;
+    
+    const startDate = new Date(bookedSlotData.slotStart);
+    const endTime = new Date(startDate.getTime() + 45 * 60 * 1000); // Assuming 45 min slots
+    
+    const confirmMessage = `${startDate.toLocaleDateString('fi-FI')} klo ${startDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}\nAine: ${bookedSlotData.subject || 'N/A'}`;
+    
+    const ok = await new Promise(resolve => {
+      Alert.alert(
+        'Vahvista varaus',
+        confirmMessage,
+        [
+          { text: 'Peruuta', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Varaa', onPress: () => resolve(true) },
+        ]
+      );
+    });
+    
+    if (!ok) return;
+    
+    setBookingInProgress(true);
     try {
       if (!bookedSlotData?.slotId) return;
       
@@ -309,7 +355,17 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       console.error('Book slot error:', e);
       Alert.alert('Error', e.message || 'Failed to create booking');
       setShowRecurringModal(false);
+    } finally {
+      setBookingInProgress(false);
     }
+  };
+
+  const handleRecurringCancel = () => {
+    // User clicked X - just close modal and restore the slot to calendar
+    setShowRecurringModal(false);
+    setBookedSlotData(null);
+    // Reload to restore the slot
+    load();
   };
 
   const goPrevWeek = () => {
@@ -453,7 +509,7 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
         selectedDate={bookedSlotData?.slotStart}
         onConfirm={handleRecurringConfirm}
         onSkip={handleRecurringSkip}
-        onClose={handleRecurringSkip}
+        onClose={handleRecurringCancel}
       />
     </SafeAreaView>
   );

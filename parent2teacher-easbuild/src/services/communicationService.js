@@ -244,8 +244,11 @@ export function subscribeToSupportConversation(userId1, userId2, onChange) {
  * listConversationsForUser - derive conversations by grouping messages by the counterpart id.
  * Returns items: { counterpartId: string, counterpartRole: 'teacher'|'parent'|'support', lastMessage, lastAt, type, category, subject }
  * Supports both regular teacher<->parent messages and support messages (type='support')
+ * @param {string} userId - User ID
+ * @param {string} role - User role ('teacher' or 'parent')
+ * @param {boolean} includeSupport - Whether to include support messages (default: false)
  */
-export async function listConversationsForUser(userId, role) {
+export async function listConversationsForUser(userId, role, includeSupport = false) {
   if (!db) throw new Error('Firestore not initialized');
   const ref = collection(db, 'messages');
   
@@ -254,17 +257,19 @@ export async function listConversationsForUser(userId, role) {
     ? query(ref, where('teacherId', '==', userId), orderBy('createdAt', 'desc'))
     : query(ref, where('parentId', '==', userId), orderBy('createdAt', 'desc'));
   
-  // Query 2: Support messages where user is recipient
-  const q2 = query(ref, where('recipientId', '==', userId), orderBy('createdAt', 'desc'));
+  // Only query support messages if includeSupport is true
+  const queries = [getDocs(q1)];
   
-  // Query 3: Support messages where user is sender
-  const q3 = query(ref, where('senderId', '==', userId), orderBy('createdAt', 'desc'));
+  if (includeSupport) {
+    // Query 2: Support messages where user is recipient
+    const q2 = query(ref, where('recipientId', '==', userId), orderBy('createdAt', 'desc'));
+    // Query 3: Support messages where user is sender
+    const q3 = query(ref, where('senderId', '==', userId), orderBy('createdAt', 'desc'));
+    queries.push(getDocs(q2), getDocs(q3));
+  }
   
-  const [snap1, snap2, snap3] = await Promise.all([
-    getDocs(q1),
-    getDocs(q2),
-    getDocs(q3)
-  ]);
+  const results = await Promise.all(queries);
+  const [snap1, snap2, snap3] = results;
   
   const map = new Map();
   
@@ -285,50 +290,55 @@ export async function listConversationsForUser(userId, role) {
     }
   });
   
-  // Process support messages (as recipient)
-  snap2.forEach(docSnap => {
-    const m = { id: docSnap.id, ...docSnap.data() };
-    if (m.type !== 'support') return;
-    const counterpartId = m.senderId;
-    if (!counterpartId) return;
-    const conversationKey = `support-${counterpartId}`;
-    if (!map.has(conversationKey)) {
-      map.set(conversationKey, { 
-        counterpartId, 
-        counterpartRole: m.senderRole || 'guest',
-        counterpartName: m.senderName,
-        counterpartEmail: m.senderEmail,
-        lastMessage: m.text || m.subject || m.content, 
-        lastAt: m.createdAt || m.timestamp,
-        type: 'support',
-        category: m.category,
-        subject: m.subject,
-        isRead: m.read
-      });
-    }
-  });
+  // Process support messages only if includeSupport is true
+  if (includeSupport && snap2) {
+    // Process support messages (as recipient)
+    snap2.forEach(docSnap => {
+      const m = { id: docSnap.id, ...docSnap.data() };
+      if (m.type !== 'support') return;
+      const counterpartId = m.senderId;
+      if (!counterpartId) return;
+      const conversationKey = `support-${counterpartId}`;
+      if (!map.has(conversationKey)) {
+        map.set(conversationKey, { 
+          counterpartId, 
+          counterpartRole: m.senderRole || 'guest',
+          counterpartName: m.senderName,
+          counterpartEmail: m.senderEmail,
+          lastMessage: m.text || m.subject || m.content, 
+          lastAt: m.createdAt || m.timestamp,
+          type: 'support',
+          category: m.category,
+          subject: m.subject,
+          isRead: m.read
+        });
+      }
+    });
+  }
   
-  // Process support messages (as sender)
-  snap3.forEach(docSnap => {
-    const m = { id: docSnap.id, ...docSnap.data() };
-    if (m.type !== 'support') return;
-    const counterpartId = m.recipientId;
-    if (!counterpartId) return;
-    const conversationKey = `support-${counterpartId}`;
-    if (!map.has(conversationKey)) {
-      map.set(conversationKey, { 
-        counterpartId, 
-        counterpartRole: m.recipientRole || 'admin',
-        counterpartName: m.recipientEmail?.split('@')[0] || 'Admin',
-        lastMessage: m.text || m.subject || m.content, 
-        lastAt: m.createdAt || m.timestamp,
-        type: 'support',
-        category: m.category,
-        subject: m.subject,
-        isRead: m.read
-      });
-    }
-  });
+  if (includeSupport && snap3) {
+    // Process support messages (as sender)
+    snap3.forEach(docSnap => {
+      const m = { id: docSnap.id, ...docSnap.data() };
+      if (m.type !== 'support') return;
+      const counterpartId = m.recipientId;
+      if (!counterpartId) return;
+      const conversationKey = `support-${counterpartId}`;
+      if (!map.has(conversationKey)) {
+        map.set(conversationKey, { 
+          counterpartId, 
+          counterpartRole: m.recipientRole || 'admin',
+          counterpartName: m.recipientEmail?.split('@')[0] || 'Admin',
+          lastMessage: m.text || m.subject || m.content, 
+          lastAt: m.createdAt || m.timestamp,
+          type: 'support',
+          category: m.category,
+          subject: m.subject,
+          isRead: m.read
+        });
+      }
+    });
+  }
   
   return Array.from(map.values()).sort((a, b) => {
     const timeA = a.lastAt?.toMillis ? a.lastAt.toMillis() : 0;

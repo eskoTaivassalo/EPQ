@@ -23,7 +23,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { getRoleConfig, getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 import { useAuth } from '../../hooks/useAuth';
 import SimpleDrawer from '../../components/SimpleDrawer';
-import { fetchTeacherBookings, fetchParentBookings, selectBookings, updateBookingStatus, startBookingsListener, stopBookingsListener } from '../../store/slices/bookingsSlice';
+import { fetchTeacherBookings, fetchParentBookings, selectBookings, updateBookingStatus, approveAllRecurringBookings, startBookingsListener, stopBookingsListener } from '../../store/slices/bookingsSlice';
 import { fetchNotifications, startNotificationListener, stopNotificationListener } from '../../store/slices/notificationsSlice';
 import { useAppData } from '../../hooks/useAppData';
 
@@ -68,11 +68,9 @@ const RoleDashboard = ({ navigation }) => {
   useEffect(() => {
     if (!user?.uid) return;
     
-    console.log('📦 Setting up real-time bookings listener');
     const unsubscribe = startBookingsListener(user.uid, isProvider, dispatch);
     
     return () => {
-      console.log('🔕 Cleaning up bookings listener');
       stopBookingsListener();
     };
   }, [dispatch, user?.uid, isProvider]);
@@ -81,11 +79,9 @@ const RoleDashboard = ({ navigation }) => {
   useEffect(() => {
     if (!user?.uid) return;
     
-    console.log('🔔 Setting up real-time notification listener');
     const unsubscribe = startNotificationListener(user.uid, dispatch);
     
     return () => {
-      console.log('🔕 Cleaning up notification listener');
       stopNotificationListener();
     };
   }, [dispatch, user?.uid]);
@@ -105,16 +101,10 @@ const RoleDashboard = ({ navigation }) => {
           await dispatch(fetchNotifications(user.uid)).unwrap();
         } catch (error) {
           // Silent fail - auth might not be ready yet
-          if (error !== 'not_authenticated' && error !== 'user_mismatch') {
-            console.warn('[Dashboard] Failed to fetch notifications:', error);
-          }
         }
       }
       
       // Calculate real stats from bookings
-      console.log('📊 [Dashboard] Total bookings:', bookings.length);
-      console.log('📊 [Dashboard] Bookings data:', bookings.map(b => ({ id: b.id, status: b.status, date: b.date })));
-      
       const now = new Date();
       const confirmedBookings = bookings.filter(b => 
         b.status === 'accepted' || b.status === 'confirmed'
@@ -127,11 +117,42 @@ const RoleDashboard = ({ navigation }) => {
         b.status === 'pending' || b.status === 'booked'
       );
       
-      console.log('⏳ [Dashboard] Pending bookings count:', calculatedPendingBookings.length);
-      console.log('⏳ [Dashboard] Pending bookings:', calculatedPendingBookings.map(b => ({ id: b.id, status: b.status })));
-      
       // Update pending bookings state
       setPendingBookings(calculatedPendingBookings);
+      
+      // Group pending bookings by recurringBookingId for providers
+      if (isProvider) {
+        const recurringGroups = {};
+        const standalonePending = [];
+        
+        calculatedPendingBookings.forEach(booking => {
+          if (booking.recurringBookingId) {
+            if (!recurringGroups[booking.recurringBookingId]) {
+              recurringGroups[booking.recurringBookingId] = [];
+            }
+            recurringGroups[booking.recurringBookingId].push(booking);
+          } else {
+            standalonePending.push(booking);
+          }
+        });
+        
+        // Convert recurring groups to array
+        const recurringRequests = Object.entries(recurringGroups).map(([id, bookings]) => ({
+          type: 'recurring',
+          recurringBookingId: id,
+          bookings: bookings.sort((a, b) => new Date(a.date) - new Date(b.date)),
+          parentId: bookings[0].parentId,
+          notes: bookings[0].notes
+        }));
+        
+        // Combine: recurring first, then standalone
+        const combinedPending = [
+          ...recurringRequests,
+          ...standalonePending.map(b => ({ type: 'single', booking: b }))
+        ];
+        
+        setPendingBookings(combinedPending);
+      }
       
       let calculatedStats = {};
       
@@ -189,6 +210,19 @@ const RoleDashboard = ({ navigation }) => {
     
     // Show confirmation
     alert(`✅ Booking accepted!\n\nVideo meeting link will be available in Upcoming Sessions`);
+  };
+
+  const handleAcceptAll = async (recurringBookingId) => {
+    try {
+      await dispatch(approveAllRecurringBookings({ recurringBookingId })).unwrap();
+      alert('✅ All recurring bookings accepted!');
+      // Refresh bookings
+      if (isProvider) {
+        await dispatch(fetchTeacherBookings());
+      }
+    } catch (error) {
+      alert('❌ Failed to accept recurring bookings: ' + error);
+    }
   };
 
   const handleDeclineBooking = async (booking) => {
@@ -369,53 +403,102 @@ const RoleDashboard = ({ navigation }) => {
                 </Text>
               </View>
             ) : (
-              pendingBookings.slice(0, 3).map((booking) => {
-                const parent = getParentById(booking.parentId);
-                console.log('[RoleDashboard] 📅 Booking date string:', booking.date);
-                const bookingDate = new Date(booking.date);
-                console.log('[RoleDashboard] 📅 Parsed date object:', bookingDate.toString());
-                return (
-                  <View key={booking.id} style={[styles.requestCard, { backgroundColor: roleColors.card }]}>
-                    <View style={styles.requestHeader}>
-                      <Text style={[styles.requestStudent, { color: roleColors.text }]}>
-                        {parent?.name || parent?.fullName || parent?.displayName || 'Parent/Student'}
+              pendingBookings.slice(0, 3).map((request, idx) => {
+                if (request.type === 'recurring') {
+                  // Recurring booking group
+                  const parent = getParentById(request.parentId);
+                  const firstDate = new Date(request.bookings[0].date);
+                  const lastDate = new Date(request.bookings[request.bookings.length - 1].date);
+                  
+                  return (
+                    <View key={`recurring-${request.recurringBookingId}`} style={[styles.requestCard, { backgroundColor: roleColors.card }]}>
+                      <View style={styles.requestHeader}>
+                        <View style={styles.recurringHeaderLeft}>
+                          <Ionicons name="repeat" size={20} color={roleColors.primary} />
+                          <Text style={[styles.requestStudent, { color: roleColors.text, marginLeft: 8 }]}>
+                            {parent?.name || parent?.fullName || parent?.displayName || 'Parent'}
+                          </Text>
+                        </View>
+                        <View style={[styles.requestBadge, { backgroundColor: roleColors.primary }]}>
+                          <Text style={styles.requestBadgeText}>{request.bookings.length}x</Text>
+                        </View>
+                      </View>
+                      {request.notes && (
+                        <Text style={[styles.requestSubject, { color: roleColors.textSecondary }]} numberOfLines={1}>{request.notes}</Text>
+                      )}
+                      <Text style={[styles.requestTime, { color: roleColors.textSecondary }]}>
+                        {firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </Text>
-                      <View style={[styles.requestBadge, { backgroundColor: roleColors.primary }]}>
-                        <Text style={styles.requestBadgeText}>New</Text>
+                      <Text style={[styles.recurringDates, { color: roleColors.textSecondary }]}>
+                        {request.bookings.length} sessions • Every week
+                      </Text>
+                      <View style={styles.requestActions}>
+                        <TouchableOpacity 
+                          style={[styles.acceptButton, { backgroundColor: roleColors.primary }]}
+                          onPress={() => handleAcceptAll(request.recurringBookingId)}
+                        >
+                          <Ionicons name="checkmark-done" size={18} color="#FFFFFF" />
+                          <Text style={styles.acceptButtonText}>Accept All</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.declineButton, { borderColor: roleColors.primary }]}
+                          onPress={() => navigation.navigate('Bookings', { filterRecurring: request.recurringBookingId })}
+                        >
+                          <Ionicons name="list" size={18} color={roleColors.primary} />
+                          <Text style={[styles.declineButtonText, { color: roleColors.primary }]}>View Details</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
-                    {booking.notes && (
-                      <Text style={[styles.requestSubject, { color: roleColors.textSecondary }]} numberOfLines={1}>
-                        {booking.notes}
+                  );
+                } else {
+                  // Single booking
+                  const booking = request.booking || request;
+                  const parent = getParentById(booking.parentId);
+                  const bookingDate = new Date(booking.date);
+                  
+                  return (
+                    <View key={booking.id} style={[styles.requestCard, { backgroundColor: roleColors.card }]}>
+                      <View style={styles.requestHeader}>
+                        <Text style={[styles.requestStudent, { color: roleColors.text }]}>
+                          {parent?.name || parent?.fullName || parent?.displayName || 'Parent/Student'}
+                        </Text>
+                        <View style={[styles.requestBadge, { backgroundColor: roleColors.primary }]}>
+                          <Text style={styles.requestBadgeText}>New</Text>
+                        </View>
+                      </View>
+                      {booking.notes && (
+                        <Text style={[styles.requestSubject, { color: roleColors.textSecondary }]} numberOfLines={1}>
+                          {booking.notes}
+                        </Text>
+                      )}
+                      <Text style={[styles.requestTime, { color: roleColors.textSecondary }]}>
+                        Requested: {bookingDate.toLocaleString('en-US', { 
+                          weekday: 'short', 
+                          month: 'short', 
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
                       </Text>
-                    )}
-                    <Text style={[styles.requestTime, { color: roleColors.textSecondary }]}>
-                      Requested: {bookingDate.toLocaleString('en-US', { 
-                        weekday: 'short', 
-                        month: 'short', 
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </Text>
-                    <View style={styles.requestActions}>
-                      <TouchableOpacity 
-                        style={[styles.acceptButton, { backgroundColor: roleColors.primary }]}
-                        onPress={() => handleAcceptBooking(booking)}
-                      >
-                        <Ionicons name="checkmark" size={18} color="#FFFFFF" />
-                        <Text style={styles.acceptButtonText}>Accept</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={[styles.declineButton, { borderColor: '#F44336' }]}
-                        onPress={() => handleDeclineBooking(booking)}
-                      >
-                        <Ionicons name="close" size={18} color="#F44336" />
-                        <Text style={[styles.declineButtonText, { color: '#F44336' }]}>Decline</Text>
-                      </TouchableOpacity>
+                      <View style={styles.requestActions}>
+                        <TouchableOpacity 
+                          style={[styles.acceptButton, { backgroundColor: roleColors.primary }]}
+                          onPress={() => handleAcceptBooking(booking)}
+                        >
+                          <Ionicons name="checkmark" size={18} color="#FFFFFF" />
+                          <Text style={styles.acceptButtonText}>Accept</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                          style={[styles.declineButton, { borderColor: '#F44336' }]}
+                          onPress={() => handleDeclineBooking(booking)}
+                        >
+                          <Ionicons name="close" size={18} color="#F44336" />
+                          <Text style={[styles.declineButtonText, { color: '#F44336' }]}>Decline</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
-                  </View>
-                );
+                  );
+                }
               })
             )}
           </View>
@@ -999,6 +1082,16 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 14,
+  },
+  recurringHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recurringDates: {
+    fontSize: 12,
+    color: '#7F8C8D',
+    marginTop: 4,
   },
 });
 

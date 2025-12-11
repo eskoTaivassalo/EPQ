@@ -141,6 +141,7 @@ export default function ProviderAvailabilityCalendarScreen({ route, navigation }
       return Alert.alert('Error', 'Invalid slot data');
     }
 
+    setBookingInProgress(true);
     try {
       await bookSlot(s.id, user.uid, {});
       Alert.alert('Booked', 'Your session has been booked');
@@ -153,6 +154,8 @@ export default function ProviderAvailabilityCalendarScreen({ route, navigation }
     } catch (e) {
       console.error('Book slot error', e);
       Alert.alert('Error', e.message || 'Failed to book');
+    } finally {
+      setBookingInProgress(false);
     }
   };
 

@@ -480,9 +480,7 @@ export class AuthService {
         webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
         offlineAccess: true,
       });
-      console.log('✅ Google Sign-In configured successfully');
     } catch (error) {
-      console.error('❌ Error configuring Google Sign-In:', error);
       throw error;
     }
   }
@@ -493,25 +491,19 @@ export class AuthService {
    */
   static async getGoogleUserInfo() {
     try {
-      console.log('🔵 Getting Google user info (no Firebase auth)...');
-      
       // Tarkista onko Google Play Services saatavilla
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       
       // Kirjaudu Googleen (EI vielä Firebaseen)
       const userInfo = await GoogleSignin.signIn();
-      console.log('🔵 Google Sign-In response:', userInfo);
       
       // Hae idToken
       const idToken = userInfo?.data?.idToken || userInfo?.idToken;
       const user = userInfo?.data?.user || userInfo?.user;
       
       if (!idToken) {
-        console.error('❌ No idToken received from Google Sign-In:', userInfo);
         throw new Error('Google-kirjautuminen epäonnistui: ei saatu tunnistetta');
       }
-      
-      console.log('✅ Got Google user info (not yet authenticated to Firebase)');
       
       // Palauta käyttäjätiedot JA idToken (tarvitaan myöhemmin Firebase-autentikointiin)
       return {
@@ -523,8 +515,6 @@ export class AuthService {
         familyName: user?.familyName,
       };
     } catch (error) {
-      console.error('❌ Google user info fetch error:', error);
-      
       if (error.code === 'SIGN_IN_CANCELLED' || error.code === '-5') {
         throw new Error('Kirjautuminen peruutettiin');
       } else if (error.code === 'IN_PROGRESS') {
@@ -543,8 +533,6 @@ export class AuthService {
    */
   static async signInWithGoogleToken(idToken) {
     try {
-      console.log('🔵 Creating Firebase credential with Google idToken...');
-      
       if (!idToken) {
         throw new Error('idToken puuttuu');
       }
@@ -555,9 +543,6 @@ export class AuthService {
       // Kirjaudu Firebaseen
       const userCredential = await signInWithCredential(auth, googleCredential);
       
-      console.log('✅ Firebase authentication successful');
-      console.log('👤 User:', userCredential.user.email);
-      
       // Merkitse tili vahvistetuksi
       if (userCredential.user.uid) {
         this.markAccountVerified(userCredential.user.uid);
@@ -565,7 +550,6 @@ export class AuthService {
       
       return userCredential;
     } catch (error) {
-      console.error('❌ Firebase authentication error:', error);
       throw error;
     }
   }
@@ -576,33 +560,24 @@ export class AuthService {
    */
   static async signInWithGoogle() {
     try {
-      console.log('🔵 Starting Google Sign-In...');
-      
       // Tarkista onko Google Play Services saatavilla
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       
       // Kirjaudu Googleen
       const userInfo = await GoogleSignin.signIn();
-      console.log('🔵 Google Sign-In response:', userInfo);
       
       // Hae idToken oikein uudesta API:sta
       const idToken = userInfo?.data?.idToken || userInfo?.idToken;
       
       if (!idToken) {
-        console.error('❌ No idToken received from Google Sign-In:', userInfo);
         throw new Error('Google-kirjautuminen epäonnistui: ei saatu tunnistetta');
       }
-      
-      console.log('✅ Got idToken from Google');
       
       // Luo Firebase credential
       const googleCredential = GoogleAuthProvider.credential(idToken);
       
       // Kirjaudu Firebaseen
       const userCredential = await signInWithCredential(auth, googleCredential);
-      
-      console.log('✅ Google Sign-In successful');
-      console.log('👤 User:', userCredential.user.email);
       
       // Google-kirjautumisella ei tarvitse email-vahvistusta
       // Merkitse tili vahvistetuksi automaattisesti
@@ -612,10 +587,6 @@ export class AuthService {
       
       return userCredential;
     } catch (error) {
-      console.error('❌ Google Sign-In error:', error);
-      console.error('❌ Error code:', error.code);
-      console.error('❌ Error message:', error.message);
-      
       // Käyttäjäystävälliset virheilmoitukset
       if (error.code === 'SIGN_IN_CANCELLED' || error.code === '-5') {
         throw new Error('Kirjautuminen peruutettiin');
@@ -639,10 +610,8 @@ export class AuthService {
       const isSignedIn = await GoogleSignin.isSignedIn();
       if (isSignedIn) {
         await GoogleSignin.signOut();
-        console.log('✅ Signed out from Google');
       }
     } catch (error) {
-      console.error('❌ Error signing out from Google:', error);
     }
   }
 
@@ -658,7 +627,6 @@ export class AuthService {
       }
       return null;
     } catch (error) {
-      console.error('❌ Error checking Google sign-in status:', error);
       return null;
     }
   }

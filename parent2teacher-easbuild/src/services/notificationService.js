@@ -25,11 +25,8 @@ export async function requestNotificationPermissions() {
     }
 
     if (finalStatus !== 'granted') {
-      console.warn('⚠️ Notification permissions not granted');
       return false;
     }
-
-    console.log('✅ Notification permissions granted');
 
     // Configure notification channel for Android
     if (Platform.OS === 'android') {

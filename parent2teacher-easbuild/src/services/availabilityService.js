@@ -34,16 +34,6 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
       // Note: If user selects Sunday in UI, it comes as 0 (already normalized)
       const normalizedDows = dows.map(v => (v === 7 ? 0 : v));
       
-      if (__DEV__) {
-        console.log(`📅 Processing ${['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][dow]}:`, {
-          dateLocal: toISODate(day),
-          dow,
-          requestedDows: dows,
-          normalizedDows,
-          willCreate: normalizedDows.includes(dow)
-        });
-      }
-      
       if (!normalizedDows.includes(dow)) return;
 
       const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), sh, sm, 0, 0);
@@ -72,15 +62,6 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
           updatedAt: serverTimestamp(),
         };
         
-        if (__DEV__ && slotStart.getDay() === 0) {
-          console.log('📅 Creating Sunday slot:', {
-            slotId,
-            date: slotData.date,
-            start: slotData.start,
-            dayOfWeek: slotStart.getDay()
-          });
-        }
-        
         tx.set(slotRef, slotData, { merge: true });
         created.push(slotId);
 
@@ -100,14 +81,6 @@ export async function listAvailableSlots(teacherId, fromDate, toDate) {
   const fromISO = toISODate(fromDate);
   const toISO = toISODate(toDate);
 
-  console.log('🔍 Querying availability slots:', {
-    teacherId,
-    fromISO,
-    toISO,
-    fromDate: fromDate.toLocaleString(),
-    toDate: toDate.toLocaleString()
-  });
-
   const q = query(
     collection(db, SLOTS_COL),
     where('teacherId', '==', teacherId),
@@ -119,17 +92,6 @@ export async function listAvailableSlots(teacherId, fromDate, toDate) {
   const snap = await getDocs(q);
   const results = snap.docs.map(d => ({ id: d.id, ...d.data() }));
   
-  const sundayResults = results.filter(s => new Date(s.start).getDay() === 0);
-  console.log(`📦 Query returned ${results.length} slots (${sundayResults.length} on Sunday)`);
-  
-  if (sundayResults.length > 0) {
-    console.log('Sunday slots from query:', sundayResults.map(s => ({
-      id: s.id,
-      date: s.date,
-      start: s.start
-    })));
-  }
-  
   return results;
 }
 
@@ -137,8 +99,6 @@ export async function listAvailableSlots(teacherId, fromDate, toDate) {
  * Book a slot atomically
  */
 export async function bookSlot(slotId, parentId, metadata = {}) {
-  console.log('[bookSlot] 📅 Starting booking process:', { slotId, parentId });
-  
   if (!db) throw new Error('Firestore not initialized');
   if (!slotId || !parentId) throw new Error('slotId and parentId required');
 
@@ -152,14 +112,11 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
   await runTransaction(db, async (tx) => {
     const slotSnap = await tx.get(slotRef);
     if (!slotSnap.exists()) {
-      console.error('[bookSlot] ❌ Slot not found:', slotId);
       throw new Error('Slot not found');
     }
     const slot = slotSnap.data();
-    console.log('[bookSlot] 📋 Slot status:', slot.status, 'teacherId:', slot.teacherId);
     
     if (slot.status !== 'available') {
-      console.error('[bookSlot] ❌ Slot not available! Current status:', slot.status, 'parentId:', slot.parentId);
       throw new Error('Slot not available');
     }
     // Check if slot is in the future
@@ -194,11 +151,7 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
       createdAt: serverTimestamp(),
       ...metadata,
     });
-    
-    console.log('[bookSlot] ✅ Transaction committed - slot booked:', bookingRef.id);
   });
-
-  console.log('[bookSlot] ✅ Booking successful! Creating notification...');
   
   // Fire-and-forget: create an in-app notification for the teacher
   try {
@@ -224,24 +177,19 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
 
       // Try sending a push notification via Expo (best-effort)
       try {
-        console.log('[push] Fetching teacher push token for:', teacherIdForNotify);
         const userDoc = await getDoc(doc(db, 'users', teacherIdForNotify));
         const token = userDoc.exists() ? userDoc.data()?.push?.expo?.token : null;
         
         if (token) {
-          console.log('[push] Found token, sending push notification...');
-          const result = await sendExpoPushNotification(
+          await sendExpoPushNotification(
             token,
             '📅 New booking',
             `You have a new booking on ${startStr}${bookedSubject ? ` (Subject: ${bookedSubject})` : ''}.`,
             { slotId, bookingId: bookingRef.id, type: 'new_booking', subject: bookedSubject || null }
           );
-          console.log('[push] ✅ Push notification sent successfully:', result);
-        } else {
-          console.warn('[push] ⚠️ No push token found for teacher:', teacherIdForNotify);
         }
       } catch (pushErr) {
-        console.error('[push] ❌ Push send failed:', pushErr?.message || pushErr);
+        // Ignore push notification errors
       }
     }
   } catch (notifyErr) {

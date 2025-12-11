@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, lazy, Suspense } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -17,54 +17,60 @@ import { ThemeProvider } from './src/contexts/ThemeContext';
 // Hooks (Redux-based)
 import { useAuth } from './src/hooks/useAuth';
 
-// Screens - Auth
+// Screens - Auth (Eager - tarvitaan heti)
 import WelcomeScreen from './src/screens/auth/WelcomeScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import EmailVerificationScreen from './src/screens/auth/EmailVerificationScreen';
-import RoleSignupScreen from './src/screens/auth/RoleSignupScreen';
 
-// Screens - Shared (Role-based)
+// Screens - Shared (Eager - kriittiset näkymät)
 import RoleDashboard from './src/screens/shared/RoleDashboard';
 import BookingsScreen from './src/screens/shared/BookingsScreen';
 import ProfileScreen from './src/screens/shared/ProfileScreen';
-// AvailabilityScreen - using ProviderAvailabilityScreen for creating actual bookable slots
-// import AvailabilityScreen from './src/screens/shared/AvailabilityScreen';
-
-// Screens - Provider (Legacy)
-import ProviderSignupScreen from './src/screens/provider/ProviderSignupScreen';
-import ClientsScreen from './src/screens/shared/ClientsScreen';
 import ProviderAvailabilityScreen from './src/screens/provider/ProviderAvailabilityScreen';
 import ManageSlotsScreen from './src/screens/provider/ManageSlotsScreen';
+import ClientsScreen from './src/screens/shared/ClientsScreen';
 
-// Screens - Client (Legacy)
-import ClientSignupScreen from './src/screens/client/ClientSignupScreen';
-import FavoriteProvidersScreen from './src/screens/shared/FavoriteProvidersScreen';
-import ProviderAvailableSlotsScreen from './src/screens/shared/ProviderAvailableSlotsScreen';
-import ProviderWeeklyAvailabilityScreen from './src/screens/shared/ProviderWeeklyAvailabilityScreen';
-import ProviderAvailabilityCalendarScreen from './src/screens/shared/ProviderAvailabilityCalendarScreen';
+// LAZY LOADED SCREENS - Ladataan vain tarvittaessa
+// Auth
+const RoleSignupScreen = lazy(() => import('./src/screens/auth/RoleSignupScreen'));
+// Provider screens (lazy - vain opettajat)
+const ProviderSignupScreen = lazy(() => import('./src/screens/provider/ProviderSignupScreen'));
 
-// Screens - Shared
-import FindProvidersScreen from './src/screens/shared/FindProvidersScreen';
-import NotificationsScreen from './src/screens/shared/NotificationsScreen';
-import CalendarScreen from './src/screens/shared/CalendarScreen';
-import ConversationsScreen from './src/screens/shared/ConversationsScreen';
-import ConversationThreadScreen from './src/screens/shared/ConversationThreadScreen';
-import SettingsScreen from './src/screens/shared/SettingsScreen';
-import LegalDocumentScreen from './src/screens/shared/LegalDocumentScreen';
-import ChangeEmailScreen from './src/screens/shared/ChangeEmailScreen';
-import ChangePasswordScreen from './src/screens/shared/ChangePasswordScreen';
-import HelpCenterScreen from './src/screens/shared/HelpCenterScreen';
-import ContactUsScreen from './src/screens/shared/ContactUsScreen';
+// Client screens (lazy - vain oppilaat)
+const ClientSignupScreen = lazy(() => import('./src/screens/client/ClientSignupScreen'));
+const FavoriteProvidersScreen = lazy(() => import('./src/screens/shared/FavoriteProvidersScreen'));
+const ProviderAvailableSlotsScreen = lazy(() => import('./src/screens/shared/ProviderAvailableSlotsScreen'));
+const ProviderWeeklyAvailabilityScreen = lazy(() => import('./src/screens/shared/ProviderWeeklyAvailabilityScreen'));
+const ProviderAvailabilityCalendarScreen = lazy(() => import('./src/screens/shared/ProviderAvailabilityCalendarScreen'));
 
-// Screens - Admin
-import AdminDashboard from './src/screens/admin/AdminDashboard';
-import UserManagement from './src/screens/admin/UserManagement';
-import AdminStatistics from './src/screens/admin/AdminStatistics';
-import AdminBookings from './src/screens/admin/AdminBookings';
-import AdminReports from './src/screens/admin/AdminReports';
+// Shared screens (lazy - ei tarvita heti)
+const FindProvidersScreen = lazy(() => import('./src/screens/shared/FindProvidersScreen'));
+const NotificationsScreen = lazy(() => import('./src/screens/shared/NotificationsScreen'));
+const CalendarScreen = lazy(() => import('./src/screens/shared/CalendarScreen'));
+const ConversationsScreen = lazy(() => import('./src/screens/shared/ConversationsScreen'));
+const ConversationThreadScreen = lazy(() => import('./src/screens/shared/ConversationThreadScreen'));
 
-// Screens - Dev
-import SecurityTestScreen from './src/screens/dev/SecurityTestScreen';
+// Settings screens (lazy - harvoin käytetty)
+const SettingsScreen = lazy(() => import('./src/screens/shared/SettingsScreen'));
+const LegalDocumentScreen = lazy(() => import('./src/screens/shared/LegalDocumentScreen'));
+const ChangeEmailScreen = lazy(() => import('./src/screens/shared/ChangeEmailScreen'));
+const ChangePasswordScreen = lazy(() => import('./src/screens/shared/ChangePasswordScreen'));
+const HelpCenterScreen = lazy(() => import('./src/screens/shared/HelpCenterScreen'));
+const ContactUsScreen = lazy(() => import('./src/screens/shared/ContactUsScreen'));
+
+// Admin screens (lazy - vain adminit)
+const AdminDashboard = lazy(() => import('./src/screens/admin/AdminDashboard'));
+const UserManagement = lazy(() => import('./src/screens/admin/UserManagement'));
+const AdminStatistics = lazy(() => import('./src/screens/admin/AdminStatistics'));
+const AdminBookings = lazy(() => import('./src/screens/admin/AdminBookings'));
+const AdminReports = lazy(() => import('./src/screens/admin/AdminReports'));
+
+// Dev screens (lazy - vain kehitys)
+const SecurityTestScreen = lazy(() => import('./src/screens/dev/SecurityTestScreen'));
+
+// Components (eager - kriittiset)
+import FullScreenSplash from './src/components/FullScreenSplash';
+import { LoadingProvider, useGlobalLoading } from './src/components/GlobalLoadingOverlay';
 // Drawer removed due to Reanimated issues
 
 // Components
@@ -96,6 +102,48 @@ const Loading = () => (
 import { useState } from 'react';
 import { Linking } from 'react-native';
 
+// Navigation wrapper joka kuuntelee route-muutoksia
+const NavigationWrapper = ({ children }) => {
+  const navigationRef = React.useRef();
+  const routeNameRef = React.useRef();
+  const stackSizeRef = React.useRef(0);
+
+  const navTheme = {
+    dark: false,
+    colors: {
+      primary: '#2196F3',
+      background: '#FFFFFF',
+      card: '#FFFFFF',
+      text: '#000000',
+      border: '#E0E0E0',
+      notification: '#FF5252',
+    },
+  };
+
+  return (
+    <NavigationContainer 
+      theme={navTheme}
+      ref={navigationRef}
+      onReady={() => {
+        const state = navigationRef.current?.getState();
+        routeNameRef.current = navigationRef.current?.getCurrentRoute()?.name;
+        stackSizeRef.current = state?.routes?.length || 0;
+      }}
+      onStateChange={async () => {
+        const state = navigationRef.current?.getState();
+        const previousRouteName = routeNameRef.current;
+        const currentRouteName = navigationRef.current?.getCurrentRoute()?.name;
+        const currentStackSize = state?.routes?.length || 0;
+
+        routeNameRef.current = currentRouteName;
+        stackSizeRef.current = currentStackSize;
+      }}
+    >
+      {children}
+    </NavigationContainer>
+  );
+};
+
 const AppNavigator = () => {
   const dispatch = useDispatch();
   const { user, loading, isAuthenticated, loadStoredAuth } = useAuth();
@@ -115,11 +163,10 @@ const AppNavigator = () => {
         const cachedUser = await require('@react-native-async-storage/async-storage').default.getItem('user');
         if (cachedUser) {
           const userData = JSON.parse(cachedUser);
-          console.log('📦 Loaded cached emailVerified status:', userData.emailVerified);
           setCachedEmailVerified(userData.emailVerified);
         }
       } catch (e) {
-        console.warn('Failed to load cached emailVerified:', e);
+        // Failed to load cached emailVerified
       }
     })();
     
@@ -131,31 +178,25 @@ const AppNavigator = () => {
     
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        console.log('🔄 Auth state changed - user logged in:', firebaseUser.uid, 'emailVerified:', firebaseUser.emailVerified);
         // Firebase automatically refreshes the token
         try {
           const token = await firebaseUser.getIdToken(true); // Force refresh
-          console.log('✅ Token refreshed successfully');
           
           // Update Redux state with fresh email verification status
           if (firebaseUser.emailVerified && user && !user.emailVerified) {
-            console.log('📧 Email verification status updated in Firebase, refreshing user data');
             await loadStoredAuth(); // Reload user data from Firebase
           }
         } catch (error) {
-          console.error('❌ Token refresh failed:', error);
+          // Token refresh failed
         }
-      } else {
-        console.log('🔄 Auth state changed - user logged out');
       }
     });
     
     // Konfiguroi Google Sign-In
     try {
       AuthService.configureGoogleSignIn();
-      console.log('✅ Google Sign-In configured in App.js');
     } catch (error) {
-      console.error('❌ Failed to configure Google Sign-In:', error);
+      // Failed to configure Google Sign-In
     }
 
     // Request notification permissions
@@ -165,9 +206,8 @@ const AppNavigator = () => {
     (async () => {
       try {
         const { granted, status } = await requestLocationPermissions();
-        console.log('📍 Location permission status:', status, 'granted:', granted);
       } catch (e) {
-        console.warn('📍 Failed to request location permission on startup:', e);
+        // Failed to request location permission on startup
       }
     })();
 
@@ -187,18 +227,10 @@ const AppNavigator = () => {
     (async () => {
       try {
         if (isAuthenticated && user?.uid && (user?.emailVerified ?? true)) {
-          console.log('[push] 📱 Registering Expo push token for user:', user.uid);
           const token = await registerAndSaveExpoPushToken(user.uid, user.role || user.userType);
-          if (token) {
-            console.log('[push] ✅ Expo token registered & saved:', token);
-          } else {
-            console.log('[push] ⚠️ Expo token not registered (permission denied or not a physical device)');
-          }
-        } else {
-          console.log('[push] ⏸️ Waiting for authentication and email verification...');
         }
       } catch (e) {
-        console.error('[push] ❌ Token registration threw:', e?.message || e);
+        // Token registration failed
       }
     })();
   }, [isAuthenticated, user?.uid, user?.emailVerified]);
@@ -222,13 +254,11 @@ const AppNavigator = () => {
         
         // Clear badge count
         await Notifications.setBadgeCountAsync(0);
-        console.log('[push] 🔔 Badge count cleared to 0');
         
         // Dismiss all delivered notifications from notification center
         await Notifications.dismissAllNotificationsAsync();
-        console.log('[push] 🗑️ All notifications dismissed');
       } catch (e) {
-        console.warn('[push] Failed to clear badge/notifications:', e?.message);
+        // Failed to clear badge/notifications
       }
     };
 
@@ -237,9 +267,7 @@ const AppNavigator = () => {
 
     // Listen to app state changes and clear when app becomes active
     const subscription = AppState.addEventListener('change', (nextAppState) => {
-      console.log('[push] 📱 App state changed to:', nextAppState);
       if (nextAppState === 'active') {
-        console.log('[push] 🔄 App became active, clearing badge...');
         clearBadgeAndNotifications();
       }
     });
@@ -251,26 +279,18 @@ const AppNavigator = () => {
 
   // Setup notification tap handler - open meeting link when notification is tapped
   useEffect(() => {
-    console.log('[push] 🎧 Setting up notification tap listener...');
     const subscription = NotificationService.addNotificationResponseListener((data) => {
       const { meetingUrl, bookingId, type, exceptionDate, reason } = data;
       
-      console.log('[push] 👆 Notification tapped:', { type, bookingId, meetingUrl, exceptionDate, reason });
-      
       if (type === 'booking_reminder' && meetingUrl) {
-        console.log('[push] 🎥 Opening meeting from notification:', meetingUrl);
         Linking.openURL(meetingUrl);
       } else if (type === 'booking_exception') {
-        console.log('[push] 🚫 Student cancellation:', { exceptionDate, reason });
         const dateStr = exceptionDate ? new Date(exceptionDate).toLocaleDateString() : 'Unknown date';
         Alert.alert(
           'Student Cannot Attend',
           `Date: ${dateStr}\n\nReason: ${reason || 'No reason provided'}`,
           [{ text: 'OK' }]
         );
-      } else if (type === 'new_booking') {
-        console.log('[push] 📅 New booking notification tapped, bookingId:', bookingId);
-        // Could navigate to bookings screen here if needed
       }
       
       // Decrement badge count by 1 after handling notification
@@ -280,15 +300,13 @@ const AppNavigator = () => {
           const currentBadge = await Notifications.getBadgeCountAsync();
           const newBadge = Math.max(0, currentBadge - 1);
           await Notifications.setBadgeCountAsync(newBadge);
-          console.log('[push] 🔔 Badge count decremented:', currentBadge, '→', newBadge);
         } catch (e) {
-          console.warn('[push] Failed to decrement badge:', e?.message);
+          // Failed to decrement badge
         }
       })();
     });
 
     return () => {
-      console.log('[push] 🔇 Removing notification tap listener');
       subscription.remove();
     };
   }, []);
@@ -305,12 +323,48 @@ const AppNavigator = () => {
   const needsEmailVerification = isAuthenticated && emailVerifiedStatus === false;
 
   return (
-    <NavigationContainer>
-      { /* ErrorBoundary could be added here if needed for UI fallback */ }
+    <NavigationWrapper>
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          cardStyle: { backgroundColor: colors.background }
+          cardStyle: { backgroundColor: '#FFFFFF' },
+          presentation: 'card',
+          animationEnabled: true,
+          gestureEnabled: true,
+          // Smooth fade transition ilman flashausta
+          transitionSpec: {
+            open: {
+              animation: 'timing',
+              config: {
+                duration: 250,
+                useNativeDriver: true,
+              },
+            },
+            close: {
+              animation: 'timing',
+              config: {
+                duration: 200,
+                useNativeDriver: true,
+              },
+            },
+          },
+          cardStyleInterpolator: ({ current, next }) => {
+            return {
+              cardStyle: {
+                opacity: current.progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 1],
+                }),
+              },
+              overlayStyle: {
+                opacity: current.progress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 0.5],
+                  extrapolate: 'clamp',
+                }),
+              },
+            };
+          },
         }}
       >
         {!isAuthenticated ? (
@@ -355,7 +409,19 @@ const AppNavigator = () => {
             
             {/* Shared screens - available to all roles */}
             <Stack.Screen name="Calendar" component={CalendarScreen} />
-            <Stack.Screen name="FindProviders" component={FindProvidersScreen} />
+            <Stack.Screen 
+              name="FullScreenSplash" 
+              component={FullScreenSplash}
+              options={{
+                headerShown: false,
+                animationEnabled: false,
+                cardStyle: { backgroundColor: '#F5F5F5' }
+              }}
+            />
+            <Stack.Screen 
+              name="FindProviders" 
+              component={FindProvidersScreen}
+            />
             <Stack.Screen name="Notifications" component={NotificationsScreen} />
             <Stack.Screen name="Conversations" component={ConversationsScreen} />
             <Stack.Screen name="ConversationThread" component={ConversationThreadScreen} />
@@ -401,7 +467,7 @@ const AppNavigator = () => {
           </>
         )}
       </Stack.Navigator>
-    </NavigationContainer>
+    </NavigationWrapper>
   );
 };
 
@@ -411,8 +477,10 @@ export default function App() {
       <Provider store={store}>
         <PersistGate loading={<Loading />} persistor={persistor}>
           <ThemeProvider>
-            <StatusBar style="light" backgroundColor={colors.primary} />
-            <AppContent />
+            <LoadingProvider>
+              <StatusBar style="light" backgroundColor={colors.primary} />
+              <AppContent />
+            </LoadingProvider>
           </ThemeProvider>
         </PersistGate>
       </Provider>

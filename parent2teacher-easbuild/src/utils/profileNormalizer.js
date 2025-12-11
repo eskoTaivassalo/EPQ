@@ -18,7 +18,6 @@
  */
 export const normalizeProfile = (raw, role = 'user') => {
   if (!raw || typeof raw !== 'object') {
-    console.warn(`⚠️ normalizeProfile: Invalid input for ${role}`);
     return {};
   }
 
@@ -28,14 +27,6 @@ export const normalizeProfile = (raw, role = 'user') => {
 
   // Merge all levels (later values override earlier)
   const merged = { ...raw, ...nested, ...doubleNested };
-
-  // Log for debugging
-  console.log(`🔧 normalizeProfile (${role}):`, {
-    rootKeys: Object.keys(raw).length,
-    nestedKeys: Object.keys(nested).length,
-    doubleNestedKeys: Object.keys(doubleNested).length,
-    mergedKeys: Object.keys(merged).length
-  });
 
   return merged;
 };

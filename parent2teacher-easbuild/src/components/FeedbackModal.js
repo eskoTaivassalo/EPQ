@@ -12,6 +12,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../styles/commonStyles';
 import { addFeedback } from '../services/feedbackService';
+import TagSelector from './TagSelector';
+import { SUBJECTS } from '../constants/tags';
 
 /**
  * FeedbackModal - Modal for giving feedback between users
@@ -25,6 +27,7 @@ import { addFeedback } from '../services/feedbackService';
  * @param {string} roleTo - Role of receiver ('parent' or 'teacher')
  * @param {string} bookingId - Optional booking ID
  * @param {string} subject - Subject/topic
+ * @param {array} subjects - Available subjects for selection
  */
 export default function FeedbackModal({ 
   visible, 
@@ -36,11 +39,20 @@ export default function FeedbackModal({
   roleFrom = 'teacher',
   roleTo = 'parent',
   bookingId = null,
-  subject = 'General'
+  subject = 'General',
+  subjects = []
 }) {
   const [feedbackText, setFeedbackText] = useState('');
-  const [rating, setRating] = useState(0);
+  // Initialize with first subject from teacher's subjects, or fallback to subject param
+  const initialSubject = subjects.length > 0 ? subjects[0] : subject;
+  
+  const [selectedSubject, setSelectedSubject] = useState(initialSubject);
   const [submitting, setSubmitting] = useState(false);
+  
+  // Filter available subject tags
+  const availableSubjectTags = subjects.length > 0 
+    ? SUBJECTS.filter(subj => subjects.includes(subj.id))
+    : SUBJECTS;
 
   const handleSubmit = async () => {
     if (!feedbackText.trim()) {
@@ -57,14 +69,13 @@ export default function FeedbackModal({
         roleTo,
         bookingId,
         feedbackText: feedbackText.trim(),
-        rating: rating > 0 ? rating : null,
-        subject,
+        rating: null,
+        subject: selectedSubject,
         categories: []
       });
 
       // Reset form
       setFeedbackText('');
-      setRating(0);
       
       alert('Feedback submitted successfully!');
       onClose();
@@ -79,7 +90,6 @@ export default function FeedbackModal({
   const handleClose = () => {
     if (!submitting) {
       setFeedbackText('');
-      setRating(0);
       onClose();
     }
   };
@@ -107,37 +117,34 @@ export default function FeedbackModal({
                 <Text style={styles.studentName}>
                   {roleTo === 'teacher' ? (teacherName || 'Teacher') : (parentName || 'Student')}
                 </Text>
-                <Text style={styles.studentSubject}>{subject}</Text>
               </View>
             </View>
 
-            <Text style={styles.label}>Rating (Optional)</Text>
-            <View style={styles.ratingContainer}>
-              {[1, 2, 3, 4, 5].map((star) => (
-                <TouchableOpacity
-                  key={star}
-                  onPress={() => setRating(star)}
-                  disabled={submitting}
-                >
-                  <Ionicons
-                    name={star <= rating ? 'star' : 'star-outline'}
-                    size={40}
-                    color={star <= rating ? '#FFD700' : colors.textSecondary}
-                    style={styles.star}
-                  />
-                </TouchableOpacity>
-              ))}
+            <View style={styles.subjectSection}>
+              <TagSelector
+                title="Select Subject / Valitse oppiaine *"
+                tags={availableSubjectTags}
+                selectedTags={[selectedSubject]}
+                onTagPress={(selected) => setSelectedSubject(selected)}
+                multiSelect={false}
+                showIcons={true}
+              />
+              {availableSubjectTags.length === 0 && (
+                <Text style={styles.warningText}>
+                  No subjects available. Please update your profile.
+                </Text>
+              )}
             </View>
 
-            <Text style={styles.label}>Feedback *</Text>
+            <Text style={styles.label}>Feedback to Student *</Text>
             <TextInput
               style={styles.textArea}
-              placeholder="Write your feedback here..."
+              placeholder="E.g: Great work on homework. Focus on multiplication next time..."
               placeholderTextColor={colors.textSecondary}
               value={feedbackText}
               onChangeText={setFeedbackText}
               multiline
-              numberOfLines={8}
+              numberOfLines={10}
               textAlignVertical="top"
               editable={!submitting}
             />
@@ -230,14 +237,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+  subjectSection: {
     marginBottom: 20,
-    paddingVertical: 10,
   },
-  star: {
-    marginHorizontal: 5,
+  warningText: {
+    fontSize: 13,
+    color: colors.error,
+    fontStyle: 'italic',
+    marginTop: 8,
   },
   textArea: {
     backgroundColor: colors.background,

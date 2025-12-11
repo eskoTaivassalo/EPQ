@@ -39,8 +39,10 @@ import {
 import { calculatePriceRange } from '../../utils/tagUtils';
 import { useSelector } from 'react-redux';
 import { selectUserCoords } from '../../store/slices/locationSlice';
+import AppLogo from '../../components/AppLogo';
 
 const FindProvidersScreen = ({ navigation }) => {
+  const [isReady, setIsReady] = useState(true); // Poistettu splash, aloitetaan suoraan
   const { user } = useAuth();
   const { 
     teachers,          // Redux selector - suoraan array (now "providers")
@@ -57,6 +59,8 @@ const FindProvidersScreen = ({ navigation }) => {
   const [filteredTeachers, setFilteredTeachers] = useState([]);
   const userCoords = useSelector(selectUserCoords);
   const [showFilters, setShowFilters] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [selectedTeacher, setSelectedTeacher] = useState(null);
   const [filters, setFilters] = useState({
     subjects: [],
     locations: [],
@@ -66,9 +70,9 @@ const FindProvidersScreen = ({ navigation }) => {
     experience: [],
     teachingStyles: []
   });
+  
   useEffect(() => {
     loadTeachers();
-    // Load favorites for current user if available
     loadFavorites().catch(() => {});
   }, []);
 
@@ -114,8 +118,7 @@ const FindProvidersScreen = ({ navigation }) => {
         {
           text: 'View Profile',
           onPress: () => {
-            // TODO: Navigate to teacher profile view
-            alert('Teacher profile view coming soon!');
+            handleViewProfile(teacher);
           }
         },
         {
@@ -132,6 +135,16 @@ const FindProvidersScreen = ({ navigation }) => {
       recipientId: teacher.id,
       recipientName: teacherName
     });
+  };
+
+  const handleViewProfile = (teacher) => {
+    setSelectedTeacher(teacher);
+    setShowProfileModal(true);
+  };
+
+  const closeProfileModal = () => {
+    setShowProfileModal(false);
+    setSelectedTeacher(null);
   };
 
   // Keep old implementation for backward compatibility
@@ -347,6 +360,7 @@ const FindProvidersScreen = ({ navigation }) => {
               source={{ uri: item.photoURL }} 
               style={styles.avatarImage}
               resizeMode="cover"
+              fadeDuration={150}
             />
           ) : (
             <Ionicons name="person" size={40} color={colors.white} />
@@ -500,7 +514,7 @@ const FindProvidersScreen = ({ navigation }) => {
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.contactButton, { flex: 1, backgroundColor: '#4CAF50' }]}
-          onPress={() => alert('Teacher profile view coming soon!')}
+          onPress={() => handleViewProfile(item)}
         >
           <Ionicons name="person" size={16} color={colors.white} />
           <Text style={styles.contactButtonText}>Profile</Text>
@@ -519,8 +533,9 @@ const FindProvidersScreen = ({ navigation }) => {
     </View>
   );
 
+  // Renderöi AINA tausta ensin, näytä skeleton loading jos ladataan
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#FFFFFF' }]}>
       <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity 
@@ -679,6 +694,225 @@ const FindProvidersScreen = ({ navigation }) => {
           </View>
         </SafeAreaView>
       </Modal>
+
+      {/* Teacher Profile Modal */}
+      <Modal
+        visible={showProfileModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={closeProfileModal}
+      >
+        <View style={styles.profileModalOverlay}>
+          <View style={styles.profileModalContainer}>
+            <View style={styles.profileModalHeader}>
+              <Text style={styles.profileModalTitle}>Teacher Profile</Text>
+              <TouchableOpacity onPress={closeProfileModal}>
+                <Ionicons name="close" size={28} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.profileModalContent}>
+              {selectedTeacher && (
+                <>
+                  {/* Profile Image & Basic Info */}
+                  <View style={styles.profileHeaderSection}>
+                    <View style={styles.profileImageLarge}>
+                      {selectedTeacher.photoURL ? (
+                        <Image 
+                          source={{ uri: selectedTeacher.photoURL }} 
+                          style={styles.profileImageLarge}
+                          fadeDuration={150}
+                        />
+                      ) : (
+                        <Ionicons name="person" size={60} color={colors.white} />
+                      )}
+                    </View>
+                    <Text style={styles.profileName}>
+                      {selectedTeacher.name || selectedTeacher.fullName || selectedTeacher.displayName || 'Unknown Teacher'}
+                    </Text>
+                    <View style={styles.profileRatingRow}>
+                      <Ionicons name="star" size={20} color="#FFD700" />
+                      <Text style={styles.profileRating}>{selectedTeacher.rating || 4.5}</Text>
+                      <Text style={styles.profileReviewCount}>({selectedTeacher.reviewCount || 0} reviews)</Text>
+                    </View>
+                    <Text style={styles.profileHourlyRate}>€{selectedTeacher.hourlyRate || '25'}/hour</Text>
+                  </View>
+
+                  {/* Contact Information */}
+                  {(selectedTeacher.phone || selectedTeacher.phoneNumber || selectedTeacher.profile?.phoneNumber) && (
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>Contact</Text>
+                      <View style={styles.profileContactRow}>
+                        <Ionicons name="call" size={18} color={colors.primary} />
+                        <Text style={styles.profileContactText}>
+                          {selectedTeacher.phone || selectedTeacher.phoneNumber || selectedTeacher.profile?.phoneNumber}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Description */}
+                  {selectedTeacher.description && (
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>About</Text>
+                      <Text style={styles.profileDescriptionText}>{selectedTeacher.description}</Text>
+                    </View>
+                  )}
+
+                  {/* Teaching Approach */}
+                  {selectedTeacher.teachingApproach && (
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>Teaching Philosophy</Text>
+                      <Text style={styles.profileDescriptionText}>{selectedTeacher.teachingApproach}</Text>
+                    </View>
+                  )}
+
+                  {/* Experience Years */}
+                  {selectedTeacher.experienceYears && (
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>Experience</Text>
+                      <View style={styles.profileExperienceRow}>
+                        <Ionicons name="time" size={18} color={colors.primary} />
+                        <Text style={styles.profileExperienceText}>
+                          {selectedTeacher.experienceYears} years of teaching experience
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Subjects */}
+                  {selectedTeacher.subjects && selectedTeacher.subjects.length > 0 && (
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>Subjects</Text>
+                      <View style={styles.profileTagsContainer}>
+                        {getTagLabels(SUBJECTS, selectedTeacher.subjects).map((subject, index) => (
+                          <View key={index} style={styles.profileTag}>
+                            <Text style={styles.profileTagText}>{subject}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Grade Ranges */}
+                  {selectedTeacher.gradeRanges && selectedTeacher.gradeRanges.length > 0 && (
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>Grade Levels</Text>
+                      <View style={styles.profileTagsContainer}>
+                        {getTagLabels(GRADE_RANGES, selectedTeacher.gradeRanges).map((grade, index) => (
+                          <View key={index} style={[styles.profileTag, styles.gradeTag]}>
+                            <Text style={styles.profileTagText}>{grade}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Teaching Methods */}
+                  {selectedTeacher.teachingMethods && selectedTeacher.teachingMethods.length > 0 && (
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>Teaching Methods</Text>
+                      <View style={styles.profileTagsContainer}>
+                        {getTagLabels(TEACHING_METHODS, selectedTeacher.teachingMethods).map((method, index) => (
+                          <View key={index} style={[styles.profileTag, styles.methodTag]}>
+                            <Text style={styles.profileTagText}>{method}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Location */}
+                  {selectedTeacher.location && selectedTeacher.location.length > 0 && (
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>Location</Text>
+                      <View style={styles.profileTagsContainer}>
+                        {getTagLabels(LOCATIONS, selectedTeacher.location).map((location, index) => (
+                          <View key={index} style={[styles.profileTag, styles.locationTag]}>
+                            <Ionicons name="location" size={12} color={colors.primary} />
+                            <Text style={styles.profileTagText}>{location}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Specializations */}
+                  {selectedTeacher.specializations && selectedTeacher.specializations.length > 0 && (
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>Specializations</Text>
+                      <View style={styles.profileTagsContainer}>
+                        {getTagLabels(SPECIALIZATIONS, selectedTeacher.specializations).map((spec, index) => (
+                          <View key={index} style={[styles.profileTag, styles.specializationTag]}>
+                            <Ionicons name="medal" size={12} color={colors.primary} />
+                            <Text style={styles.profileTagText}>{spec}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Teaching Styles */}
+                  {selectedTeacher.teachingStyles && selectedTeacher.teachingStyles.length > 0 && (
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>Teaching Styles</Text>
+                      <View style={styles.profileTagsContainer}>
+                        {getTagLabels(TEACHING_STYLES, selectedTeacher.teachingStyles).map((style, index) => (
+                          <View key={index} style={styles.profileTag}>
+                            <Text style={styles.profileTagText}>{style}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Experience Level */}
+                  {selectedTeacher.experience && selectedTeacher.experience.length > 0 && (
+                    <View style={styles.profileSection}>
+                      <Text style={styles.profileSectionTitle}>Experience Level</Text>
+                      <View style={styles.profileTagsContainer}>
+                        {getTagLabels(EXPERIENCE_LEVELS, selectedTeacher.experience).map((exp, index) => (
+                          <View key={index} style={styles.profileTag}>
+                            <Text style={styles.profileTagText}>{exp}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  )}
+
+                  {/* Action Buttons */}
+                  <View style={styles.profileActionButtons}>
+                    <TouchableOpacity 
+                      style={[styles.profileActionButton, { backgroundColor: colors.primary }]}
+                      onPress={() => {
+                        closeProfileModal();
+                        handleQuickMessage(selectedTeacher);
+                      }}
+                    >
+                      <Ionicons name="chatbubble" size={20} color={colors.white} />
+                      <Text style={styles.profileActionButtonText}>Send Message</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.profileActionButton, { backgroundColor: '#3F51B5' }]}
+                      onPress={() => {
+                        closeProfileModal();
+                        navigation.navigate('ProviderWeeklyAvailability', { 
+                          teacherId: selectedTeacher.id,
+                          teacherName: selectedTeacher.name || selectedTeacher.fullName || selectedTeacher.displayName || 'Teacher'
+                        });
+                      }}
+                    >
+                      <Ionicons name="calendar" size={20} color={colors.white} />
+                      <Text style={styles.profileActionButtonText}>View Schedule</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -766,6 +1000,17 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  fullScreenLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    zIndex: 9999,
   },
   loadingText: {
     marginTop: 10,
@@ -1017,6 +1262,149 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontStyle: 'italic',
     lineHeight: 16,
+  },
+  // Profile Modal Styles
+  profileModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  profileModalContainer: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '90%',
+    paddingBottom: 20,
+  },
+  profileModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  profileModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  profileModalContent: {
+    paddingHorizontal: 20,
+  },
+  profileHeaderSection: {
+    alignItems: 'center',
+    paddingVertical: 24,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  profileImageLarge: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  profileName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 8,
+  },
+  profileRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  profileRating: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginLeft: 6,
+    marginRight: 4,
+  },
+  profileReviewCount: {
+    fontSize: 14,
+    color: colors.textSecondary,
+  },
+  profileHourlyRate: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  profileSection: {
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  profileSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  profileContactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileContactText: {
+    fontSize: 16,
+    color: colors.textPrimary,
+    marginLeft: 10,
+  },
+  profileDescriptionText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  profileExperienceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  profileExperienceText: {
+    fontSize: 14,
+    color: colors.textPrimary,
+    marginLeft: 10,
+  },
+  profileTagsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  profileTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.backgroundLight,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    gap: 4,
+  },
+  profileTagText: {
+    fontSize: 13,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  profileActionButtons: {
+    marginTop: 24,
+    marginBottom: 12,
+    gap: 12,
+  },
+  profileActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 8,
+    gap: 8,
+  },
+  profileActionButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.white,
   },
 });
 

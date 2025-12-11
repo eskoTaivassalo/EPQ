@@ -207,7 +207,6 @@ class SessionManager {
    * Pysäyttää session seurannan
    */
   cleanup() {
-    console.log('🧹 SessionManager: Cleaning up session tracking');
     
     if (this.activityTimer) {
       clearTimeout(this.activityTimer);
@@ -224,8 +223,6 @@ class SessionManager {
    * Nollaa session
    */
   async reset() {
-    console.log('🔄 SessionManager: Resetting session');
-    
     this.cleanup();
     await AsyncStorage.removeItem('lastActivity');
     await AsyncStorage.removeItem('rememberMe');
@@ -237,7 +234,6 @@ class SessionManager {
    * Käytetään logout-toiminnossa
    */
   async clearSession() {
-    console.log('🧹 SessionManager: Clearing session (logout)');
     await this.reset();
   }
 

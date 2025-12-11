@@ -20,6 +20,16 @@ export default function ConversationsScreen({ navigation, route }) {
   // Check if we should start a new conversation immediately
   const { recipientId, recipientName } = route?.params || {};
 
+  // Jos recipientId on annettu, navigoi HETI suoraan keskusteluun
+  useEffect(() => {
+    if (recipientId && user?.uid) {
+      navigation.replace('ConversationThread', {
+        teacherId: role === 'parent' ? recipientId : user.uid,
+        parentId: role === 'parent' ? user.uid : recipientId,
+        recipientName: recipientName
+      });
+    }
+  }, [recipientId, navigation, role, user?.uid, recipientName]);
 
 
   const load = useCallback(async () => {
@@ -27,9 +37,7 @@ export default function ConversationsScreen({ navigation, route }) {
     setLoading(true);
     setError(null);
     try {
-      console.log('🔍 Loading conversations for:', user.uid, 'role:', role);
       const rows = await listConversationsForUser(user.uid, role);
-      console.log('✅ Loaded conversations:', rows.length);
       
       // Load names BEFORE setting items to avoid showing IDs
       const ids = Array.from(new Set(rows.map(r => r.counterpartId).filter(Boolean)));
@@ -42,7 +50,6 @@ export default function ConversationsScreen({ navigation, route }) {
           const data = snap.exists() ? snap.data() : null;
           map[id] = data?.name || data?.fullName || id;
         } catch (err) {
-          console.warn('Failed to load name for:', id);
           map[id] = id;
         }
       }));
@@ -50,27 +57,18 @@ export default function ConversationsScreen({ navigation, route }) {
       setNameMap(map);
       setItems(rows);
     } catch (e) {
-      console.error('❌ Conversations error:', e);
-      console.error('Error code:', e.code);
-      console.error('Error message:', e.message);
       setError(e.message || 'Failed to load conversations');
     } finally {
       setLoading(false);
     }
   }, [user?.uid, role]);
 
-  useEffect(() => { load(); }, [load]);
-
-  // If recipientId provided, navigate directly to conversation thread
-  useEffect(() => {
-    if (recipientId && !loading) {
-      navigation.replace('ConversationThread', {
-        teacherId: role === 'parent' ? recipientId : user.uid,
-        parentId: role === 'parent' ? user.uid : recipientId,
-        recipientName: recipientName
-      });
+  useEffect(() => { 
+    // Lataa keskustelut vain jos ei olla navigoitu suoraan keskusteluun
+    if (!recipientId) {
+      load();
     }
-  }, [recipientId, loading, navigation, role, user?.uid, recipientName]);
+  }, [load, recipientId]);
 
   const renderItem = ({ item }) => {
     const isSupport = item.type === 'support';
@@ -88,11 +86,11 @@ export default function ConversationsScreen({ navigation, route }) {
         style={[styles.card, !item.isRead && isSupport && styles.unreadCard]}
         onPress={() => {
           if (isSupport) {
-            // Support conversation: pass senderId and recipientId
+            // Support conversation: pass both user IDs (order doesn't matter in subscribeToSupportConversation)
             navigation.navigate('ConversationThread', {
               isSupportConversation: true,
-              senderId: item.counterpartId,
-              recipientId: user.uid,
+              userId1: user.uid,
+              userId2: item.counterpartId,
               recipientName: displayName,
               category: item.category,
               subject: item.subject,
@@ -145,19 +143,16 @@ export default function ConversationsScreen({ navigation, route }) {
         <View style={{ width: 28 }} />
       </View>
 
-      {loading && (
-        <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
-      )}
-      {!loading && error && (
+      {error && (
         <View style={styles.center}><Text style={{ color: colors.error }}>{error}</Text></View>
       )}
-      {!loading && !error && items.length === 0 && (
+      {!error && items.length === 0 && !loading && (
         <View style={styles.center}>
           <Ionicons name="chatbubble-ellipses-outline" size={48} color={colors.textSecondary} />
           <Text style={styles.emptyText}>No conversations yet</Text>
         </View>
       )}
-      {!loading && !error && items.length > 0 && (
+      {!error && (
         <FlatList data={items} keyExtractor={(it, idx) => it.counterpartId + ':' + idx} renderItem={renderItem} contentContainerStyle={{ padding: 16 }} />
       )}
     </SafeAreaView>

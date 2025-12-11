@@ -26,11 +26,7 @@ const errorLoggingMiddleware = (store) => (next) => (action) => {
         meta: action.meta
       };
       
-      // Only log in development, don't show to user
-      if (__DEV__) {
-        console.log('🚨 Redux Error:', action.type.replace('/rejected', ''));
-        console.log('📋 Error details:', action.payload);
-      }
+      // Silent logging in development
       
       // In production, send to error reporting service (silently)
       if (process.env.NODE_ENV === 'production') {
@@ -42,25 +38,11 @@ const errorLoggingMiddleware = (store) => (next) => (action) => {
       // The rejected actions already contain user-friendly error messages
     }
     
-    // Log performance for async actions (development only)
-    if (__DEV__ && (action.type.endsWith('/fulfilled') || action.type.endsWith('/rejected'))) {
-      const duration = Date.now() - startTime;
-      const actionName = action.type.replace(/\/(fulfilled|rejected)$/, '');
-      
-      // Only log slow actions to reduce console noise
-      if (duration > 1000) {
-        console.log(`⏱️ Slow action: ${actionName} (${duration}ms)`);
-      }
-    }
+    // Silent performance tracking
     
     return result;
     
   } catch (error) {
-    // Catch any synchronous errors in middleware chain (development only)
-    if (__DEV__) {
-      console.error('🚨 Middleware error:', action.type, error.message);
-    }
-    
     // In production, report silently to error service
     if (process.env.NODE_ENV === 'production') {
       // Example: Sentry.captureException(error);

@@ -12,6 +12,7 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
   const { user } = useAuth();
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [bookingInProgress, setBookingInProgress] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -53,6 +54,8 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
   }, [teacherId]);
 
   const handleBook = async (slot) => {
+    if (bookingInProgress) return;
+    
     if (!user?.uid) return Alert.alert('Error', 'Not authenticated');
     // Double-check that slot is still valid (at least 2 hours from now)
     const now = new Date();
@@ -91,12 +94,16 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
         );
       });
       if (!ok) return;
+      
+      setBookingInProgress(true);
       const res = await bookSlot(slot.id, user.uid, selectedSubject ? { subject: selectedSubject } : {});
       Alert.alert('Booked', 'Your session has been booked');
       setSlots(prev => prev.filter(s => s.id !== slot.id));
     } catch (e) {
       console.error('Book slot error', e);
       Alert.alert('Error', e.message || 'Failed to book');
+    } finally {
+      setBookingInProgress(false);
     }
   };
 

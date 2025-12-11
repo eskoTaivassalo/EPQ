@@ -10,8 +10,6 @@ export function initGlobalErrorLogger() {
     const defaultHandler = global.ErrorUtils?.getGlobalHandler && global.ErrorUtils.getGlobalHandler();
     if (global.ErrorUtils?.setGlobalHandler) {
       global.ErrorUtils.setGlobalHandler((error, isFatal) => {
-        console.log('[GlobalErrorLogger] FATAL:', isFatal, 'NAME:', error?.name, 'MESSAGE:', error?.message);
-        if (error?.stack) console.log('[GlobalErrorLogger] STACK:', error.stack);
         // Extra introspection when message mentions property 'user'
         if (error?.message?.toLowerCase().includes("property 'user")) {
           // Dump auth slice snapshot if available
@@ -25,13 +23,12 @@ export function initGlobalErrorLogger() {
 
     // Handle unhandled promise rejections
     const tracking = (reason) => {
-      console.log('[GlobalErrorLogger] Unhandled promise rejection:', reason);
-      if (reason?.stack) console.log('[GlobalErrorLogger] Rejection stack:', reason.stack);
+      // Silent handling
     };
     const rejectionEvent = 'unhandledRejection';
     const addListener = global.addEventListener || (() => {});
     try { addListener(rejectionEvent, tracking); } catch {}
   } catch (e) {
-    console.log('[GlobalErrorLogger] Failed to initialize', e);
+    // Failed to initialize
   }
 }

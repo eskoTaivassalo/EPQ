@@ -29,16 +29,7 @@ const authMiddleware = (store) => {
         isLoggingOut = false;
       }
 
-      // Development-only logging
-      if (__DEV__) {
-        if (action.type === 'auth/loginUser/fulfilled') {
-          console.log('✅ Login successful');
-        } else if (action.type === 'auth/logoutUser/fulfilled') {
-          console.log('🚪 Logout successful');
-        } else if (action.type.endsWith('/rejected')) {
-          console.log('❌', action.type.replace('auth/', '').replace('/rejected', ''), 'failed');
-        }
-      }
+      // Silent handling
     }
 
     // Proceed with the current action first so state can update

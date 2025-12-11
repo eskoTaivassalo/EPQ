@@ -30,12 +30,20 @@ try {
   });
   db = getFirestore(app);
   storage = getStorage(app);
-  console.log('Firebase initialized successfully with AsyncStorage persistence');
 } catch (error) {
-  console.error('Firebase initialization error:', error);
-  auth = null;
-  db = null;
-  storage = null;
+  // If already initialized, get existing instances
+  try {
+    const { getApp } = require('firebase/app');
+    app = getApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+  } catch (e) {
+    // Fallback: set to null if truly failed
+    auth = null;
+    db = null;
+    storage = null;
+  }
 }
 
 export { auth, db, storage };
