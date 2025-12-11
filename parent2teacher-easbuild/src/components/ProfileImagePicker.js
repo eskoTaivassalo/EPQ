@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import imagePickerService from '../services/imagePickerService';
-import { colors } from '../styles/commonStyles';
+import { colors, commonStyles } from '../styles/commonStyles';
 
 /**
  * 📸 ProfileImagePicker
@@ -158,11 +158,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 3,
     borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    ...commonStyles.shadow,
   },
   removeButton: {
     position: 'absolute',
@@ -176,8 +172,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 2,
     borderColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    ...commonStyles.shadow,
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,

@@ -3,7 +3,7 @@ import { TouchableOpacity, View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSelector } from 'react-redux';
 import { useNavigation } from '@react-navigation/native';
-import { colors } from '../styles/commonStyles';
+import { colors, commonStyles } from '../styles/commonStyles';
 
 /**
  * NotificationBell - Reusable bell icon component with badge
@@ -47,23 +47,19 @@ const styles = StyleSheet.create({
     marginRight: 8
   },
   badge: {
+    ...commonStyles.badge,
+    ...commonStyles.badgeError,
     position: 'absolute',
     top: 4,
     right: 4,
-    backgroundColor: '#FF3B30',
-    borderRadius: 10,
     minWidth: 20,
     height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
     borderWidth: 2,
     borderColor: colors.secondary
   },
   badgeText: {
-    color: colors.white,
+    ...commonStyles.badgeText,
     fontSize: 11,
-    fontWeight: 'bold'
   }
 });
 

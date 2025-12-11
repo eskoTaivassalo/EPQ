@@ -10,7 +10,7 @@ import {
   ActivityIndicator 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../styles/commonStyles';
+import { colors, commonStyles } from '../styles/commonStyles';
 import { addFeedback } from '../services/feedbackService';
 import TagSelector from './TagSelector';
 import { SUBJECTS } from '../constants/tags';
@@ -178,8 +178,7 @@ export default function FeedbackModal({
 
 const styles = StyleSheet.create({
   backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    ...commonStyles.modalOverlay,
     justifyContent: 'flex-end',
   },
   modalContainer: {
@@ -187,16 +186,10 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '90%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
+    ...commonStyles.shadowHeavy,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    ...commonStyles.rowBetween,
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
@@ -232,10 +225,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
+    ...commonStyles.label,
   },
   subjectSection: {
     marginBottom: 20,
@@ -247,7 +237,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   textArea: {
-    backgroundColor: colors.background,
+    ...commonStyles.input,
     borderRadius: 12,
     padding: 15,
     fontSize: 15,

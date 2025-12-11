@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../styles/commonStyles';
+import { colors, commonStyles } from '../styles/commonStyles';
 
 /**
  * ­ƒöü RecurringBookingModal
@@ -177,8 +177,7 @@ const RecurringBookingModal = ({
 
 const styles = StyleSheet.create({
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    ...commonStyles.modalOverlay,
     justifyContent: 'flex-end',
   },
   modalContent: {

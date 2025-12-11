@@ -2,7 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../styles/commonStyles';
+import { colors, commonStyles } from '../styles/commonStyles';
 
 /**
  * SimpleDrawer - Kevyt drawer-valikko ilman natiiviriippuvuuksia
@@ -135,11 +135,7 @@ const styles = StyleSheet.create({
   drawerContainer: {
     width: 300,
     backgroundColor: '#F8F9FA',
-    shadowColor: '#000',
-    shadowOffset: { width: 4, height: 0 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    ...commonStyles.shadowHeavy,
   },
   drawer: {
     flex: 1,
@@ -173,18 +169,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...commonStyles.card,
+    ...commonStyles.row,
     paddingVertical: 16,
-    paddingHorizontal: 16,
     marginBottom: 8,
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
   },
   menuIcon: {
     marginRight: 16,
@@ -197,8 +185,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...commonStyles.row,
     paddingVertical: 18,
     paddingHorizontal: 20,
     marginHorizontal: 12,
