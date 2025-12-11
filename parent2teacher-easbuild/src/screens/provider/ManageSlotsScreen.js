@@ -6,7 +6,7 @@ import { collection, query, where, getDocs, deleteDoc, doc, orderBy, writeBatch,
 import { db } from '../../config/firebaseConfig';
 import { useAuth } from '../../hooks/useAuth';
 import WatercolorBackground from '../../components/WatercolorBackground';
-import { colors } from '../../styles/commonStyles';
+import { colors, commonStyles } from '../../styles/commonStyles';
 
 /**
  * ManageSlotsScreen - Teacher can view and delete their availability slots
@@ -308,7 +308,7 @@ export default function ManageSlotsScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={commonStyles.safeArea}>
       <WatercolorBackground />
       
       {/* Header */}
@@ -367,9 +367,9 @@ export default function ManageSlotsScreen({ navigation }) {
         renderItem={renderSlot}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Ionicons name="calendar-outline" size={64} color={colors.textLight} />
-            <Text style={styles.emptyText}>
+          <View style={commonStyles.emptyState}>
+            <Ionicons name="calendar-outline" size={64} color={colors.textSecondary} style={commonStyles.emptyStateIcon} />
+            <Text style={commonStyles.emptyStateText}>
               {filter === 'upcoming' ? 'No upcoming slots' : 
                filter === 'booked' ? 'No booked slots' : 'No slots found'}
             </Text>
@@ -396,14 +396,8 @@ export default function ManageSlotsScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    ...commonStyles.rowBetween,
     paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: colors.secondary,
@@ -414,7 +408,7 @@ const styles = StyleSheet.create({
     color: colors.white,
   },
   filterContainer: {
-    flexDirection: 'row',
+    ...commonStyles.row,
     paddingHorizontal: 20,
     paddingVertical: 12,
     backgroundColor: colors.white,
@@ -443,15 +437,9 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   slotCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
+    ...commonStyles.card,
+    ...commonStyles.rowBetween,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
   },
   bookedSlot: {
     backgroundColor: '#FFF9C4',
@@ -464,8 +452,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   slotHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...commonStyles.row,
     marginBottom: 4,
   },
   slotDate: {
@@ -475,15 +462,12 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   bookedBadge: {
+    ...commonStyles.badge,
     backgroundColor: '#FBC02D',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 4,
   },
   bookedBadgeText: {
+    ...commonStyles.badgeText,
     fontSize: 10,
-    fontWeight: 'bold',
-    color: colors.white,
   },
   slotTime: {
     fontSize: 14,
@@ -497,22 +481,10 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 8,
   },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.textLight,
-    marginTop: 16,
-    marginBottom: 24,
-  },
   createButton: {
-    backgroundColor: colors.primary,
+    ...commonStyles.button,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 8,
   },
   createButtonText: {
     color: colors.white,

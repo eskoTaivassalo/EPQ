@@ -20,7 +20,7 @@ import WatercolorBackground from '../../components/WatercolorBackground';
 import ProfileImagePicker from '../../components/ProfileImagePicker';
 import TagSelector from '../../components/TagSelector';
 import imagePickerService from '../../services/imagePickerService';
-import { colors } from '../../styles/commonStyles';
+import { colors, commonStyles } from '../../styles/commonStyles';
 import { SUBJECTS, LANGUAGES, TEACHING_METHODS, AVAILABILITY } from '../../constants/tags';
 import { ROLE_CONFIG, ROLE_TYPES } from '../../config/roleConfig';
 
@@ -279,18 +279,18 @@ const ProfileScreen = ({ navigation }) => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={commonStyles.safeArea}>
         <WatercolorBackground />
-        <View style={styles.loadingContainer}>
+        <View style={commonStyles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Ladataan profiilia...</Text>
+          <Text style={commonStyles.loadingText}>Ladataan profiilia...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={commonStyles.safeArea}>
       <WatercolorBackground />
       
       {/* Header */}
@@ -603,15 +603,9 @@ const ProfileScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   header: {
     backgroundColor: colors.secondary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    ...commonStyles.rowBetween,
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 15,
@@ -631,16 +625,6 @@ const styles = StyleSheet.create({
     padding: 5,
     width: 40,
     alignItems: 'flex-end',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: colors.text,
   },
   content: {
     flex: 1,
@@ -662,10 +646,10 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   roleBadge: {
+    ...commonStyles.badge,
     backgroundColor: colors.primary + '20',
     paddingHorizontal: 20,
     paddingVertical: 8,
-    borderRadius: 20,
     marginTop: 15,
   },
   roleBadgeText: {
@@ -674,8 +658,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   addRoleButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...commonStyles.row,
     backgroundColor: colors.white,
     paddingHorizontal: 20,
     paddingVertical: 10,
@@ -691,16 +674,9 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   section: {
-    backgroundColor: colors.white,
+    ...commonStyles.card,
     marginHorizontal: 15,
     marginBottom: 15,
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   sectionTitle: {
     fontSize: 18,
@@ -709,25 +685,16 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   field: {
-    marginBottom: 15,
+    ...commonStyles.formGroup,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 8,
+    ...commonStyles.label,
   },
   input: {
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    color: colors.text,
+    ...commonStyles.input,
   },
   inputDisabled: {
-    backgroundColor: colors.background + '80',
+    backgroundColor: colors.backgroundDark,
     color: colors.textSecondary,
   },
   textArea: {
@@ -759,8 +726,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   emptyText: {
-    fontSize: 14,
-    color: colors.textSecondary,
+    ...commonStyles.emptyStateText,
     fontStyle: 'italic',
   },
 });

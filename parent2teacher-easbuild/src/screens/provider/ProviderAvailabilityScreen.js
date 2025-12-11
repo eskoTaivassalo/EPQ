@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
-import { colors } from '../../styles/commonStyles';
+import { colors, commonStyles } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { generateAvailabilitySlots } from '../../services/availabilityService';
 import { doc, getDoc } from 'firebase/firestore';
@@ -140,7 +140,7 @@ export default function TeacherAvailabilityScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={commonStyles.safeArea}>
       <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
@@ -154,7 +154,7 @@ export default function TeacherAvailabilityScreen({ navigation }) {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Days */}
-        <View style={styles.card}>
+        <View style={commonStyles.card}>
           <Text style={styles.cardTitle}>Days</Text>
           <View style={styles.chipsContainer}>
             {DAYS.map(d => (
@@ -174,7 +174,7 @@ export default function TeacherAvailabilityScreen({ navigation }) {
         {/* Subjects removed - client selects during booking */}
 
         {/* Time Settings */}
-        <View style={styles.card}>
+        <View style={commonStyles.card}>
           <Text style={styles.cardTitle}>Time Settings</Text>
           
           <View style={styles.timeGrid}>
@@ -305,12 +305,9 @@ export default function TeacherAvailabilityScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
   header: { 
     backgroundColor: colors.secondary, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between', 
+    ...commonStyles.rowBetween,
     paddingHorizontal: 12, 
     paddingTop: 6, 
     paddingBottom: 10 
@@ -319,17 +316,6 @@ const styles = StyleSheet.create({
   headerTitle: { color: colors.white, fontSize: 16, fontWeight: 'bold' },
   content: { padding: 12 },
   
-  card: {
-    backgroundColor: colors.white,
-    borderRadius: 10,
-    padding: 8,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
   cardTitle: {
     fontSize: 12,
     fontWeight: '700',
@@ -361,11 +347,6 @@ const styles = StyleSheet.create({
   },
   chipTextActive: {
     color: colors.white,
-  },
-  emptyText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    fontStyle: 'italic',
   },
   
   timeGrid: {
