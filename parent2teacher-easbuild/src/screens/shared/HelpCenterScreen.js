@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../styles/commonStyles';
+import commonStyles from '../../styles/commonStyles';
 import WatercolorBackground from '../../components/WatercolorBackground';
 
 const HelpCenterScreen = ({ navigation }) => {
@@ -177,21 +178,12 @@ const HelpCenterScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
+  container: commonStyles.safeArea,
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    ...commonStyles.rowBetween,
     padding: 16,
     backgroundColor: colors.primary,
-    elevation: 4,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    ...commonStyles.shadow,
   },
   backButton: {
     padding: 8,
@@ -213,16 +205,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   actionCard: {
+    ...commonStyles.card,
     flex: 1,
-    backgroundColor: colors.white,
-    borderRadius: 12,
     padding: 20,
     alignItems: 'center',
-    elevation: 2,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   actionTitle: {
     fontSize: 16,
@@ -280,16 +266,7 @@ const styles = StyleSheet.create({
   contactSection: {
     padding: 16,
   },
-  contactCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
-    shadowColor: colors.black,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
+  contactCard: commonStyles.card,
   contactItem: {
     flexDirection: 'row',
     alignItems: 'center',
