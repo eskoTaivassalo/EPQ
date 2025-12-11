@@ -21,7 +21,7 @@ import {
   clearReadNotifications,
   deleteOldNotifications 
 } from '../../store/slices/notificationsSlice';
-import { colors } from '../../styles/commonStyles';
+import { colors, commonStyles } from '../../styles/commonStyles';
 import { Swipeable } from 'react-native-gesture-handler';
 
 /**
@@ -313,7 +313,7 @@ const NotificationsScreen = ({ navigation }) => {
   const readCount = notifications.filter(n => n.read).length;
 
   return (
-    <View style={styles.container}>
+    <View style={commonStyles.safeArea}>
       <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity 
@@ -381,10 +381,10 @@ const NotificationsScreen = ({ navigation }) => {
         }}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="notifications-off-outline" size={54} color={colors.textSecondary} />
-            <Text style={styles.emptyTitle}>Ei ilmoituksia</Text>
-            <Text style={styles.emptyText}>Saat ilmoituksen kun joku varaa aikaa tai lähettää viestin</Text>
+          <View style={commonStyles.emptyState}>
+            <Ionicons name="notifications-off-outline" size={54} color={colors.textSecondary} style={commonStyles.emptyStateIcon} />
+            <Text style={commonStyles.emptyStateTitle}>Ei ilmoituksia</Text>
+            <Text style={commonStyles.emptyStateText}>Saat ilmoituksen kun joku varaa aikaa tai lähettää viestin</Text>
           </View>
         }
         refreshing={loading}
@@ -503,16 +503,9 @@ const NotificationsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-
-  container: {
-    flex: 1,
-    backgroundColor: colors.background
-  },
   header: {
     backgroundColor: colors.secondary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    ...commonStyles.rowBetween,
     paddingHorizontal: 8,
     paddingVertical: 12,
     paddingTop: 48
@@ -535,17 +528,10 @@ const styles = StyleSheet.create({
     padding: 16
   },
   card: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    flexDirection: 'row',
+    ...commonStyles.card,
+    ...commonStyles.row,
     alignItems: 'flex-start',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2
+    marginBottom: 12,
   },
   unreadCard: {
     borderLeftWidth: 4,
@@ -667,22 +653,13 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5
   },
   modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    ...commonStyles.modalOverlay,
     padding: 20,
   },
   modalContent: {
-    backgroundColor: colors.white,
-    borderRadius: 16,
+    ...commonStyles.modalContainer,
     width: '100%',
     maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 10,
   },
   modalHeader: {
     flexDirection: 'row',

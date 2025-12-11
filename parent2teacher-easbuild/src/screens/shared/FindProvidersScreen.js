@@ -16,7 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
-import { colors } from '../../styles/commonStyles';
+import { colors, commonStyles } from '../../styles/commonStyles';
 import { useAppData } from '../../hooks/useAppData';
 import { useAuth } from '../../hooks/useAuth';
 import TagSelector from '../../components/TagSelector';
@@ -544,7 +544,7 @@ const FindProvidersScreen = ({ navigation }) => {
 
   // Renderöi AINA tausta ensin, näytä skeleton loading jos ladataan
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#FFFFFF' }]}>
+    <SafeAreaView style={[commonStyles.safeArea, { backgroundColor: '#FFFFFF' }]}>
       <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity 
@@ -592,9 +592,9 @@ const FindProvidersScreen = ({ navigation }) => {
       )}
 
       {teachersLoading ? (
-        <View style={styles.loadingContainer}>
+        <View style={commonStyles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading teachers...</Text>
+          <Text style={commonStyles.loadingText}>Loading teachers...</Text>
         </View>
       ) : (
         <FlatList
@@ -927,15 +927,9 @@ const FindProvidersScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   header: {
     backgroundColor: colors.secondary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    ...commonStyles.rowBetween,
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 15,
@@ -1005,11 +999,6 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontWeight: '500',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   fullScreenLoading: {
     position: 'absolute',
     top: 0,
@@ -1021,11 +1010,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     zIndex: 9999,
   },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: colors.text,
-  },
   teachersList: {
     flex: 1,
     padding: 20,
@@ -1034,15 +1018,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   teacherCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: 16,
+    ...commonStyles.card,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   teacherHeader: {
     flexDirection: 'row',

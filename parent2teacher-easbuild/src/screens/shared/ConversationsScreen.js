@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
-import { colors } from '../../styles/commonStyles';
+import { colors, commonStyles } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { listConversationsForUser } from '../../services/communicationService';
 import { db } from '../../config/firebaseConfig';
@@ -134,7 +134,7 @@ export default function ConversationsScreen({ navigation, route }) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={commonStyles.safeArea}>
       <WatercolorBackground />
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -145,12 +145,12 @@ export default function ConversationsScreen({ navigation, route }) {
       </View>
 
       {error && (
-        <View style={styles.center}><Text style={{ color: colors.error }}>{error}</Text></View>
+        <View style={commonStyles.emptyState}><Text style={{ color: colors.error }}>{error}</Text></View>
       )}
       {!error && items.length === 0 && !loading && (
-        <View style={styles.center}>
-          <Ionicons name="chatbubble-ellipses-outline" size={48} color={colors.textSecondary} />
-          <Text style={styles.emptyText}>No conversations yet</Text>
+        <View style={commonStyles.emptyState}>
+          <Ionicons name="chatbubble-ellipses-outline" size={48} color={colors.textSecondary} style={commonStyles.emptyStateIcon} />
+          <Text style={commonStyles.emptyStateText}>No conversations yet</Text>
         </View>
       )}
       {!error && (
@@ -161,13 +161,11 @@ export default function ConversationsScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.secondary },
+  header: { ...commonStyles.rowBetween, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.secondary },
   backBtn: { padding: 6 },
   headerTitle: { color: colors.white, fontSize: 18, fontWeight: '700' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyText: { marginTop: 8, color: colors.textSecondary },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.white, padding: 14, borderRadius: 12, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 2, elevation: 2 },
+  emptyText: { ...commonStyles.emptyStateText, marginTop: 8 },
+  card: { ...commonStyles.card, ...commonStyles.row, marginBottom: 10 },
   unreadCard: { backgroundColor: '#FFFBEB', borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   supportAvatar: { backgroundColor: '#F59E0B' },
