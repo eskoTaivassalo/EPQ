@@ -200,7 +200,19 @@ export const fetchTeachers = createAsyncThunk(
         };
       });
 
-      return teachersData;
+      // Remove duplicates based on id (in case same teacher exists in multiple collections)
+      const uniqueTeachers = teachersData.reduce((acc, current) => {
+        const exists = acc.find(item => item.id === current.id);
+        if (!exists) {
+          acc.push(current);
+        } else {
+          console.log(`🔄 Redux: Removed duplicate teacher: ${current.id}`);
+        }
+        return acc;
+      }, []);
+
+      console.log(`✅ Redux: Returning ${uniqueTeachers.length} unique teachers (from ${teachersData.length} total)`);
+      return uniqueTeachers;
       
     } catch (error) {
       console.error('❌ Redux: Error fetching teachers:', error);

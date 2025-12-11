@@ -42,14 +42,15 @@ export default function ConversationsScreen({ navigation, route }) {
       // Load names BEFORE setting items to avoid showing IDs
       const ids = Array.from(new Set(rows.map(r => r.counterpartId).filter(Boolean)));
       const map = {};
-      const collection = role === 'teacher' ? 'parents' : 'teachers';
+      const collectionName = role === 'teacher' ? 'students' : 'teachers';
       
       await Promise.all(ids.map(async (id) => {
         try {
-          const snap = await getDoc(doc(db, collection, id));
+          const snap = await getDoc(doc(db, 'serviceTypes', 'education', collectionName, id));
           const data = snap.exists() ? snap.data() : null;
-          map[id] = data?.name || data?.fullName || id;
+          map[id] = data?.name || data?.fullName || data?.displayName || id;
         } catch (err) {
+          console.warn('Failed to load name for', id, err);
           map[id] = id;
         }
       }));

@@ -111,7 +111,7 @@ const AdminDashboard = ({ navigation }) => {
       
       try {
         const messagesQuery = query(
-          collection(db, 'messages'),
+          collection(db, 'serviceTypes', 'education', 'messages'),
           where('recipientId', '==', user?.uid),
           where('type', '==', 'support')
         );

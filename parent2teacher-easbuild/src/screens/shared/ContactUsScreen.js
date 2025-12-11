@@ -151,11 +151,7 @@ const ContactUsScreen = ({ navigation }) => {
           {/* Category Selection */}
           <View style={styles.section}>
             <Text style={styles.label}>Category</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              style={styles.categoriesScroll}
-            >
+            <View style={styles.categoriesContainer}>
               {categories.map((category) => (
                 <TouchableOpacity
                   key={category.id}
@@ -180,7 +176,7 @@ const ContactUsScreen = ({ navigation }) => {
                   </Text>
                 </TouchableOpacity>
               ))}
-            </ScrollView>
+            </View>
           </View>
 
           {/* Form */}
@@ -336,9 +332,10 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
   },
-  categoriesScroll: {
-    marginHorizontal: -16,
-    paddingHorizontal: 16,
+  categoriesContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   categoryChip: {
     flexDirection: 'row',

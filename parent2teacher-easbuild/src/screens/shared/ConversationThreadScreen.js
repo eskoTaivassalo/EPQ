@@ -56,7 +56,7 @@ export default function ConversationThreadScreen({ navigation, route }) {
         ? (userId1 === user.uid ? userId2 : userId1)
         : (senderId === user.uid ? recipientId : senderId);
       
-      await addDoc(collection(db, 'messages'), {
+      await addDoc(collection(db, 'serviceTypes', 'education', 'messages'), {
         senderId: user.uid,
         recipientId: recipientUserId,
         senderRole: user.role || role || 'guest',

@@ -237,13 +237,9 @@ const WelcomeScreen = ({ navigation, route }) => {
               <View style={styles.teachersSection}>
                 <Text style={styles.sectionTitle}>Meet Our Professionals</Text>
                 <Text style={styles.sectionSubtitle}>Connect with experienced social care professionals ready to help</Text>
-                <ScrollView 
-                  horizontal 
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.teachersScroll}
-                >
+                <View style={styles.teachersGrid}>
                   {featuredTeachers.map(teacher => renderTeacherCard(teacher))}
-                </ScrollView>
+                </View>
                 <TouchableOpacity 
                   style={styles.viewAllButton}
                   onPress={() => navigation.navigate('Login')}
@@ -761,14 +757,16 @@ const styles = StyleSheet.create({
   teachersSection: {
     marginBottom: 24,
   },
-  teachersScroll: {
-    paddingRight: 16,
+  teachersGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    justifyContent: 'center',
   },
   teacherCard: {
     backgroundColor: colors.white,
     borderRadius: 16,
     padding: 18,
-    marginRight: 12,
     width: 150,
     alignItems: 'center',
     shadowColor: '#667eea',

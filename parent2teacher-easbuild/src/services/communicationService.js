@@ -8,8 +8,9 @@ import { db } from '../config/firebaseConfig';
  * @param {string} params.parentId
  * @param {string} params.senderType  'teacher' | 'parent'
  * @param {string} params.text
+ * @param {string} params.serviceType - default 'education'
  */
-export async function sendMessage({ teacherId, parentId, senderType, text }) {
+export async function sendMessage({ teacherId, parentId, senderType, text, serviceType = 'education' }) {
   if (!db) throw new Error('Firestore not initialized');
   if (!teacherId || !parentId) throw new Error('teacherId and parentId required');
   if (!text || !text.trim()) throw new Error('Message text required');
@@ -21,7 +22,7 @@ export async function sendMessage({ teacherId, parentId, senderType, text }) {
     read: false,
     createdAt: serverTimestamp(),
   };
-  const ref = collection(db, 'messages');
+  const ref = collection(db, 'serviceTypes', serviceType, 'messages');
   const res = await addDoc(ref, payload);
 
   // Determine recipient
@@ -45,7 +46,7 @@ export async function sendMessage({ teacherId, parentId, senderType, text }) {
     } else {
       // Fallback: create directly to Firestore
       const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
-      await addDoc(collection(db, 'users', teacherId, 'notifications'), {
+      await addDoc(collection(db, 'users', recipientId, 'notifications'), {
         ...notificationData,
         read: false,
         createdAt: serverTimestamp()
@@ -81,9 +82,9 @@ export async function sendMessage({ teacherId, parentId, senderType, text }) {
 /**
  * listMessagesForConversation - returns ordered messages between a teacher and a parent.
  */
-export async function listMessagesForConversation(teacherId, parentId, limit = 50) {
+export async function listMessagesForConversation(teacherId, parentId, limit = 50, serviceType = 'education') {
   if (!db) throw new Error('Firestore not initialized');
-  const ref = collection(db, 'messages');
+  const ref = collection(db, 'serviceTypes', serviceType, 'messages');
   const q = query(
     ref,
     where('parentId', '==', parentId),
@@ -150,9 +151,9 @@ export async function listGradesForParentTeacher(teacherId, parentId) {
 /**
  * subscribeToConversation - realtime updates for a conversation between teacherId & parentId
  */
-export function subscribeToConversation(teacherId, parentId, onChange) {
+export function subscribeToConversation(teacherId, parentId, onChange, serviceType = 'education') {
   if (!db) throw new Error('Firestore not initialized');
-  const ref = collection(db, 'messages');
+  const ref = collection(db, 'serviceTypes', serviceType, 'messages');
   const q = query(
     ref,
     where('parentId', '==', parentId),
@@ -171,10 +172,11 @@ export function subscribeToConversation(teacherId, parentId, onChange) {
  * @param {string} userId1 - First user ID (can be sender or recipient)
  * @param {string} userId2 - Second user ID (can be sender or recipient)
  * @param {function} onChange - Callback with messages array
+ * @param {string} serviceType - default 'education'
  */
-export function subscribeToSupportConversation(userId1, userId2, onChange) {
+export function subscribeToSupportConversation(userId1, userId2, onChange, serviceType = 'education') {
   if (!db) throw new Error('Firestore not initialized');
-  const ref = collection(db, 'messages');
+  const ref = collection(db, 'serviceTypes', serviceType, 'messages');
   
   // Query messages where:
   // (senderId = userId1 AND recipientId = userId2) OR (senderId = userId2 AND recipientId = userId1)
@@ -247,10 +249,11 @@ export function subscribeToSupportConversation(userId1, userId2, onChange) {
  * @param {string} userId - User ID
  * @param {string} role - User role ('teacher' or 'parent')
  * @param {boolean} includeSupport - Whether to include support messages (default: false)
+ * @param {string} serviceType - default 'education'
  */
-export async function listConversationsForUser(userId, role, includeSupport = false) {
+export async function listConversationsForUser(userId, role, includeSupport = false, serviceType = 'education') {
   if (!db) throw new Error('Firestore not initialized');
-  const ref = collection(db, 'messages');
+  const ref = collection(db, 'serviceTypes', serviceType, 'messages');
   
   // Query 1: Regular messages (teacher<->parent)
   const q1 = role === 'teacher'
@@ -431,7 +434,7 @@ export async function sendSupportMessage({ userId, senderName, senderEmail, send
       createdAt: serverTimestamp(),
     };
 
-    const messagesRef = fsCollection(db, 'messages');
+    const messagesRef = fsCollection(db, 'serviceTypes', 'education', 'messages');
     const messageDoc = await addDoc(messagesRef, messagePayload);
     messages.push({ id: messageDoc.id, ...messagePayload });
 

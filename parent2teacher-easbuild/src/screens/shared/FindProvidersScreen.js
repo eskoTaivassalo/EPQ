@@ -298,7 +298,16 @@ const FindProvidersScreen = ({ navigation }) => {
       });
     }
 
-    setFilteredTeachers(filtered);
+    // Remove duplicates based on id
+    const uniqueFiltered = filtered.reduce((acc, current) => {
+      const exists = acc.find(item => item.id === current.id);
+      if (!exists) {
+        acc.push(current);
+      }
+      return acc;
+    }, []);
+
+    setFilteredTeachers(uniqueFiltered);
   };
 
   const clearFilters = () => {

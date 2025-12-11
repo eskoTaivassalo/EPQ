@@ -11,6 +11,8 @@
  * Future roles could include: admin, moderator, institution, etc.
  */
 
+import { colors, roleAccents } from '../styles/commonStyles';
+
 export const ROLE_TYPES = {
   SERVICE_PROVIDER: 'service_provider',
   CLIENT: 'client',
@@ -80,18 +82,19 @@ export const ROLE_CONFIG = {
     // Firestore collection name
     collectionName: 'teachers', // Will migrate to 'service_providers' later
     
-    // UI Theme
+    // UI Theme - yhtenäiset värit + rooli-spesifinen accent
     colors: {
-      primary: '#FF6B35',
-      secondary: '#F7931E',
-      accent: '#FF8C42',
-      background: '#FFF5F0',
-      card: '#FFFFFF',
-      text: '#2C3E50',
-      textSecondary: '#7F8C8D',
-      success: '#27AE60',
-      warning: '#F39C12',
-      error: '#E74C3C',
+      primary: roleAccents.teacher,  // Rooli-spesifinen accent-väri
+      secondary: colors.primaryDark,
+      accent: roleAccents.teacher,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      textSecondary: colors.textSecondary,
+      success: colors.success,
+      warning: colors.warning,
+      error: colors.error,
+      border: colors.border,
     },
     
     // Icon
@@ -194,18 +197,19 @@ export const ROLE_CONFIG = {
     // Firestore collection name
     collectionName: 'parents', // Will migrate to 'clients' later
     
-    // UI Theme
+    // UI Theme - yhtenäiset värit + rooli-spesifinen accent
     colors: {
-      primary: '#3498DB',
-      secondary: '#2980B9',
-      accent: '#5DADE2',
-      background: '#F0F8FF',
-      card: '#FFFFFF',
-      text: '#2C3E50',
-      textSecondary: '#7F8C8D',
-      success: '#27AE60',
-      warning: '#F39C12',
-      error: '#E74C3C',
+      primary: roleAccents.parent,
+      secondary: colors.primaryDark,
+      accent: roleAccents.parent,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      textSecondary: colors.textSecondary,
+      success: colors.success,
+      warning: colors.warning,
+      error: colors.error,
+      border: colors.border,
     },
     
     // Icon
@@ -393,20 +397,21 @@ export const ROLE_CONFIG = {
     serviceProviderLabel: 'Therapists',
     serviceProviderLabelSingular: 'Therapist',
     
-    legacyName: 'therapy_client',
-    collectionName: 'clients',
+    legacyName: 'teacher',
+    collectionName: 'teachers',
     
     colors: {
-      primary: '#9B59B6',
-      secondary: '#8E44AD',
-      accent: '#BB8FCE',
-      background: '#F4ECF7',
-      card: '#FFFFFF',
-      text: '#2C3E50',
-      textSecondary: '#7F8C8D',
-      success: '#27AE60',
-      warning: '#F39C12',
-      error: '#E74C3C',
+      primary: roleAccents.therapist,
+      secondary: colors.primaryDark,
+      accent: roleAccents.therapist,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      textSecondary: colors.textSecondary,
+      success: colors.success,
+      warning: colors.warning,
+      error: colors.error,
+      border: colors.border,
     },
     
     icon: 'person',
@@ -489,16 +494,17 @@ export const ROLE_CONFIG = {
     collectionName: 'admins',
     
     colors: {
-      primary: '#6366F1',
-      secondary: '#4F46E5',
-      accent: '#818CF8',
-      background: '#F5F5FF',
-      card: '#FFFFFF',
-      text: '#1E293B',
-      textSecondary: '#64748B',
-      success: '#10B981',
-      warning: '#F59E0B',
-      error: '#EF4444',
+      primary: roleAccents.admin,
+      secondary: colors.primaryDark,
+      accent: roleAccents.admin,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      textSecondary: colors.textSecondary,
+      success: colors.success,
+      warning: colors.warning,
+      error: colors.error,
+      border: colors.border,
     },
     
     icon: 'shield-checkmark',
@@ -588,16 +594,17 @@ export const ROLE_CONFIG = {
     collectionName: 'teachers',
     
     colors: {
-      primary: '#2ECC71',
-      secondary: '#27AE60',
-      accent: '#58D68D',
-      background: '#F0FFF4',
-      card: '#FFFFFF',
-      text: '#2C3E50',
-      textSecondary: '#7F8C8D',
-      success: '#27AE60',
-      warning: '#F39C12',
-      error: '#E74C3C',
+      primary: roleAccents.coach,
+      secondary: colors.primaryDark,
+      accent: roleAccents.coach,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      textSecondary: colors.textSecondary,
+      success: colors.success,
+      warning: colors.warning,
+      error: colors.error,
+      border: colors.border,
     },
     
     icon: 'fitness',
@@ -686,16 +693,17 @@ export const ROLE_CONFIG = {
     collectionName: 'parents',
     
     colors: {
-      primary: '#E67E22',
-      secondary: '#D35400',
-      accent: '#F39C12',
-      background: '#FFF8F0',
-      card: '#FFFFFF',
-      text: '#2C3E50',
-      textSecondary: '#7F8C8D',
-      success: '#27AE60',
-      warning: '#F39C12',
-      error: '#E74C3C',
+      primary: roleAccents.athlete,
+      secondary: colors.primaryDark,
+      accent: roleAccents.athlete,
+      background: colors.background,
+      card: colors.surface,
+      text: colors.text,
+      textSecondary: colors.textSecondary,
+      success: colors.success,
+      warning: colors.warning,
+      error: colors.error,
+      border: colors.border,
     },
     
     icon: 'barbell',
