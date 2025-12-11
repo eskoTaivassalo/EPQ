@@ -162,14 +162,12 @@ export const ROLE_CONFIG = {
     
     // Signup form fields
     signupFields: [
-      { key: 'displayName', type: 'text', label: 'Full Name', required: true },
-      { key: 'email', type: 'email', label: 'Email', required: true },
-      { key: 'password', type: 'password', label: 'Password', required: true },
-      { key: 'phoneNumber', type: 'phone', label: 'Phone', required: true },
-      { key: 'subjects', type: 'tags', label: 'Subjects/Services', required: true },
-      { key: 'experience', type: 'number', label: 'Years of Experience', required: false },
-      { key: 'hourlyRate', type: 'number', label: 'Hourly Rate (€)', required: false },
-      { key: 'description', type: 'textarea', label: 'About You', required: false },
+      { key: 'phoneNumber', type: 'phone', label: 'Phone Number', required: true },
+      { key: 'subjects', type: 'tags', label: 'Subjects You Teach', required: true },
+      { key: 'hourlyRate', type: 'number', label: 'Hourly Rate (€)', required: true },
+      { key: 'description', type: 'textarea', label: 'About You', required: true },
+      { key: 'experience', type: 'textarea', label: 'Experience & Qualifications', required: false },
+      { key: 'education', type: 'textarea', label: 'Education', required: false },
     ],
   },
   
@@ -270,12 +268,11 @@ export const ROLE_CONFIG = {
     
     // Signup form fields
     signupFields: [
-      { key: 'displayName', type: 'text', label: 'Full Name', required: true },
-      { key: 'email', type: 'email', label: 'Email', required: true },
-      { key: 'password', type: 'password', label: 'Password', required: true },
-      { key: 'phoneNumber', type: 'phone', label: 'Phone', required: false },
-      { key: 'needs', type: 'tags', label: 'Services Needed', required: false },
-      { key: 'preferences', type: 'textarea', label: 'Preferences', required: false },
+      { key: 'phoneNumber', type: 'phone', label: 'Phone Number', required: false },
+      { key: 'childrenAges', type: 'text', label: 'Children Ages', required: false, placeholder: 'e.g. 8, 10, 12' },
+      { key: 'subjectsNeeded', type: 'tags', label: 'Subjects Needed', required: false },
+      { key: 'goals', type: 'textarea', label: 'Learning Goals', required: false },
+      { key: 'notes', type: 'textarea', label: 'Additional Notes', required: false },
     ],
   },
 

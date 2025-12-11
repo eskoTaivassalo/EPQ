@@ -69,14 +69,8 @@ const WelcomeScreen = ({ navigation }) => {
   };
 
   const handleSignupSelection = (role) => {
-    // Route to legacy signup screens that have full functionality
-    if (role === ROLE_TYPES.SERVICE_PROVIDER || role === ROLE_TYPES.COACH) {
-      navigation.navigate('TeacherSignup');
-    } else if (role === ROLE_TYPES.CLIENT || role === ROLE_TYPES.ATHLETE) {
-      navigation.navigate('ParentSignup');
-    } else {
-      Alert.alert('Error', 'Invalid role type');
-    }
+    // Route to UniversalSignup with role parameter
+    navigation.navigate('UniversalSignup', { role });
   };
 
   const renderRoleCard = (roleConfig) => {

@@ -86,14 +86,8 @@ const RoleSignupScreen = ({ route, navigation }) => {
       return;
     }
 
-    // Redirect to legacy signup screens that have full functionality
-    if (roleType === ROLE_TYPES.SERVICE_PROVIDER || roleType === ROLE_TYPES.COACH) {
-      navigation.navigate('TeacherSignup');
-    } else if (roleType === ROLE_TYPES.CLIENT || roleType === ROLE_TYPES.ATHLETE) {
-      navigation.navigate('ParentSignup');
-    } else {
-      Alert.alert('Error', 'Invalid role type');
-    }
+    // Redirect to UniversalSignup with role parameter
+    navigation.navigate('UniversalSignup', { role: roleType });
   };
 
   const renderField = (field) => {

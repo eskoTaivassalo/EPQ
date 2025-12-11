@@ -264,7 +264,7 @@ const LoginScreen = ({ route, navigation }) => {
             [
               { text: 'Create Teacher Profile', onPress: async () => {
                   const googleInfo = await AuthService.getGoogleUserInfo();
-                  navigation.navigate('TeacherSignup', { googleUser: googleInfo });
+                  navigation.navigate('UniversalSignup', { role: 'service_provider', googleUser: googleInfo });
                 }
               },
               { text: 'Log in as Parent', onPress: () => finalizeRoleLogin('parent', parentData) },
@@ -290,14 +290,14 @@ const LoginScreen = ({ route, navigation }) => {
             text: 'Create Teacher Profile',
             onPress: async () => {
               const googleInfo = await AuthService.getGoogleUserInfo();
-              navigation.navigate('TeacherSignup', { googleUser: googleInfo });
+              navigation.navigate('UniversalSignup', { role: 'service_provider', googleUser: googleInfo });
             }
           },
           {
             text: 'Create Parent Profile',
             onPress: async () => {
               const googleInfo = await AuthService.getGoogleUserInfo();
-              navigation.navigate('ParentSignup', { googleUser: googleInfo });
+              navigation.navigate('UniversalSignup', { role: 'client', googleUser: googleInfo });
             }
           },
           { text: 'Cancel', style: 'cancel' }

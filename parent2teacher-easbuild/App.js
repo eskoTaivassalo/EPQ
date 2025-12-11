@@ -33,10 +33,10 @@ import ClientsScreen from './src/screens/shared/ClientsScreen';
 // LAZY LOADED SCREENS - Ladataan vain tarvittaessa
 // Auth
 const RoleSignupScreen = lazy(() => import('./src/screens/auth/RoleSignupScreen'));
-// Provider screens (lazy - vain opettajat)
-const ProviderSignupScreen = lazy(() => import('./src/screens/provider/ProviderSignupScreen'));
+const UniversalSignupScreen = lazy(() => import('./src/screens/auth/UniversalSignupScreen'));
 
-// Client screens (lazy - vain oppilaat)
+// Legacy signup screens (deprecated - use UniversalSignupScreen)
+const ProviderSignupScreen = lazy(() => import('./src/screens/provider/ProviderSignupScreen'));
 const ClientSignupScreen = lazy(() => import('./src/screens/client/ClientSignupScreen'));
 const FavoriteProvidersScreen = lazy(() => import('./src/screens/shared/FavoriteProvidersScreen'));
 const ProviderAvailableSlotsScreen = lazy(() => import('./src/screens/shared/ProviderAvailableSlotsScreen'));
@@ -373,6 +373,9 @@ const AppNavigator = () => {
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="RoleSignup" component={RoleSignupScreen} />
+            {/* Universal signup - works for all roles */}
+            <Stack.Screen name="UniversalSignup" component={UniversalSignupScreen} />
+            {/* Legacy signup screens - redirect to UniversalSignup */}
             <Stack.Screen name="TeacherSignup" component={ProviderSignupScreen} />
             <Stack.Screen name="ParentSignup" component={ClientSignupScreen} />
             <Stack.Screen name="LegalDocument" component={LegalDocumentScreen} />
