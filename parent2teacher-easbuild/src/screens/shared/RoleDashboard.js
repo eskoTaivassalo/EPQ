@@ -26,6 +26,7 @@ import SimpleDrawer from '../../components/SimpleDrawer';
 import { fetchTeacherBookings, fetchParentBookings, selectBookings, updateBookingStatus, approveAllRecurringBookings, startBookingsListener, stopBookingsListener } from '../../store/slices/bookingsSlice';
 import { fetchNotifications, startNotificationListener, stopNotificationListener } from '../../store/slices/notificationsSlice';
 import { useAppData } from '../../hooks/useAppData';
+import { colors, commonStyles } from '../../styles/commonStyles';
 
 const RoleDashboard = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -331,7 +332,7 @@ const RoleDashboard = ({ navigation }) => {
   ];
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: roleColors.background }]}>
+    <SafeAreaView style={[commonStyles.safeArea, { backgroundColor: roleColors.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
         <TouchableOpacity onPress={() => setDrawerVisible(true)}>
@@ -643,42 +644,43 @@ const RoleDashboard = ({ navigation }) => {
           animationType="fade"
           onRequestClose={() => setDeclineModalVisible(false)}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Ionicons name="close-circle" size={32} color="#F44336" />
-                <Text style={styles.modalTitle}>Hylkää varaus</Text>
+          <View style={commonStyles.modalOverlay}>
+            <View style={commonStyles.modalContainer}>
+              <View style={commonStyles.row}>
+                <Ionicons name="close-circle" size={32} color={colors.error} />
+                <Text style={[commonStyles.modalTitle, { marginLeft: 12 }]}>Hylkää varaus</Text>
               </View>
               
-              <Text style={styles.modalLabel}>Kerro oppilaalle, miksi et voi hyväksyä tätä varausta:</Text>
+              <View style={[commonStyles.divider, commonStyles.mt16, { marginBottom: 16 }]} />
+              
+              <Text style={commonStyles.label}>Kerro oppilaalle, miksi et voi hyväksyä tätä varausta:</Text>
               
               <TextInput
                 style={styles.modalTextInput}
                 placeholder="Esim: En ole saatavilla kyseisen aikana"
-                placeholderTextColor="#999"
+                placeholderTextColor={colors.textLight}
                 value={declineReason}
                 onChangeText={setDeclineReason}
                 multiline
                 numberOfLines={4}
-                textAlignVertical="top"
               />
 
-              <View style={styles.modalFooter}>
+              <View style={commonStyles.modalButtons}>
                 <TouchableOpacity 
-                  style={styles.modalCancelButton}
+                  style={[commonStyles.modalButton, commonStyles.modalButtonSecondary]}
                   onPress={() => {
                     setDeclineModalVisible(false);
                     setBookingToDecline(null);
                     setDeclineReason('');
                   }}
                 >
-                  <Text style={styles.modalCancelButtonText}>Peruuta</Text>
+                  <Text style={commonStyles.buttonText}>Peruuta</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
-                  style={styles.modalConfirmButton}
+                  style={[commonStyles.modalButton, commonStyles.modalButtonPrimary, { backgroundColor: colors.error }]}
                   onPress={confirmDecline}
                 >
-                  <Text style={styles.modalConfirmButtonText}>Hylkää varaus</Text>
+                  <Text style={commonStyles.buttonText}>Hylkää varaus</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -710,31 +712,25 @@ const RoleDashboard = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    ...commonStyles.rowBetween,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   headerTitleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...commonStyles.row,
     gap: 8,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   badge: {
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#E74C3C',
+    backgroundColor: colors.error,
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -743,9 +739,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   badgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
+    ...commonStyles.badgeText,
   },
   content: {
     flex: 1,
@@ -771,16 +765,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   statCard: {
+    ...commonStyles.card,
     flex: 1,
     minWidth: '47%',
     flexDirection: 'row',
     padding: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   statIconContainer: {
     width: 56,
@@ -806,9 +795,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    ...commonStyles.rowBetween,
     marginBottom: 12,
   },
   sectionTitle: {
@@ -831,7 +818,14 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
+  },
+  quickActionIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   quickActionText: {
     marginTop: 8,
@@ -840,64 +834,49 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   emptyState: {
+    ...commonStyles.emptyState,
     padding: 32,
     borderRadius: 12,
-    alignItems: 'center',
   },
   emptyText: {
+    ...commonStyles.emptyStateText,
     marginTop: 12,
-    fontSize: 14,
   },
   emptyRequestsCard: {
+    ...commonStyles.card,
     padding: 24,
-    borderRadius: 12,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   emptyRequestsText: {
     marginTop: 8,
     fontSize: 14,
+    color: colors.textSecondary,
   },
   requestCard: {
-    padding: 16,
-    borderRadius: 12,
+    ...commonStyles.card,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   requestHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    ...commonStyles.rowBetween,
     marginBottom: 8,
   },
   requestStudent: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    ...commonStyles.listItemTitle,
   },
   requestBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    ...commonStyles.badge,
   },
   requestBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
+    ...commonStyles.badgeText,
   },
   requestSubject: {
     fontSize: 14,
+    color: colors.text,
     marginBottom: 4,
   },
   requestTime: {
     fontSize: 12,
+    color: colors.textSecondary,
     marginBottom: 12,
   },
   requestActions: {
@@ -914,7 +893,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   acceptButtonText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 14,
     fontWeight: 'bold',
   },
@@ -926,7 +905,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1.5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     gap: 6,
   },
   declineButtonText: {
@@ -934,19 +913,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   lessonCard: {
-    padding: 16,
-    borderRadius: 12,
+    ...commonStyles.card,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   lessonHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    ...commonStyles.rowBetween,
   },
   lessonInfo: {
     flex: 1,
@@ -955,14 +926,17 @@ const styles = StyleSheet.create({
   lessonStudent: {
     fontSize: 16,
     fontWeight: 'bold',
+    color: colors.text,
     marginBottom: 4,
   },
   lessonSubject: {
     fontSize: 14,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   lessonTime: {
     fontSize: 12,
+    color: colors.textSecondary,
   },
   videoButton: {
     width: 56,
@@ -970,15 +944,10 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    ...commonStyles.shadow,
   },
   meetingInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...commonStyles.row,
     marginTop: 12,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -990,21 +959,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   errorContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
+    ...commonStyles.emptyState,
   },
   errorText: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#2C3E50',
+    color: colors.text,
     marginTop: 16,
     textAlign: 'center',
   },
   errorSubtext: {
     fontSize: 14,
-    color: '#7F8C8D',
+    color: colors.textSecondary,
     marginTop: 8,
     textAlign: 'center',
   },
@@ -1012,93 +978,27 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingHorizontal: 32,
     paddingVertical: 12,
-    backgroundColor: '#E74C3C',
+    backgroundColor: colors.error,
     borderRadius: 8,
   },
   errorButtonText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontSize: 16,
     fontWeight: 'bold',
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    width: '85%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
-    elevation: 8,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-    gap: 12,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2C3E50',
-  },
-  modalLabel: {
-    fontSize: 14,
-    color: '#7F8C8D',
-    marginBottom: 12,
-  },
   modalTextInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
-    color: '#2C3E50',
+    ...commonStyles.input,
     minHeight: 100,
+    textAlignVertical: 'top',
     marginBottom: 20,
   },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  modalCancelButton: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalCancelButtonText: {
-    color: '#7F8C8D',
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  modalConfirmButton: {
-    flex: 1,
-    backgroundColor: '#F44336',
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  modalConfirmButtonText: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-    fontSize: 14,
-  },
   recurringHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    ...commonStyles.row,
     gap: 8,
   },
   recurringDates: {
     fontSize: 12,
-    color: '#7F8C8D',
+    color: colors.textSecondary,
     marginTop: 4,
   },
 });

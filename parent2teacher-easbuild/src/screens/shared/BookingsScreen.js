@@ -35,6 +35,7 @@ import {
   cancelBooking
 } from '../../store/slices/bookingsSlice';
 import WatercolorBackground from '../../components/WatercolorBackground';
+import { colors, commonStyles } from '../../styles/commonStyles';
 
 const BookingsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -342,7 +343,7 @@ const BookingsScreen = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={commonStyles.safeArea}>
       <WatercolorBackground />
       
       {/* Header */}
@@ -390,9 +391,14 @@ const BookingsScreen = ({ navigation }) => {
         }
       >
         {filteredBookings.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="calendar-outline" size={64} color="#CCC" />
-            <Text style={styles.emptyText}>Ei varauksia</Text>
+          <View style={commonStyles.emptyState}>
+            <Ionicons name="calendar-outline" size={64} color={colors.textLight} style={commonStyles.emptyStateIcon} />
+            <Text style={commonStyles.emptyStateTitle}>Ei varauksia</Text>
+            <Text style={commonStyles.emptyStateText}>
+              {selectedFilter === 'pending' 
+                ? 'Ei odottavia varauksia tällä hetkellä' 
+                : 'Varauksesi näkyvät täällä'}
+            </Text>
           </View>
         ) : (
           filteredBookings.map(booking => renderBookingCard(booking))
@@ -406,21 +412,26 @@ const BookingsScreen = ({ navigation }) => {
         animationType="slide"
         onRequestClose={() => setCancelModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Ionicons name="close-circle" size={32} color="#E74C3C" />
-              <Text style={styles.modalTitle}>Peruuta varaus</Text>
+        <View style={commonStyles.modalOverlay}>
+          <View style={commonStyles.modalContainer}>
+            <View style={commonStyles.rowBetween}>
+              <View style={commonStyles.row}>
+                <Ionicons name="close-circle" size={32} color={colors.error} />
+                <Text style={[commonStyles.modalTitle, { textAlign: 'left', marginLeft: 12 }]}>
+                  Peruuta varaus
+                </Text>
+              </View>
               <TouchableOpacity 
-                onPress={() => setCancelModalVisible(false)} 
-                style={styles.modalCloseButton}
+                onPress={() => setCancelModalVisible(false)}
               >
-                <Ionicons name="close" size={24} color="#333" />
+                <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalBody}>
-              <Text style={styles.modalLabel}>Syy peruutukselle (valinnainen)</Text>
+            <View style={[commonStyles.divider, commonStyles.mt16, { marginBottom: 16 }]} />
+
+            <View style={commonStyles.formGroup}>
+              <Text style={commonStyles.label}>Syy peruutukselle (valinnainen)</Text>
               <TextInput
                 style={styles.modalTextInput}
                 placeholder="Esim. sairaus, aikataulu muuttui..."
@@ -429,24 +440,23 @@ const BookingsScreen = ({ navigation }) => {
                 multiline
                 numberOfLines={4}
                 maxLength={200}
-                textAlignVertical="top"
               />
               <Text style={styles.modalHint}>{cancelReason.length}/200 merkkiä</Text>
             </View>
 
-            <View style={styles.modalFooter}>
+            <View style={commonStyles.modalButtons}>
               <TouchableOpacity 
-                style={styles.modalCancelButton}
+                style={[commonStyles.modalButton, commonStyles.modalButtonSecondary]}
                 onPress={() => setCancelModalVisible(false)}
               >
-                <Text style={styles.modalCancelButtonText}>Takaisin</Text>
+                <Text style={commonStyles.buttonText}>Takaisin</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={styles.modalConfirmButton}
+                style={[commonStyles.modalButton, styles.modalConfirmButton]}
                 onPress={handleCancelBooking}
               >
-                <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-                <Text style={styles.modalConfirmButtonText}>Vahvista peruutus</Text>
+                <Ionicons name="trash-outline" size={18} color={colors.white} />
+                <Text style={styles.modalConfirmButtonText}>Peruuta varaus</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -457,10 +467,6 @@ const BookingsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
   loader: {
     marginTop: 100,
   },
@@ -480,7 +486,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   headerSubtitle: {
     fontSize: 14,
@@ -490,9 +496,9 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   filtersContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: colors.borderLight,
     paddingVertical: 12,
   },
   filtersContent: {
@@ -511,11 +517,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   filterButtonSelected: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    ...commonStyles.shadow,
   },
   filterText: {
     fontSize: 14,
@@ -532,7 +534,7 @@ const styles = StyleSheet.create({
   filterBadgeText: {
     fontSize: 12,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+    color: colors.white,
   },
   content: {
     flex: 1,
@@ -540,26 +542,9 @@ const styles = StyleSheet.create({
   contentContainer: {
     padding: 16,
   },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 18,
-    color: '#999',
-    marginTop: 16,
-  },
   bookingCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    ...commonStyles.card,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
   bookingHeader: {
     flexDirection: 'row',
@@ -575,17 +560,13 @@ const styles = StyleSheet.create({
   bookingTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2C3E50',
+    color: colors.text,
   },
   statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    ...commonStyles.badge,
   },
   statusText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    ...commonStyles.badgeText,
   },
   bookingDetails: {
     marginBottom: 12,
@@ -598,7 +579,7 @@ const styles = StyleSheet.create({
   },
   bookingDetailText: {
     fontSize: 14,
-    color: '#666',
+    color: colors.textSecondary,
   },
   actionButtons: {
     flexDirection: 'row',
@@ -615,106 +596,39 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   acceptButton: {
-    backgroundColor: '#66BB6A',
+    backgroundColor: colors.success,
   },
   declineButton: {
     backgroundColor: '#AB47BC',
   },
   cancelButton: {
-    backgroundColor: '#EF5350',
+    backgroundColor: colors.error,
   },
   joinButton: {
-    backgroundColor: '#42A5F5',
+    backgroundColor: colors.info,
   },
   actionButtonText: {
-    color: '#FFFFFF',
+    color: colors.white,
     fontWeight: '600',
     fontSize: 14,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    width: '90%',
-    maxWidth: 400,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  modalTitle: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginLeft: 12,
-  },
-  modalCloseButton: {
-    padding: 4,
-  },
-  modalBody: {
-    padding: 20,
-  },
-  modalLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#333',
   },
   modalTextInput: {
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 14,
+    ...commonStyles.input,
     minHeight: 100,
+    textAlignVertical: 'top',
   },
   modalHint: {
     fontSize: 12,
-    color: '#999',
+    color: colors.textSecondary,
     marginTop: 4,
   },
-  modalFooter: {
-    flexDirection: 'row',
-    padding: 16,
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
-  },
-  modalCancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    alignItems: 'center',
-  },
-  modalCancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
   modalConfirmButton: {
-    flex: 1,
-    flexDirection: 'row',
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: '#E74C3C',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    backgroundColor: colors.error,
   },
   modalConfirmButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.white,
   },
 });
 
