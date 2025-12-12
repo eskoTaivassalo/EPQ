@@ -24,7 +24,7 @@ let activeNotificationListener = null;
 // Fetch notifications for current user
 export const fetchNotifications = createAsyncThunk(
   'notifications/fetch',
-  async (userId, { rejectWithValue }) => {
+  async (userId, { rejectWithValue, getState }) => {
     try {
       if (!userId) {
         return [];
@@ -41,14 +41,32 @@ export const fetchNotifications = createAsyncThunk(
         return rejectWithValue('user_mismatch');
       }
       
-      // Get notification collection from serviceTypes structure
-      const profile = await userDatabaseService.getUserMainProfile(userId);
-      if (!profile || !profile.primaryRole) {
-        console.warn(`No profile found for userId ${userId}`);
-        return [];
+      // Check cache first - if fresh, return cached data
+      const state = getState();
+      const { notifications: cachedNotifications, lastFetch, cacheTimeout } = state.notifications;
+      if (cachedNotifications.length > 0 && lastFetch && Date.now() - lastFetch < cacheTimeout) {
+        return cachedNotifications; // Return cached data immediately
       }
       
-      const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(profile.primaryRole);
+      // Get user role from Redux auth state (faster than DB query)
+      const userRole = state.auth?.user?.role || state.auth?.user?.userType;
+      
+      let serviceType, collectionName;
+      if (!userRole) {
+        // Fallback to DB query if not in Redux
+        const profile = await userDatabaseService.getUserMainProfile(userId);
+        if (!profile || !profile.primaryRole) {
+          console.warn(`No profile found for userId ${userId}`);
+          return [];
+        }
+        serviceType = userDatabaseService.getRoleCollectionInfo(profile.primaryRole).serviceType;
+        collectionName = userDatabaseService.getRoleCollectionInfo(profile.primaryRole).collection;
+      } else {
+        const { serviceType: st, collection: cn } = userDatabaseService.getRoleCollectionInfo(userRole);
+        serviceType = st;
+        collectionName = cn;
+      }
+      
       const notificationsRef = collection(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications');
       const snapshot = await getDocs(notificationsRef);
       const notifications = snapshot.docs.map(doc => {
@@ -339,7 +357,9 @@ const notificationsSlice = createSlice({
     notifications: [],
     unreadCount: 0,
     loading: false,
-    error: null
+    error: null,
+    lastFetch: null,
+    cacheTimeout: 30 * 1000 // 30 seconds cache
   },
   reducers: {
     clearNotifications: (state) => {
@@ -354,7 +374,8 @@ const notificationsSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // Fetch notifications
-      .addCase(fetchNotifications.pending, (state) => {
+      .astate.lastFetch = Date.now();
+        ddCase(fetchNotifications.pending, (state) => {
         state.loading = true;
         state.error = null;
       })

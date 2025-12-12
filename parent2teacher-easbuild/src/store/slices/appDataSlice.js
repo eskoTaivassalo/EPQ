@@ -52,7 +52,7 @@ const initialState = {
   
   // App settings
   settings: {
-    cacheTimeout: 5 * 60 * 1000, // 5 minutes
+    cacheTimeout: 30 * 60 * 1000, // 30 minutes - longer cache for better performance
     maxSearchResults: 50
   }
 };
@@ -234,11 +234,8 @@ export const fetchParents = createAsyncThunk(
       if (state.parentsLastFetch && 
           Date.now() - state.parentsLastFetch < cacheTimeout &&
           state.parents.length > 0) {
-        console.log('📊 Redux: Using cached parents data');
         return state.parents;
       }
-      
-      console.log('📊 Redux: Fetching parents from Firebase...');
       
       if (!db) {
         throw new Error('Firebase database not initialized');
@@ -246,7 +243,6 @@ export const fetchParents = createAsyncThunk(
       
       // Tarkista autentikointi
       if (!auth.currentUser) {
-        console.log('⚠️ Redux: User not authenticated, returning empty array');
         return [];
       }
       
@@ -274,7 +270,6 @@ export const fetchParents = createAsyncThunk(
         };
       });
       
-      console.log(`📊 Redux: Fetched ${parentsData.length} parents from Firestore`);
       return parentsData;
       
     } catch (error) {

@@ -494,12 +494,10 @@ export class AuthService {
     try {
       // Varmista että edellinen sessio on puhdistettu
       try {
-        const isSignedIn = await GoogleSignin.isSignedIn();
-        if (isSignedIn) {
-          console.log('Previous Google session found, signing out first...');
-          await GoogleSignin.signOut();
-        }
+        // Try to sign out - don't check isSignedIn as it may not exist in newer versions
+        await GoogleSignin.signOut();
       } catch (cleanupError) {
+        // Ignore cleanup errors (user might not be signed in)
         console.log('Google session cleanup skipped:', cleanupError.message);
       }
       
@@ -581,12 +579,10 @@ export class AuthService {
     try {
       // Varmista että edellinen sessio on puhdistettu
       try {
-        const isSignedIn = await GoogleSignin.isSignedIn();
-        if (isSignedIn) {
-          console.log('Previous Google session found, signing out first...');
-          await GoogleSignin.signOut();
-        }
+        // Try to sign out - don't check isSignedIn as it may not exist in newer versions
+        await GoogleSignin.signOut();
       } catch (cleanupError) {
+        // Ignore cleanup errors (user might not be signed in)
         console.log('Google session cleanup skipped:', cleanupError.message);
       }
       
@@ -644,11 +640,10 @@ export class AuthService {
    */
   static async signOutFromGoogle() {
     try {
-      const isSignedIn = await GoogleSignin.isSignedIn();
-      if (isSignedIn) {
-        await GoogleSignin.signOut();
-      }
+      // Just try to sign out - ignore errors if not signed in
+      await GoogleSignin.signOut();
     } catch (error) {
+      // Ignore errors
     }
   }
 
@@ -657,12 +652,9 @@ export class AuthService {
    */
   static async checkGoogleSignInStatus() {
     try {
-      const isSignedIn = await GoogleSignin.isSignedIn();
-      if (isSignedIn) {
-        const userInfo = await GoogleSignin.getCurrentUser();
-        return userInfo;
-      }
-      return null;
+      // Try to get current user - will return null if not signed in
+      const userInfo = await GoogleSignin.getCurrentUser();
+      return userInfo;
     } catch (error) {
       return null;
     }

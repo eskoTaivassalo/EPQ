@@ -20,6 +20,8 @@ import bookingsSlice from './slices/bookingsSlice';
 import notificationsSlice from './slices/notificationsSlice';
 import pushNotificationsSlice from './slices/pushNotificationsSlice';
 import locationSlice from './slices/locationSlice';
+import toastSlice from './slices/toastSlice';
+import availabilitySlice from './slices/availabilitySlice';
 
 // Middleware
 import authMiddleware from './middleware/authMiddleware';
@@ -51,6 +53,8 @@ const rootReducer = combineReducers({
   notifications: notificationsSlice,
   pushNotifications: pushNotificationsSlice,
   location: locationSlice,
+  toast: toastSlice,
+  availability: availabilitySlice,
 });
 
 // Persisted reducer

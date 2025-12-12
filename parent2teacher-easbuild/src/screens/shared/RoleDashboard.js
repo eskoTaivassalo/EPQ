@@ -179,16 +179,13 @@ const RoleDashboard = ({ navigation }) => {
       
       if (isProvider) {
         // Provider stats - fetch actual students from database (same way as Students screen)
-        console.log('📊 Dashboard: Calculating provider stats');
-        console.log('📊 Total bookings:', bookings.length);
         
         let actualStudentsCount = 0;
         try {
           const students = await listStudentsForTeacher(user.uid);
           actualStudentsCount = students.length;
-          console.log('📊 Actual students from database:', actualStudentsCount);
         } catch (error) {
-          console.warn('📊 Failed to fetch students count:', error);
+          console.warn('Failed to fetch students count:', error);
           // Fallback to unique parentIds from bookings
           actualStudentsCount = new Set(bookings.map(b => b.parentId)).size;
         }

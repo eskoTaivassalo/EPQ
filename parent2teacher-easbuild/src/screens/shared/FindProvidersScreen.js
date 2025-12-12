@@ -74,7 +74,10 @@ const FindProvidersScreen = ({ navigation }) => {
   });
   
   useEffect(() => {
-    loadTeachers();
+    // Only load if we don't have teachers already
+    if (teachers.length === 0) {
+      loadTeachers();
+    }
     loadFavorites().catch(() => {});
   }, []);
 
@@ -686,9 +689,10 @@ const FindProvidersScreen = ({ navigation }) => {
         </View>
       )}
 
-      {teachersLoading ? (
-        <View style={commonStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+      {teachersLoading && teachers.length === 0 ? (
+        // Show loading only if we have no cached data
+        <View style={[commonStyles.loadingContainer, { backgroundColor: 'transparent' }]}>
+          <ActivityIndicator size="large" color={roleColors.primary} />
           <Text style={commonStyles.loadingText}>Loading teachers...</Text>
         </View>
       ) : (
@@ -700,13 +704,21 @@ const FindProvidersScreen = ({ navigation }) => {
           contentContainerStyle={styles.teachersListContent}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="search" size={60} color={colors.textSecondary} />
-              <Text style={styles.emptyTitle}>No teachers found</Text>
-              <Text style={styles.emptyText}>
-                Try adjusting your search criteria or filters
-              </Text>
-            </View>
+            teachersLoading ? (
+              // Skeleton loading while fetching
+              <View style={[commonStyles.loadingContainer, { backgroundColor: 'transparent' }]}>
+                <ActivityIndicator size="large" color={roleColors.primary} />
+                <Text style={commonStyles.loadingText}>Loading teachers...</Text>
+              </View>
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="search" size={60} color={colors.textSecondary} />
+                <Text style={styles.emptyTitle}>No teachers found</Text>
+                <Text style={styles.emptyText}>
+                  Try adjusting your search criteria or filters
+                </Text>
+              </View>
+            )
           }
         />
       )}

@@ -28,6 +28,7 @@ import BookingsScreen from './src/screens/shared/BookingsScreen';
 import ProfileScreen from './src/screens/shared/ProfileScreen';
 import ProviderAvailabilityScreen from './src/screens/provider/ProviderAvailabilityScreen';
 import ManageSlotsScreen from './src/screens/provider/ManageSlotsScreen';
+import Toast from './src/components/Toast';
 import ClientsScreen from './src/screens/shared/ClientsScreen';
 import UniversalSignupScreen from './src/screens/auth/UniversalSignupScreen';
 import RoleSelectionScreen from './src/screens/auth/RoleSelectionScreen';
@@ -583,5 +584,10 @@ export default function App() {
 
 // Separate component that has access to Redux store
 const AppContent = () => {
-  return <AppNavigator />;
+  return (
+    <>
+      <AppNavigator />
+      <Toast />
+    </>
+  );
 };

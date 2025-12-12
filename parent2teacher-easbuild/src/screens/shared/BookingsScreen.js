@@ -28,6 +28,7 @@ import {
   getCanonicalRole,
   isServiceProvider 
 } from '../../config/roleConfig';
+import { showToast } from '../../store/slices/toastSlice';
 import { 
   fetchTeacherBookings, 
   fetchParentBookings,
@@ -62,21 +63,12 @@ const BookingsScreen = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    console.log('📋 BookingsScreen: bookings updated, count:', bookings.length);
-    if (bookings.length > 0) {
-      console.log('📋 First booking sample:', JSON.stringify(bookings[0], null, 2));
-    }
-    console.log('📋 Teachers in appData:', teachers.length);
-    console.log('📋 Parents in appData:', parents.length);
-    if (parents.length > 0) {
-      console.log('📋 First parent:', JSON.stringify(parents[0], null, 2));
-    }
+    // Data loaded, ready to render
   }, [bookings, teachers, parents]);
 
   // Reload bookings when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
-      console.log('📋 BookingsScreen: Screen focused, reloading bookings');
       loadBookings();
     }, [])
   );
@@ -204,18 +196,35 @@ const BookingsScreen = ({ navigation }) => {
     setCancelModalVisible(true);
   };
 
-  const handleBookingAction = async (bookingId, action) => {
-    try {
-      const updateData = { 
-        bookingId, 
-        status: action,
-        parentId: user?.uid 
-      };
-      await dispatch(updateBookingStatus(updateData)).unwrap();
-      loadBookings();
-    } catch (error) {
-      Alert.alert('Error', error?.message || 'Failed to update booking');
-    }
+  const handleBookingAction = (bookingId, action) => {
+    // Find booking for toast details
+    const booking = bookings.find(b => b.id === bookingId);
+    const parentName = getPersonName(booking, false);
+    const dateStr = booking?.date ? new Date(booking.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+    const timeStr = getBookingTime(booking);
+    
+    // Show immediate toast with booking details
+    const actionText = action === 'accepted' ? 'accepted' : 'declined';
+    const emoji = action === 'accepted' ? '✅' : '❌';
+    dispatch(showToast({
+      message: `Booking ${actionText} ${emoji}\n${parentName}\n${dateStr} at ${timeStr}`,
+      type: 'success'
+    }));
+
+    // Update in background
+    const updateData = { 
+      bookingId, 
+      status: action,
+      parentId: user?.uid 
+    };
+    dispatch(updateBookingStatus(updateData))
+      .then(() => {
+        // Refresh list after update completes
+        loadBookings();
+      })
+      .catch((error) => {
+        console.error('Error updating booking:', error);
+      });
   };
 
   const renderFilterButton = (filter, label, icon, count) => {

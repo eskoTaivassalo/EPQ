@@ -200,8 +200,6 @@ export const fetchParentBookings = createAsyncThunk(
       });
       const uniqueDocs = Array.from(uniqueBookingsMap.values());
       
-      console.log(`📚 After deduplication: ${uniqueDocs.length} unique bookings`);
-      
       const bookings = uniqueDocs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
@@ -232,8 +230,6 @@ export const fetchParentBookings = createAsyncThunk(
           uniqueBookings.push(booking);
         }
       });
-      
-      console.log(`📊 After deduplication: ${uniqueBookings.length} unique bookings (removed ${bookings.length - uniqueBookings.length} duplicates)`);
       
       return uniqueBookings;
     } catch (err) {
@@ -272,7 +268,6 @@ export const fetchTeacherBookings = createAsyncThunk(
       
       console.log('🔍 fetchTeacherBookings: Searching for bookings where teacherId ==', uid);
       console.log('🔍 User role:', userRole);
-      
       // Use collectionGroup to query all bookings subcollections
       // This finds bookings from: serviceTypes/{serviceType}/{collection}/{userId}/bookings/{bookingId}
       const q = query(
@@ -281,11 +276,7 @@ export const fetchTeacherBookings = createAsyncThunk(
       );
       
       const snap = await getDocs(q);
-      const docs = Array.isArray(snap?.docs) ? snap.docs : [];
-      
-      console.log(`📚 Fetched ${docs.length} teacher bookings from serviceTypes structure (may include duplicates)`);
-      
-      // Deduplicate by booking ID (same booking exists under both teacher and parent paths)
+      const docs = Array.isArray(snap?.docs) ? snap.docs : []
       const uniqueBookingsMap = new Map();
       docs.forEach(doc => {
         if (!uniqueBookingsMap.has(doc.id)) {
@@ -293,11 +284,6 @@ export const fetchTeacherBookings = createAsyncThunk(
         }
       });
       const uniqueDocs = Array.from(uniqueBookingsMap.values());
-      
-      console.log(`📚 After deduplication: ${uniqueDocs.length} unique bookings`);
-      uniqueDocs.forEach((doc, idx) => {
-        console.log(`  ${idx + 1}. Booking ID: ${doc.id}, Path: ${doc.ref.path}, Status: ${doc.data()?.status}`);
-      });
       
       const bookings = uniqueDocs.map(d => {
         const data = d.data();
@@ -342,11 +328,9 @@ export const fetchTeacherBookings = createAsyncThunk(
 
 export const updateBookingStatus = createAsyncThunk(
   'bookings/updateBookingStatus',
-  async ({ bookingId, status, parentId, teacherName, date, declineReason, suggestedDate, suggestedDateFormatted, cancelledBy }, { rejectWithValue, dispatch, getState }) => {
+  async ({ bookingId, status, declineReason, suggestedDate, suggestedDateFormatted, cancelledBy }, { rejectWithValue }) => {
     try {
       if (!auth?.currentUser) throw new Error('Not authenticated');
-      
-      console.log('🔄 updateBookingStatus: Starting update for booking:', bookingId, 'to status:', status);
       
       const currentUserId = auth.currentUser.uid;
       
@@ -1482,27 +1466,8 @@ export const startBookingsListener = (userId, isProvider, dispatch) => {
       ? query(collectionGroup(db, 'bookings'), where('teacherId', '==', userId))
       : query(collectionGroup(db, 'bookings'), where('parentId', '==', userId));
 
-    console.log(`🔔 Starting real-time listener for ${isProvider ? 'teacher' : 'parent'} with userId:`, userId);
-    console.log(`🔔 Query type: collectionGroup('bookings'), where('${isProvider ? 'teacherId' : 'parentId'}', '==', '${userId}')`);
-
     bookingsUnsubscribe = onSnapshot(q, 
       (snapshot) => {
-        console.log(`🔔 ✅ Real-time listener CALLBACK TRIGGERED: Received ${snapshot.docs.length} bookings for ${isProvider ? 'teacher' : 'parent'} (userId: ${userId})`);
-        
-        if (snapshot.empty) {
-          console.log(`⚠️ Snapshot is EMPTY - no bookings found`);
-        }
-        
-        snapshot.docs.forEach((doc, idx) => {
-          const data = doc.data();
-          console.log(`  ${idx + 1}. Booking ID: ${doc.id}`);
-          console.log(`     Path: ${doc.ref.path}`);
-          console.log(`     Status: ${data?.status}`);
-          console.log(`     teacherId: ${data?.teacherId}`);
-          console.log(`     parentId: ${data?.parentId}`);
-          console.log(`     date: ${data?.date}`);
-        });
-        
         const bookings = snapshot.docs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
@@ -1534,8 +1499,6 @@ export const startBookingsListener = (userId, isProvider, dispatch) => {
           uniqueBookings.push(booking);
         }
       });
-      
-      console.log(`📊 After deduplication: ${uniqueBookings.length} unique bookings (removed ${bookings.length - uniqueBookings.length} duplicates)`);
       
       // Update Redux state directly
       dispatch({

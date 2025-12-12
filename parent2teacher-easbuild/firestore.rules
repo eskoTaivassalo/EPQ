@@ -55,6 +55,22 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     
+    // Allow collectionGroup queries for users
+    match /{path=**}/users/{userId} {
+      allow read: if isAuthenticated();
+    }
+    
+    // ====================================
+    // ADMINS COLLECTION
+    // ====================================
+    match /admins/{email} {
+      // Any authenticated user can read admin list (for admin checks)
+      allow read: if isAuthenticated();
+      
+      // Only existing admins can create/update/delete admins
+      allow write: if isAdmin();
+    }
+    
     // ====================================
     // SERVICE TYPES (teachers, therapists, coaches, parents)
     // ====================================
@@ -89,13 +105,21 @@ service cloud.firestore {
         // Anyone authenticated can read feedback
         allow read: if isAuthenticated();
         
-        // Users can create feedback
+        // Users can create feedback (fromUserId must match authenticated user)
         allow create: if isAuthenticated() && 
-                         request.resource.data.studentId == request.auth.uid;
+                         request.resource.data.fromUserId == request.auth.uid;
         
-        // Only author or admin can update/delete
-        allow update, delete: if isAuthenticated() && 
-                                 (resource.data.studentId == request.auth.uid || isAdmin());
+        // Author can update/delete their own feedback
+        // Recipient can update to mark as read or delete
+        allow update: if isAuthenticated() && 
+                         (resource.data.fromUserId == request.auth.uid || 
+                          resource.data.toUserId == request.auth.uid ||
+                          isAdmin());
+        
+        allow delete: if isAuthenticated() && 
+                         (resource.data.fromUserId == request.auth.uid || 
+                          resource.data.toUserId == request.auth.uid ||
+                          isAdmin());
       }
       
       // Bookings subcollection under providers
@@ -267,6 +291,26 @@ service cloud.firestore {
       allow read: if isAuthenticated();
     }
     
+    // Allow collectionGroup queries for feedback
+    match /{path=**}/feedback/{feedbackId} {
+      allow read: if isAuthenticated();
+      
+      // Author can create/update/delete
+      allow create: if isAuthenticated() && 
+                       request.resource.data.fromUserId == request.auth.uid;
+      
+      // Author can update/delete, recipient can update to mark as read or delete
+      allow update: if isAuthenticated() && 
+                       (resource.data.fromUserId == request.auth.uid || 
+                        resource.data.toUserId == request.auth.uid ||
+                        isAdmin());
+      
+      allow delete: if isAuthenticated() && 
+                       (resource.data.fromUserId == request.auth.uid || 
+                        resource.data.toUserId == request.auth.uid ||
+                        isAdmin());
+    }
+    
     // ====================================
     // FEEDBACK COLLECTION
     // ====================================
@@ -274,14 +318,21 @@ service cloud.firestore {
       // Anyone authenticated can read feedback
       allow read: if isAuthenticated();
       
-      // Users can create feedback
+      // Users can create feedback (fromUserId must match authenticated user)
       allow create: if isAuthenticated() && 
-                       request.resource.data.studentId == request.auth.uid &&
-                       request.resource.data.keys().hasAll(['studentId', 'teacherId', 'rating', 'createdAt']);
+                       request.resource.data.fromUserId == request.auth.uid &&
+                       request.resource.data.keys().hasAll(['fromUserId', 'toUserId', 'roleFrom', 'roleTo', 'createdAt']);
       
-      // Only author or admin can update/delete
-      allow update, delete: if isAuthenticated() && 
-                               (resource.data.studentId == request.auth.uid || isAdmin());
+      // Author can update/delete, recipient can update to mark as read or delete
+      allow update: if isAuthenticated() && 
+                       (resource.data.fromUserId == request.auth.uid || 
+                        resource.data.toUserId == request.auth.uid ||
+                        isAdmin());
+      
+      allow delete: if isAuthenticated() && 
+                       (resource.data.fromUserId == request.auth.uid || 
+                        resource.data.toUserId == request.auth.uid ||
+                        isAdmin());
     }
     
     // ====================================

@@ -6,10 +6,12 @@ import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 import { useAuth } from '../../hooks/useAuth';
-import { generateAvailabilitySlots } from '../../services/availabilityService';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
 import { getRoleCollectionInfo } from '../../services/userDatabaseService';
+import { useDispatch } from 'react-redux';
+import { generateSlotsAsync } from '../../store/slices/availabilitySlice';
+import { showToast } from '../../store/slices/toastSlice';
 
 const DAYS = [
   { id: 1, label: 'Mon' },
@@ -23,6 +25,7 @@ const DAYS = [
 
 export default function TeacherAvailabilityScreen({ navigation }) {
   const { user } = useAuth();
+  const dispatch = useDispatch();
   const role = getCanonicalRole(user?.role || user?.userType);
   const roleColors = getRoleColors(role);
   const [daysOfWeek, setDaysOfWeek] = useState([1,2,3,4,5]);
@@ -34,7 +37,6 @@ export default function TeacherAvailabilityScreen({ navigation }) {
   const [durationMin, setDurationMin] = useState(45);
   const [rangeDays, setRangeDays] = useState(30);
   const [sessionsPerDay, setSessionsPerDay] = useState(1);
-  const [loading, setLoading] = useState(false);
   // Subjects selection
   const [profileSubjects, setProfileSubjects] = useState([]);
   const [selectedSubjects, setSelectedSubjects] = useState([]);
@@ -98,48 +100,68 @@ export default function TeacherAvailabilityScreen({ navigation }) {
     const endM = totalMinutes % 60;
     const endTimeStr = formatTime(endH, endM);
     
-    setLoading(true);
-    try {
-      const start = new Date();
-      const end = new Date();
-      end.setDate(end.getDate() + rangeDays);
-      const slotConfig = { 
-        daysOfWeek, 
-        startTime: startTimeStr, 
-        endTime: endTimeStr, 
-        durationMin,
-        ...(selectedSubjects.length > 0 && { subjects: selectedSubjects })
-      };
-      const result = await generateAvailabilitySlots(
-        user.uid,
-        slotConfig,
-        start,
-        end,
-        { locationType: 'online', userRole: user.role || user.userType || 'teacher' }
-      );
-      
-      // Show appropriate message based on results
-      if (result.createdCount === 0 && result.skippedCount > 0) {
-        Alert.alert(
-          'No Slots Created ⚠️', 
-          `All ${result.skippedCount} time slots were skipped because they would overlap with existing bookings. Please choose different times or delete existing slots first.`
-        );
-      } else if (result.createdCount > 0 && result.skippedCount > 0) {
-        Alert.alert(
-          'Partially Created ⚠️', 
-          `Created ${result.createdCount} new slots.\n\nSkipped ${result.skippedCount} slots due to overlaps with existing bookings.`
-        );
-      } else {
-        Alert.alert('Success! 🎉', `${result.createdCount} time slots created`);
+    // Show starting toast immediately
+    dispatch(showToast({
+      message: '⏳ Generating time slots...',
+      type: 'info'
+    }));
+    
+    // Navigate back immediately
+    navigation.goBack();
+    
+    // Start generation in background (don't await)
+    const start = new Date();
+    const end = new Date();
+    end.setDate(end.getDate() + rangeDays);
+    const slotConfig = { 
+      daysOfWeek, 
+      startTime: startTimeStr, 
+      endTime: endTimeStr, 
+      durationMin,
+      ...(selectedSubjects.length > 0 && { subjects: selectedSubjects })
+    };
+    
+    // Dispatch async thunk without awaiting
+    dispatch(generateSlotsAsync({
+      teacherId: user.uid,
+      template: slotConfig,
+      fromDate: start,
+      toDate: end,
+      options: { locationType: 'online', userRole: user.role || user.userType || 'teacher' }
+    })).then((resultAction) => {
+      // Handle result after generation completes
+      if (resultAction.type === generateSlotsAsync.fulfilled.type) {
+        const result = resultAction.payload;
+        
+        // Show appropriate toast based on results
+        if (result.createdCount === 0 && result.skippedCount > 0) {
+          dispatch(showToast({
+            message: `⚠️ No slots created. ${result.skippedCount} skipped due to booking overlaps.`,
+            type: 'info'
+          }));
+        } else if (result.createdCount > 0 && result.skippedCount > 0) {
+          dispatch(showToast({
+            message: `✅ Created ${result.createdCount} slots\n⚠️ ${result.skippedCount} skipped (booking overlaps)`,
+            type: 'success'
+          }));
+        } else if (result.createdCount > 0) {
+          dispatch(showToast({
+            message: `✅ Created ${result.createdCount} time slots!`,
+            type: 'success'
+          }));
+        }
+      } else if (resultAction.type === generateSlotsAsync.rejected.type) {
+        dispatch(showToast({
+          message: `❌ Error: ${resultAction.payload || 'Failed to generate slots'}`,
+          type: 'error'
+        }));
       }
-      
-      navigation.goBack();
-    } catch (e) {
-      console.error('Generate slots error', e);
-      Alert.alert('Error', e.message || 'Failed to generate slots');
-    } finally {
-      setLoading(false);
-    }
+    }).catch((error) => {
+      dispatch(showToast({
+        message: '❌ Generation failed. Please try again.',
+        type: 'error'
+      }));
+    });
   };
 
   return (
@@ -278,15 +300,13 @@ export default function TeacherAvailabilityScreen({ navigation }) {
         <TouchableOpacity 
           style={[
             styles.generateButton,
-            { backgroundColor: roleColors.secondary, shadowColor: roleColors.secondary },
-            loading && styles.generateButtonDisabled
+            { backgroundColor: roleColors.secondary, shadowColor: roleColors.secondary }
           ]} 
-          onPress={handleGenerate} 
-          disabled={loading}
+          onPress={handleGenerate}
         >
           <Ionicons name="calendar" size={22} color={colors.white} />
           <Text style={styles.generateButtonText}>
-            {loading ? 'Creating Slots...' : 'Generate Time Slots'}
+            Generate Time Slots
           </Text>
         </TouchableOpacity>
       </ScrollView>

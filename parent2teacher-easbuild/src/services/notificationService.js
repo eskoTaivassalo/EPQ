@@ -62,14 +62,10 @@ export async function scheduleBookingReminder(booking, userRole = 'parent') {
     const now = new Date();
     
     const hoursUntilBooking = (bookingDate - now) / (1000 * 60 * 60);
-    console.log(`📅 Booking ID: ${booking.id}`);
-    console.log(`   Booking time: ${bookingDate.toLocaleString()}`);
-    console.log(`   Hours until booking: ${hoursUntilBooking.toFixed(2)}`);
     
     // Don't schedule anything if booking is less than 30 minutes away
     const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
     if (bookingDate < thirtyMinutesFromNow) {
-      console.log(`⏰ ❌ Booking less than 30 min away, skipping all reminders`);
       return [];
     }
 
@@ -126,13 +122,11 @@ export async function scheduleBookingReminder(booking, userRole = 'parent') {
         });
         
         scheduledIds.push(notificationId);
-        console.log(`   ✅ Scheduled ${schedule.minutesBefore}min reminder for ${reminderTime.toLocaleString()}`);
       } else {
-        console.log(`   ⏭️ Skipped ${schedule.minutesBefore}min reminder (already passed)`);
+        // Reminder time already passed
       }
     }
 
-    console.log(`✅ Total ${scheduledIds.length} reminders scheduled for booking ${booking.id}`);
     return scheduledIds;
 
   } catch (error) {
@@ -159,44 +153,12 @@ export async function scheduleAllUpcomingReminders(bookings, userRole) {
       return isConfirmed && bookingDate > now && b.meetingUrl;
     });
 
-    console.log(`📅 Scheduling reminders for ${upcomingBookings.length} upcoming bookings`);
-    console.log('🔍 ALL BOOKINGS CHECK:');
-    bookings.forEach(b => {
-      const bookingTime = new Date(b.start || b.date);
-      const hoursUntil = (bookingTime - now) / (1000 * 60 * 60);
-      console.log(`   - Booking ${b.id}: ${bookingTime.toLocaleString()}`);
-      console.log(`     Hours until: ${hoursUntil.toFixed(2)}h`);
-      console.log(`     Status: ${b.status}, Has start: ${!!b.start}, Has meetingUrl: ${!!b.meetingUrl}`);
-    });
-    
-    if (upcomingBookings.length > 0) {
-      console.log('📋 CONFIRMED upcoming booking details:', upcomingBookings.map(b => ({
-        id: b.id,
-        date: b.date,
-        start: b.start,
-        status: b.status,
-        bookingTime: new Date(b.start || b.date).toLocaleString(),
-        hoursFromNow: Math.round((new Date(b.start || b.date) - now) / (1000 * 60 * 60))
-      })));
-    }
-
     const scheduled = await Promise.all(
       upcomingBookings.map(booking => scheduleBookingReminder(booking, userRole))
     );
 
     const successCount = scheduled.filter(id => id !== null).length;
-    console.log(`✅ Successfully scheduled ${successCount} reminders`);
     
-    // Debug: Show what notifications are actually scheduled
-    const allScheduled = await Notifications.getAllScheduledNotificationsAsync();
-    console.log(`\n🔔 Total scheduled notifications in system: ${allScheduled.length}`);
-    allScheduled.forEach((notif, index) => {
-      const triggerDate = notif.trigger?.date ? new Date(notif.trigger.date) : null;
-      console.log(`   ${index + 1}. ID: ${notif.identifier}`);
-      console.log(`      Trigger: ${triggerDate ? triggerDate.toLocaleString() : 'unknown'}`);
-      console.log(`      Title: ${notif.content?.title}`);
-    });
-
     return successCount;
   } catch (error) {
     console.error('❌ Error scheduling all reminders:', error);
@@ -211,7 +173,6 @@ export async function scheduleAllUpcomingReminders(bookings, userRole) {
 export async function cancelNotification(notificationId) {
   try {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
-    console.log(`✅ Cancelled notification: ${notificationId}`);
   } catch (error) {
     console.error('❌ Error cancelling notification:', error);
   }
@@ -234,7 +195,6 @@ export async function sendImmediateNotification(title, body, data = {}) {
       },
       trigger: null, // immediate
     });
-    console.log('✅ Sent immediate notification');
   } catch (error) {
     console.error('❌ Error sending immediate notification:', error);
   }
@@ -247,8 +207,6 @@ export async function sendImmediateNotification(title, body, data = {}) {
 export function addNotificationResponseListener(callback) {
   const subscription = Notifications.addNotificationResponseReceivedListener(response => {
     const data = response?.notification?.request?.content?.data || {};
-    
-    console.log('📬 Notification tapped:', { data, hasData: !!Object.keys(data).length });
     
     if (callback) {
       callback(data); // Return all data fields

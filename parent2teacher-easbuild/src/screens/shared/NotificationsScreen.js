@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -51,14 +51,9 @@ const NotificationsScreen = ({ navigation }) => {
     }
   }, [currentUser?.uid, dispatch]);
 
-  const handleMarkAsRead = async (notificationId) => {
-    try {
-      console.log('📖 Marking notification as read:', notificationId);
-      await dispatch(markAsRead(notificationId)).unwrap();
-      console.log('✅ Notification marked as read:', notificationId);
-    } catch (error) {
-      console.error('❌ Error marking notification as read:', error);
-    }
+  const handleMarkAsRead = (notificationId) => {
+    // Optimistic update - don't wait for Firestore
+    dispatch(markAsRead(notificationId));
   };
 
   const handleMarkAllAsRead = () => {
@@ -245,8 +240,6 @@ const NotificationsScreen = ({ navigation }) => {
         <TouchableOpacity
           style={[styles.card, !item.read && { ...styles.unreadCard, borderLeftColor: roleColors.primary }]}
           onPress={() => {
-            console.log('🔔 Notification tapped:', { id: item.id, type: item.type, read: item.read, navigationTarget: item.navigationTarget });
-            
             // Handle booking cancellation and declined notifications specially with modal
             if (item.type === 'booking_cancelled' || item.type === 'booking_declined') {
               if (!item.read) {
@@ -254,25 +247,9 @@ const NotificationsScreen = ({ navigation }) => {
               }
               setSelectedCancellation(item);
               setCancelModalVisible(true);
-            } else if (item.navigationTarget) {
-              // Always use unified Bookings screen
-              const target = item.navigationTarget === 'ParentBookings' || item.navigationTarget === 'TeacherBookings' 
-                ? 'Bookings' 
-                : item.navigationTarget;
-              
-              if (target) {
-                // Mark as read first
-                if (!item.read) {
-                  handleMarkAsRead(item.id);
-                }
-                
-                // Navigate after marking as read
-                navigation.push(target, item.navigationParams);
-              }
             } else {
-              // No navigation target - just mark as read
+              // Just mark as read, no navigation
               if (!item.read) {
-                console.log('📖 No navigation target, marking as read only');
                 handleMarkAsRead(item.id);
               }
             }
@@ -307,16 +284,16 @@ const NotificationsScreen = ({ navigation }) => {
     );
   };
 
-  const groups = groupNotificationsByDate();
-  const flatData = [
+  const groups = useMemo(() => groupNotificationsByDate(), [notifications]);
+  const flatData = useMemo(() => [
     ...(groups.today.length > 0 ? [{ type: 'header', title: 'Tänään' }, ...groups.today] : []),
     ...(groups.yesterday.length > 0 ? [{ type: 'header', title: 'Eilen' }, ...groups.yesterday] : []),
     ...(groups.thisWeek.length > 0 ? [{ type: 'header', title: 'Tällä viikolla' }, ...groups.thisWeek] : []),
     ...(groups.older.length > 0 ? [{ type: 'header', title: 'Vanhemmat' }, ...groups.older] : []),
-  ];
+  ], [groups]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
-  const readCount = notifications.filter(n => n.read).length;
+  const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
+  const readCount = useMemo(() => notifications.filter(n => n.read).length, [notifications]);
 
   return (
     <View style={commonStyles.safeArea}>

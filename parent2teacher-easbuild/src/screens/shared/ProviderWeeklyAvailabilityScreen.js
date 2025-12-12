@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 import RecurringBookingModal from '../../components/RecurringBookingModal';
 import { useDispatch } from 'react-redux';
 import { createRecurringBooking } from '../../store/slices/bookingsSlice';
+import { showToast } from '../../store/slices/toastSlice';
 import { collectionGroup, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
 import { getRoleCollectionInfo } from '../../services/userDatabaseService';
@@ -174,20 +175,25 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       
       const { bookings, skippedBookings } = result;
       
-      let successMessage = `Created ${bookings.length} booking(s)`;
+      // Show toast with booking details
+      const firstDate = new Date(bookedSlotData.date);
+      const dateStr = firstDate.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' });
+      const timeStr = firstDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
       
+      let toastMessage = `Bookings confirmed ✅\n${bookedSlotData.teacherName}\n${bookings.length} sessions starting ${dateStr} at ${timeStr}`;
       if (skippedBookings && skippedBookings.length > 0) {
-        successMessage += `\n⚠️ ${skippedBookings.length} slots were not available`;
-        Alert.alert('Bookings Created 📅', successMessage, [
-          { text: 'OK', onPress: () => navigation.navigate('Dashboard') }
-        ]);
-      } else {
-        Alert.alert('Success! 🎉', successMessage, [
-          { text: 'OK', onPress: () => navigation.navigate('Dashboard') }
-        ]);
+        toastMessage += `\n⚠️ ${skippedBookings.length} slots unavailable`;
       }
+      
+      dispatch(showToast({
+        message: toastMessage,
+        type: 'success'
+      }));
+      
+      // Navigate immediately
+      navigation.navigate('Dashboard');
     } catch (e) {
-      console.error('Create recurring booking error:', e);
+      console.error('❌ Create recurring booking error:', e);
       Alert.alert('Error', e.message || 'Failed to create recurring booking');
     }
   };
@@ -196,41 +202,37 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
     if (bookingInProgress) return;
     if (!bookedSlotData) return;
     
+    // Skip confirmation dialog - book immediately for better UX
+    setBookingInProgress(true);
+    setShowRecurringModal(false);
+    
+    // Show toast immediately with booking details
     const startDate = new Date(bookedSlotData.slotStart);
     const endTime = new Date(startDate.getTime() + 45 * 60 * 1000);
+    const dateStr = startDate.toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric', year: 'numeric' });
+    const timeStr = `${startDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}`;
     
-    const confirmMessage = `${startDate.toLocaleDateString('fi-FI')} at ${startDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}\nSubject: ${bookedSlotData.subject || 'N/A'}`;
+    dispatch(showToast({
+      message: `Booking confirmed ✅\n${bookedSlotData.teacherName}\n${dateStr} at ${timeStr}`,
+      type: 'success'
+    }));
     
-    const ok = await new Promise(resolve => {
-      Alert.alert('Confirm Booking', confirmMessage, [
-        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-        { text: 'Book', onPress: () => resolve(true) },
-      ]);
-    });
+    // Navigate immediately
+    navigation.navigate('Dashboard');
     
-    if (!ok) return;
-    
-    setBookingInProgress(true);
-    try {
-      const clientRole = user.role || user.userType || 'parent';
-      await bookSlot(bookedSlotData.slotId, user.uid, { 
-        subject: bookedSlotData.subject || bookedSlotData.notes || '', 
-        clientRole 
-      });
-      
-      setShowRecurringModal(false);
-      Alert.alert('Booking Confirmed! ✅', 'Your booking has been created.', [
-        { text: 'OK', onPress: () => navigation.navigate('Dashboard') }
-      ]);
-      
-      load();
-    } catch (e) {
-      console.error('Book slot error:', e);
-      Alert.alert('Error', e.message || 'Failed to create booking');
-      setShowRecurringModal(false);
-    } finally {
+    // Handle booking in background
+    const clientRole = user.role || user.userType || 'parent';
+    bookSlot(bookedSlotData.slotId, user.uid, { 
+      subject: bookedSlotData.subject || bookedSlotData.notes || '', 
+      clientRole 
+    }).then(() => {
+      console.log('✅ Booking confirmed');
       setBookingInProgress(false);
-    }
+    }).catch((e) => {
+      console.error('❌ Book slot error:', e);
+      Alert.alert('Error', e.message || 'Failed to create booking');
+      setBookingInProgress(false);
+    });
   };
 
   const handleRecurringCancel = () => {
