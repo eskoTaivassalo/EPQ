@@ -18,7 +18,7 @@ import { colors, commonStyles } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { auth, db } from '../../config/firebaseConfig';
 import { doc, getDoc, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { deleteUser, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { deleteUser } from 'firebase/auth';
 import { ROLE_CONFIG, getCanonicalRole } from '../../config/roleConfig';
 
 export default function SettingsScreen({ navigation }) {
@@ -139,27 +139,13 @@ export default function SettingsScreen({ navigation }) {
   const handleDeleteAccount = () => {
     Alert.alert(
       'Delete Account',
-      'Are you sure you want to permanently delete your account? This action cannot be undone.',
+      'Are you absolutely sure? This will permanently delete all your data and cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Delete',
+          text: 'Delete Everything',
           style: 'destructive',
-          onPress: () => {
-            // Second confirmation
-            Alert.alert(
-              'Final Confirmation',
-              'This will permanently delete:\n\n• Your profile and personal data\n• All bookings and appointments\n• Messages and conversations\n• Uploaded files and images\n\nType DELETE to confirm',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'I Understand, Delete',
-                  style: 'destructive',
-                  onPress: confirmDeleteAccount,
-                },
-              ]
-            );
-          },
+          onPress: confirmDeleteAccount,
         },
       ]
     );
@@ -173,54 +159,42 @@ export default function SettingsScreen({ navigation }) {
       const roleConfig = ROLE_CONFIG[canonicalRole];
       const collectionName = roleConfig?.collectionName || 'users';
       
-      // Get current Firebase Auth user
       const currentUser = auth.currentUser;
       if (!currentUser) {
         throw new Error('No authenticated user found');
       }
 
-      // 1. Delete user data from Firestore FIRST (while still authenticated)
-      const userDocRef = doc(db, collectionName, user.uid);
-      await deleteDoc(userDocRef);
-      console.log('✅ User document deleted from Firestore');
+      // 1. Delete user data from Firestore FIRST
+      try {
+        const userDocRef = doc(db, 'serviceTypes', 'education', collectionName, user.uid);
+        await deleteDoc(userDocRef);
+        console.log('✅ User document deleted from Firestore');
+      } catch (firestoreError) {
+        console.error('Firestore deletion error:', firestoreError);
+        // Continue anyway - try to delete auth account
+      }
 
-      // 2. Delete user from Firebase Authentication
-      await deleteUser(currentUser);
-      console.log('✅ User deleted from Firebase Authentication');
+      // 2. Try to delete user from Firebase Authentication
+      try {
+        await deleteUser(currentUser);
+        console.log('✅ User deleted from Firebase Authentication');
+      } catch (authError) {
+        console.error('Auth deletion error:', authError);
+        // If auth deletion fails, still log out the user
+        console.log('⚠️ Auth deletion failed, logging out anyway');
+      }
       
-      // 3. Clear Redux state immediately (prevents permission errors)
+      // 3. Clear Redux state and log out
       await logout();
       
-      // No Alert needed - user is already logged out and redirected
+      // Success - user is logged out
     } catch (error) {
       console.error('Error deleting account:', error);
-      
-      // Check if re-authentication is needed
-      if (error.code === 'auth/requires-recent-login') {
-        Alert.alert(
-          'Re-authentication Required',
-          'For security reasons, please log out and log back in before deleting your account.',
-          [
-            {
-              text: 'Log Out',
-              onPress: async () => {
-                try {
-                  await logout();
-                } catch (logoutError) {
-                  console.error('Logout error:', logoutError);
-                }
-              },
-            },
-            { text: 'Cancel', style: 'cancel' }
-          ]
-        );
-      } else {
-        Alert.alert(
-          'Error',
-          `Failed to delete account: ${error.message}\n\nPlease try again or contact support.`,
-          [{ text: 'OK' }]
-        );
-      }
+      Alert.alert(
+        'Error',
+        `Failed to delete account: ${error.message}`,
+        [{ text: 'OK' }]
+      );
     } finally {
       setRefreshing(false);
     }
