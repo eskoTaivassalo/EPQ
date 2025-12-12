@@ -88,13 +88,25 @@ const FavoriteProvidersScreen = ({ navigation }) => {
         {
           text: 'View Profile',
           onPress: () => {
-            Alert.alert('Profile', 'Profile view coming soon!');
+            Alert.alert('Profile', 'Full profile view coming soon!');
           }
         },
         {
           text: 'Send Message',
           onPress: () => {
-            Alert.alert('Message', 'Messaging feature coming soon!');
+            navigation.navigate('Conversations', {
+              recipientId: teacher.id,
+              recipientName: teacherName
+            });
+          }
+        },
+        {
+          text: 'View Schedule',
+          onPress: () => {
+            navigation.navigate('ProviderWeeklyAvailability', { 
+              teacherId: teacher.id,
+              teacherName: teacherName
+            });
           }
         },
         {

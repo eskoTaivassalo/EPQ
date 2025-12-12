@@ -505,3 +505,34 @@ export async function sendSupportMessage({ userId, senderName, senderEmail, send
   return messages;
 }
 
+/**
+ * submitUserReport - Report a user for inappropriate behavior
+ * @param {Object} params
+ * @param {string} params.reporterId - User ID of person making the report
+ * @param {string} params.reportedUserId - User ID being reported
+ * @param {string} params.reason - Reason for report (e.g., 'inappropriate_behavior', 'spam', 'fake_profile', 'other')
+ * @param {string} params.serviceType - Service type (default: 'education')
+ * @param {string} [params.details] - Optional additional details
+ */
+export async function submitUserReport({ reporterId, reportedUserId, reason, serviceType = 'education', details = '' }) {
+  if (!db) throw new Error('Firestore not initialized');
+  if (!reporterId || !reportedUserId) throw new Error('reporterId and reportedUserId required');
+  if (!reason) throw new Error('Report reason required');
+
+  const reportData = {
+    reporterId,
+    reportedUserId,
+    reason,
+    serviceType,
+    details,
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  };
+
+  // Save report to reports collection
+  const reportsRef = collection(db, 'reports');
+  const reportDoc = await addDoc(reportsRef, reportData);
+
+  console.log('✅ User report submitted:', reportDoc.id);
+  return { id: reportDoc.id, ...reportData };
+}

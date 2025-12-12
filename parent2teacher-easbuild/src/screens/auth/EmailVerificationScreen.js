@@ -15,10 +15,10 @@ import { colors } from '../../styles/commonStyles';
 import AuthService from '../../services/authService';
 
 /**
- * 📧 Email Verification Screen - Pakollinen sähköpostivahvistus
+ * 📧 Email Verification Screen - Required email verification
  * 
- * Näkyy kaikille käyttäjille joiden email ei ole vahvistettu.
- * Estää pääsyn Dashboard:iin kunnes vahvistus on suoritettu.
+ * Shown to all users whose email is not verified.
+ * Blocks access to Dashboard until verification is completed.
  */
 const EmailVerificationScreen = ({ navigation }) => {
   const { user, refreshUser, logout, clearAllAuthData } = useAuth();
@@ -59,11 +59,11 @@ const EmailVerificationScreen = ({ navigation }) => {
         AuthService.markAccountVerified(user.uid);
         
         Alert.alert(
-          '🎉 Vahvistus onnistui!',
-          'Sähköpostiosoitteesi on vahvistettu. Tervetuloa sovellukseen!',
+          '🎉 Verification Successful!',
+          'Your email has been verified. Welcome to the app!',
           [
             {
-              text: 'Jatka sovellukseen',
+              text: 'Continue to App',
               onPress: () => {
                 // Navigation tapahtuu automaattisesti kun user.emailVerified = true
               }
@@ -87,8 +87,8 @@ const EmailVerificationScreen = ({ navigation }) => {
       await AuthService.sendEmailVerification();
       
       Alert.alert(
-        '📧 Vahvistusviesti lähetetty!',
-        `Uusi vahvistusviesti on lähetetty osoitteeseen:\n${user?.email}\n\nTarkista myös roskaposti.`,
+        '📧 Verification Email Sent!',
+        `A new verification email has been sent to:\n${user?.email}\n\nAlso check your spam folder.`,
         [{ text: 'OK' }]
       );
       
@@ -99,15 +99,15 @@ const EmailVerificationScreen = ({ navigation }) => {
       // Käsittele too-many-requests erikseen
       if (error.message && error.message.includes('too-many-requests')) {
         Alert.alert(
-          '⏳ Odota hetki',
-          'Olet lähettänyt liian monta vahvistussähköpostia. Odota muutama minuutti ja yritä uudelleen.\n\nTarkista myös roskapostikansio - viesti on todennäköisesti jo lähetetty.',
+          '⏳ Please Wait',
+          'You have sent too many verification emails. Please wait a few minutes and try again.\n\nAlso check your spam folder - the message has likely already been sent.',
           [{ text: 'OK' }]
         );
         setResendCooldown(120); // 2 min cooldown jos liikaa pyyntöjä
       } else {
         Alert.alert(
-          '❌ Virhe',
-          `Vahvistusviestin lähettäminen epäonnistui:\n${error.message}`,
+          '❌ Error',
+          `Failed to send verification email:\n${error.message}`,
           [{ text: 'OK' }]
         );
       }
@@ -119,12 +119,12 @@ const EmailVerificationScreen = ({ navigation }) => {
   // 🚪 Kirjaudu ulos
   const handleLogout = () => {
     Alert.alert(
-      'Kirjaudu ulos?',
-      'Voit kirjautua takaisin sisään milloin tahansa.',
+      'Log Out?',
+      'You can log back in at any time.',
       [
-        { text: 'Peruuta', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         { 
-          text: 'Kirjaudu ulos', 
+          text: 'Log Out', 
           style: 'destructive',
           onPress: logout 
         }
@@ -135,12 +135,12 @@ const EmailVerificationScreen = ({ navigation }) => {
   // 🧹 Aloita alusta
   const handleStartFresh = () => {
     Alert.alert(
-      'Aloita alusta?',
-      'Tämä poistaa kaikki tallennetut tiedot ja palauttaa sinut kirjautumisnäkymään.',
+      'Start Fresh?',
+      'This will remove all saved data and return you to the login screen.',
       [
-        { text: 'Peruuta', style: 'cancel' },
+        { text: 'Cancel', style: 'cancel' },
         { 
-          text: 'Aloita alusta', 
+          text: 'Start Fresh', 
           style: 'destructive',
           onPress: async () => {
             await clearAllAuthData();
@@ -160,7 +160,7 @@ const EmailVerificationScreen = ({ navigation }) => {
           onPress={handleLogout}
         >
           <Ionicons name="log-out-outline" size={24} color={colors.white} />
-          <Text style={styles.logoutText}>Kirjaudu ulos</Text>
+          <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
       </View>
 
@@ -177,20 +177,20 @@ const EmailVerificationScreen = ({ navigation }) => {
         </View>
 
         {/* Title */}
-        <Text style={styles.title}>Vahvista sähköpostiosoitteesi</Text>
+        <Text style={styles.title}>Verify Your Email</Text>
 
         {/* Description */}
         <Text style={styles.description}>
-          Lähetimme vahvistuslinkin osoitteeseen:
+          We sent a verification link to:
         </Text>
         
         <Text style={styles.email}>{user?.email}</Text>
 
         <Text style={styles.instructions}>
-          1. Tarkista sähköpostisi (myös roskaposti)
-          {'\n'}2. Klikkaa vahvistuslinkkiä
-          {'\n'}3. Palaa tähän sovellukseen
-          {'\n'}4. Sinut ohjataan automaattisesti etusivulle
+          1. Check your email (including spam folder)
+          {'\n'}2. Click the verification link
+          {'\n'}3. Return to this app
+          {'\n'}4. You will be automatically directed to the home page
         </Text>
 
         {/* Resend Button */}
@@ -209,8 +209,8 @@ const EmailVerificationScreen = ({ navigation }) => {
               <Ionicons name="refresh-outline" size={20} color={colors.white} />
               <Text style={styles.resendButtonText}>
                 {resendCooldown > 0 
-                  ? `Lähetä uudelleen (${resendCooldown}s)`
-                  : 'Lähetä vahvistusviesti uudelleen'
+                  ? `Resend (${resendCooldown}s)`
+                  : 'Resend Verification Email'
                 }
               </Text>
             </>
@@ -219,7 +219,7 @@ const EmailVerificationScreen = ({ navigation }) => {
 
         {/* Help Text */}
         <Text style={styles.helpText}>
-          💡 Vahvistusviesti voi kestää muutaman minuutin. Tarkista myös roskapostikansio.
+          💡 The verification email may take a few minutes. Also check your spam folder.
         </Text>
 
         {/* Start Fresh Button */}
@@ -229,7 +229,7 @@ const EmailVerificationScreen = ({ navigation }) => {
         >
           <Ionicons name="refresh-circle-outline" size={20} color={colors.textLight} />
           <Text style={styles.startFreshText}>
-            Aloita alusta uudella käyttäjällä
+            Start fresh with a new account
           </Text>
         </TouchableOpacity>
 
@@ -238,7 +238,7 @@ const EmailVerificationScreen = ({ navigation }) => {
           <View style={styles.autoCheckContainer}>
             <ActivityIndicator size="small" color={colors.primary} />
             <Text style={styles.autoCheckText}>
-              Tarkistetaan vahvistuksen tilaa...
+              Checking verification status...
             </Text>
           </View>
         )}

@@ -180,6 +180,16 @@ service cloud.firestore {
     }
     
     // ========================================
+    // REPORTS COLLECTION
+    // ========================================
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isAuthenticated() && request.resource.data.reporterId == request.auth.uid;
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // ========================================
     // ADMIN COLLECTION
     // ========================================
     match /admins/{adminEmail} {

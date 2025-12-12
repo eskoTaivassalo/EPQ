@@ -149,6 +149,90 @@ const FindProvidersScreen = ({ navigation }) => {
     setSelectedTeacher(null);
   };
 
+  const handleReportUser = (teacher) => {
+    const teacherName = teacher.name || teacher.fullName || teacher.displayName || 'this user';
+    Alert.alert(
+      'Report User',
+      `Are you sure you want to report ${teacherName}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Report',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Select Reason',
+              'Why are you reporting this user?',
+              [
+                { text: 'Inappropriate behavior', onPress: () => submitReport(teacher.id, 'inappropriate_behavior') },
+                { text: 'Spam', onPress: () => submitReport(teacher.id, 'spam') },
+                { text: 'Fake profile', onPress: () => submitReport(teacher.id, 'fake_profile') },
+                { text: 'Other', onPress: () => submitReport(teacher.id, 'other') },
+                { text: 'Cancel', style: 'cancel' }
+              ]
+            );
+          }
+        }
+      ]
+    );
+  };
+
+  const submitReport = async (reportedUserId, reason) => {
+    try {
+      const { submitUserReport } = await import('../../services/communicationService');
+      await submitUserReport({
+        reporterId: user?.uid,
+        reportedUserId,
+        reason,
+        serviceType: user?.serviceType || 'education'
+      });
+      
+      Alert.alert('Report Submitted', 'Thank you for helping keep our community safe.');
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      Alert.alert('Error', 'Failed to submit report. Please try again.');
+    }
+  };
+
+  const showTeacherOptions = (teacher) => {
+    const teacherName = teacher.name || teacher.fullName || teacher.displayName || 'this teacher';
+    Alert.alert(
+      teacherName,
+      'Choose an action',
+      [
+        {
+          text: 'View Profile',
+          onPress: () => handleViewProfile(teacher)
+        },
+        {
+          text: 'Send Message',
+          onPress: () => handleQuickMessage(teacher)
+        },
+        {
+          text: 'View Schedule',
+          onPress: () => {
+            navigation.navigate('ProviderWeeklyAvailability', { 
+              teacherId: teacher.id,
+              teacherName: teacher.name || teacher.fullName || teacher.displayName || 'Teacher'
+            });
+          }
+        },
+        {
+          text: 'Report User',
+          style: 'destructive',
+          onPress: () => handleReportUser(teacher)
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
+
   // Keep old implementation for backward compatibility
   const handleContactTeacherOld = (teacher) => {
     const teacherName = teacher.name || teacher.fullName || teacher.displayName || 'this teacher';
@@ -396,6 +480,12 @@ const FindProvidersScreen = ({ navigation }) => {
             size={24}
             color={isFavorite(item.id) ? '#FF6B6B' : colors.textSecondary}
           />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.moreButton}
+          onPress={() => showTeacherOptions(item)}
+        >
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -1037,6 +1127,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   favoriteButton: {
+    padding: 6,
+    alignSelf: 'flex-start',
+  },
+  moreButton: {
     padding: 6,
     alignSelf: 'flex-start',
   },
