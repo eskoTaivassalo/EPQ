@@ -169,11 +169,30 @@ export const ROLE_CONFIG = {
     // Signup form fields
     signupFields: [
       { key: 'phoneNumber', type: 'phone', label: 'Phone Number', required: true },
+      
+      // Basic Teaching Info
       { key: 'subjects', type: 'tags', label: 'Subjects You Teach', required: true },
+      { key: 'gradeRanges', type: 'tags', label: 'Grade Levels Qualified For', required: true },
       { key: 'hourlyRate', type: 'number', label: 'Hourly Rate (€)', required: true },
+      
+      // Qualifications
+      { key: 'certifications', type: 'textarea', label: 'Certifications & Licenses (e.g., Texas Secondary Certification, IB Authorization)', required: false },
+      { key: 'specializations', type: 'tags', label: 'Specializations', required: false },
+      { key: 'yearsOfExperience', type: 'number', label: 'Years of Experience', required: false },
+      { key: 'degrees', type: 'textarea', label: 'Degrees (list degree name and field)', required: false },
+      { key: 'education', type: 'textarea', label: 'Educational Background', required: false },
+      
+      // Professional Details
+      { key: 'academicInterests', type: 'tags', label: 'Academic/Teaching Interests', required: false },
+      { key: 'teachingApproach', type: 'tags', label: 'Teaching Approach & Philosophy', required: false },
+      { key: 'publications', type: 'textarea', label: 'Publications / Research Areas (optional)', required: false },
+      
+      // Methods & Communication
+      { key: 'teachingMethods', type: 'tags', label: 'Teaching Methods (Online/In-Person/Hybrid)', required: false },
+      { key: 'languages', type: 'tags', label: 'Languages You Teach In', required: false },
+      
+      // About
       { key: 'description', type: 'textarea', label: 'About You', required: true },
-      { key: 'experience', type: 'textarea', label: 'Experience & Qualifications', required: false },
-      { key: 'education', type: 'textarea', label: 'Education', required: false },
     ],
   },
   

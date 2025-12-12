@@ -13,13 +13,13 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ScrollView,
   Alert,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { useSecurity } from '../../hooks/useSecurity';
@@ -31,7 +31,7 @@ import WatercolorBackground from '../../components/WatercolorBackground';
 import { getRoleConfig, getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 import { addRoleToUser } from '../../services/userDatabaseService';
 import { auth } from '../../config/firebaseConfig';
-import { 
+import {
   SUBJECTS,
   EDUCATION_LEVELS,
   LOCATIONS,
@@ -42,7 +42,12 @@ import {
   TEACHING_STYLES,
   SPECIAL_NEEDS,
   THERAPY_SPECIALIZATIONS,
-  THERAPY_NEEDS
+  THERAPY_NEEDS,
+  SPECIALIZATIONS,
+  ACADEMIC_INTERESTS,
+  CLIENT_FOCUS,
+  GRADE_RANGES,
+  TEACHING_PHILOSOPHY
 } from '../../constants/tags';
 import { getCurrentLocation, reverseGeocode, requestForegroundPermissions } from '../../services/locationService';
 
@@ -56,8 +61,12 @@ const TAG_CONSTANTS = {
   availability: AVAILABILITY,
   teachingStyles: TEACHING_STYLES,
   specialNeeds: SPECIAL_NEEDS,
-  specializations: THERAPY_SPECIALIZATIONS,
+  specializations: SPECIALIZATIONS, // Teacher specializations
+  therapySpecializations: THERAPY_SPECIALIZATIONS, // Therapist specializations
   therapyNeeds: THERAPY_NEEDS,
+  gradeRanges: GRADE_RANGES,
+  academicInterests: ACADEMIC_INTERESTS,
+  teachingApproach: TEACHING_PHILOSOPHY,
 };
 
 const UniversalSignupScreen = ({ navigation, route }) => {
@@ -338,7 +347,7 @@ const UniversalSignupScreen = ({ navigation, route }) => {
         } else {
           Alert.alert(
             '🎉 Account Created!',
-            '📧 IMPORTANT: Verify your email within 3 days!\n\n✉️ Check your email and click the verification link\n⏰ Account will be deleted if not verified\n\n🚀 You can start using the app, but don\'t forget to verify!'
+            '✅ A verification email has been sent to your email address.\n\n📧 Please check your inbox and click the verification link to activate your account.\n\n🚀 You can start using the app right away!'
           );
         }
       } else {
@@ -361,6 +370,7 @@ const UniversalSignupScreen = ({ navigation, route }) => {
   const renderTextField = (field) => {
     const { key, label, required, type } = field;
     const placeholder = field.placeholder || `Enter ${label.toLowerCase()}`;
+    const isHourlyRate = key === 'hourlyRate';
 
     return (
       <View key={key} style={styles.inputGroup}>
@@ -368,7 +378,11 @@ const UniversalSignupScreen = ({ navigation, route }) => {
           {label} {required && <Text style={styles.required}>*</Text>}
         </Text>
         <TextInput
-          style={[styles.input, type === 'textarea' && styles.textArea]}
+          style={[
+            styles.input, 
+            type === 'textarea' && styles.textArea,
+            isHourlyRate && styles.narrowInput
+          ]}
           placeholder={placeholder}
           value={formData[key] || ''}
           onChangeText={(text) => handleInputChange(key, text)}
@@ -377,6 +391,7 @@ const UniversalSignupScreen = ({ navigation, route }) => {
           multiline={type === 'textarea'}
           numberOfLines={type === 'textarea' ? 5 : 1}
           editable={!(key === 'email' && googleUser)}
+          maxLength={isHourlyRate ? 3 : undefined}
         />
       </View>
     );
@@ -490,7 +505,7 @@ const UniversalSignupScreen = ({ navigation, route }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <WatercolorBackground />
       
       <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
@@ -518,22 +533,14 @@ const UniversalSignupScreen = ({ navigation, route }) => {
                 ? `${roleConfig.name} - Share Your Expertise` 
                 : roleConfig.id === 'client' 
                   ? 'Find the Perfect Teacher for Your Child'
-                  : roleConfig.id === 'therapy_client'
-                    ? 'Find the Perfect Therapist for You'
-                    : roleConfig.id === 'athlete'
-                      ? 'Find the Perfect Coach for You'
-                      : `Find Your ${roleConfig.name}`}
+                  : `Find Your ${roleConfig.name}`}
             </Text>
             <Text style={styles.welcomeSubtitle}>
               {roleConfig.category === 'provider'
                 ? `Join our platform connecting ${roleConfig.name.toLowerCase()}s with clients worldwide`
                 : roleConfig.id === 'client'
                   ? 'Connect with qualified teachers in your area'
-                  : roleConfig.id === 'therapy_client'
-                    ? 'Connect with licensed therapists who can help you'
-                    : roleConfig.id === 'athlete'
-                      ? 'Connect with experienced coaches in your sport'
-                      : 'Connect with qualified professionals in your area'}
+                  : 'Connect with qualified professionals in your area'}
             </Text>
           </View>
 
@@ -602,8 +609,8 @@ const UniversalSignupScreen = ({ navigation, route }) => {
               <TextInput
                 style={styles.input}
                 placeholder={locationLoading ? "Detecting..." : "e.g. Helsinki"}
-                value={Array.isArray(formData.location) ? formData.location[0] || '' : formData.location}
-                onChangeText={(text) => handleInputChange('location', [text])}
+                value={Array.isArray(formData.location) ? formData.location[0] || '' : formData.location || ''}
+                onChangeText={(text) => handleInputChange('location', text.trim() ? [text.trim()] : [])}
                 editable={!locationLoading}
               />
               <TouchableOpacity 
@@ -793,6 +800,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: '#2C3E50',
+  },
+  narrowInput: {
+    width: 100,
+    textAlign: 'center',
   },
   textArea: {
     minHeight: 100,

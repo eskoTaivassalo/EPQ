@@ -273,9 +273,7 @@ const WelcomeScreen = ({ navigation, route }) => {
           {Object.values(ROLE_CONFIG)
             .filter(role => 
               role.id === ROLE_TYPES.SERVICE_PROVIDER || 
-              role.id === ROLE_TYPES.CLIENT ||
-              role.id === ROLE_TYPES.THERAPIST ||
-              role.id === ROLE_TYPES.THERAPY_CLIENT
+              role.id === ROLE_TYPES.CLIENT
             )
             .map((roleConfig) => (
             <TouchableOpacity

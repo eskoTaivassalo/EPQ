@@ -121,6 +121,25 @@ export const TEACHING_STYLES = [
   { id: 'exam_prep', label: 'Exam Preparation', icon: 'document-text' },
 ];
 
+// Opetusfilosofia ja lähestymistavat (Teaching Philosophy/Approach)
+export const TEACHING_PHILOSOPHY = [
+  { id: 'student_centered', label: 'Student-Centered Learning', icon: 'people' },
+  { id: 'inquiry_based', label: 'Inquiry-Based Learning', icon: 'search' },
+  { id: 'project_based', label: 'Project-Based Learning', icon: 'construct' },
+  { id: 'collaborative', label: 'Collaborative Learning', icon: 'people-circle' },
+  { id: 'differentiated', label: 'Differentiated Instruction', icon: 'options' },
+  { id: 'socratic', label: 'Socratic Method', icon: 'chatbubbles' },
+  { id: 'montessori', label: 'Montessori Method', icon: 'cube' },
+  { id: 'waldorf', label: 'Waldorf/Steiner', icon: 'flower' },
+  { id: 'constructivist', label: 'Constructivist', icon: 'build' },
+  { id: 'behaviorist', label: 'Behaviorist', icon: 'pulse' },
+  { id: 'growth_mindset', label: 'Growth Mindset Focus', icon: 'trending-up' },
+  { id: 'mastery_learning', label: 'Mastery Learning', icon: 'trophy' },
+  { id: 'flipped_classroom', label: 'Flipped Classroom', icon: 'swap-horizontal' },
+  { id: 'scaffolding', label: 'Scaffolding Approach', icon: 'layers' },
+  { id: 'direct_instruction', label: 'Direct Instruction', icon: 'arrow-forward' },
+];
+
 // Erikoisalueet (Specializations) - NEW
 export const SPECIALIZATIONS = [
   { id: 'esl', label: 'ESL (English as Second Language)', icon: 'language' },
@@ -151,18 +170,6 @@ export const ACADEMIC_INTERESTS = [
   { id: 'world_history', label: 'World History', icon: 'earth' },
   { id: 'environmental_science', label: 'Environmental Science', icon: 'leaf' },
   { id: 'music_theory', label: 'Music Theory & Composition', icon: 'musical-notes' },
-];
-
-// Asiakasryhmät (Client Focus) - NEW
-export const CLIENT_FOCUS = [
-  { id: 'children_6_12', label: 'Children (6-12)', icon: 'happy' },
-  { id: 'teens_13_18', label: 'Teenagers (13-18)', icon: 'school' },
-  { id: 'adults_18plus', label: 'Adults (18+)', icon: 'person' },
-  { id: 'second_language', label: 'Second Language Learners', icon: 'language' },
-  { id: 'special_needs', label: 'Special Needs Students', icon: 'heart' },
-  { id: 'gifted_students', label: 'Gifted Students', icon: 'star' },
-  { id: 'struggling_learners', label: 'Struggling Learners', icon: 'hand-right' },
-  { id: 'homeschool', label: 'Homeschool Students', icon: 'home' },
 ];
 
 // Sertifikaatti maat (Certification Countries) - NEW

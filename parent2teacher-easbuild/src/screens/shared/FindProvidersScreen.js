@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors, commonStyles } from '../../styles/commonStyles';
+import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 import { useAppData } from '../../hooks/useAppData';
 import { useAuth } from '../../hooks/useAuth';
 import TagSelector from '../../components/TagSelector';
@@ -31,7 +32,6 @@ import {
   TEACHING_STYLES,
   SPECIALIZATIONS,
   ACADEMIC_INTERESTS,
-  CLIENT_FOCUS,
   GRADE_RANGES,
   getTagLabels,
   getTagById
@@ -44,6 +44,8 @@ import AppLogo from '../../components/AppLogo';
 const FindProvidersScreen = ({ navigation }) => {
   const [isReady, setIsReady] = useState(true); // Poistettu splash, aloitetaan suoraan
   const { user } = useAuth();
+  const role = getCanonicalRole(user?.role || user?.userType);
+  const roleColors = getRoleColors(role);
   const { 
     teachers,          // Redux selector - suoraan array (now "providers")
     teachersLoading,   // Redux loading state
@@ -546,19 +548,22 @@ const FindProvidersScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={[commonStyles.safeArea, { backgroundColor: '#FFFFFF' }]}>
       <WatercolorBackground />
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color={colors.white} />
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Find Teachers</Text>
+        <View style={styles.headerTitleContainer}>
+          <Ionicons name="search" size={24} color="#FFFFFF" />
+          <Text style={styles.headerTitle}>Find Teachers</Text>
+        </View>
         <TouchableOpacity 
           style={styles.filterButton}
           onPress={() => setShowFilters(true)}
         >
-          <Ionicons name="options" size={24} color={colors.white} />
+          <Ionicons name="options" size={24} color="#FFFFFF" />
           {hasActiveFilters() && <View style={styles.filterIndicator} />}
         </TouchableOpacity>
       </View>
@@ -928,8 +933,9 @@ const FindProvidersScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: colors.secondary,
-    ...commonStyles.rowBetween,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 15,
@@ -937,10 +943,15 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 5,
   },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   headerTitle: {
-    color: colors.white,
-    fontSize: 18,
-    fontWeight: 'bold',
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
   },
   filterButton: {
     padding: 5,

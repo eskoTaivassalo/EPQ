@@ -36,7 +36,11 @@ export async function ensurePermissionAndCoords() {
 
 // Alias for getCurrentCoords to match signup screen imports
 export async function getCurrentLocation(options = {}) {
-  return await getCurrentCoords(options);
+  const coords = await getCurrentCoords(options);
+  if (coords) {
+    return { success: true, coords };
+  }
+  return { success: false, coords: null };
 }
 
 // Reverse geocode coordinates to get city name
@@ -50,11 +54,12 @@ export async function reverseGeocode(latitude, longitude) {
     if (results && results.length > 0) {
       const location = results[0];
       // Return city, or region, or country as fallback
-      return location.city || location.region || location.country || null;
+      const city = location.city || location.region || location.country || null;
+      return { success: true, city };
     }
-    return null;
+    return { success: false, city: null };
   } catch (e) {
     console.warn('Reverse geocoding failed:', e);
-    return null;
+    return { success: false, city: null };
   }
 }

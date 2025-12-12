@@ -21,7 +21,7 @@ import ProfileImagePicker from '../../components/ProfileImagePicker';
 import TagSelector from '../../components/TagSelector';
 import imagePickerService from '../../services/imagePickerService';
 import { colors, commonStyles } from '../../styles/commonStyles';
-import { SUBJECTS, LANGUAGES, TEACHING_METHODS, AVAILABILITY } from '../../constants/tags';
+import { SUBJECTS, LANGUAGES, TEACHING_METHODS, AVAILABILITY, SPECIALIZATIONS, ACADEMIC_INTERESTS, GRADE_RANGES, TEACHING_PHILOSOPHY } from '../../constants/tags';
 import { ROLE_CONFIG, ROLE_TYPES, getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 
 /**
@@ -97,6 +97,21 @@ const ProfileScreen = ({ navigation }) => {
             : Array.isArray(data.profile?.needs) 
               ? data.profile.needs 
               : [],
+          gradeRanges: Array.isArray(data.gradeRanges)
+            ? data.gradeRanges
+            : Array.isArray(data.profile?.gradeRanges)
+              ? data.profile.gradeRanges
+              : [],
+          specializations: Array.isArray(data.specializations)
+            ? data.specializations
+            : Array.isArray(data.profile?.specializations)
+              ? data.profile.specializations
+              : [],
+          academicInterests: Array.isArray(data.academicInterests)
+            ? data.academicInterests
+            : Array.isArray(data.profile?.academicInterests)
+              ? data.profile.academicInterests
+              : [],
         };
         
         setProfileData(merged);
@@ -114,9 +129,18 @@ const ProfileScreen = ({ navigation }) => {
           defaultData.languages = [];
           defaultData.teachingMethods = [];
           defaultData.availability = [];
+          defaultData.gradeRanges = [];
+          defaultData.specializations = [];
+          defaultData.academicInterests = [];
           defaultData.hourlyRate = '';
           defaultData.experience = '';
           defaultData.description = '';
+          defaultData.certifications = '';
+          defaultData.yearsOfExperience = '';
+          defaultData.degrees = '';
+          defaultData.education = '';
+          defaultData.teachingApproach = [];
+          defaultData.publications = '';
         } else {
           // Client-specific fields
           defaultData.needs = [];
@@ -177,9 +201,18 @@ const ProfileScreen = ({ navigation }) => {
         updateData.languages = profileData.languages || [];
         updateData.teachingMethods = profileData.teachingMethods || [];
         updateData.availability = profileData.availability || [];
+        updateData.gradeRanges = profileData.gradeRanges || [];
+        updateData.specializations = profileData.specializations || [];
+        updateData.academicInterests = profileData.academicInterests || [];
         updateData.hourlyRate = profileData.hourlyRate ? parseFloat(profileData.hourlyRate) : 0;
         updateData.experience = profileData.experience ? parseInt(profileData.experience) : 0;
+        updateData.yearsOfExperience = profileData.yearsOfExperience ? parseInt(profileData.yearsOfExperience) : 0;
         updateData.description = profileData.description || '';
+        updateData.certifications = profileData.certifications || '';
+        updateData.degrees = profileData.degrees || '';
+        updateData.education = profileData.education || '';
+        updateData.teachingApproach = profileData.teachingApproach || [];
+        updateData.publications = profileData.publications || '';
         updateData.isActive = true;
         
         // Tallenna myös nested profile-objektiin (backward compatibility)
@@ -566,6 +599,191 @@ const ProfileScreen = ({ navigation }) => {
                   )}
                 </View>
               )}
+            </View>
+
+            {/* Grade Levels Qualified For */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Grade Levels Qualified For</Text>
+              {isEditing ? (
+                <TagSelector
+                  tags={GRADE_RANGES}
+                  selectedTags={profileData?.gradeRanges || []}
+                  onTagPress={(tags) => setProfileData(prev => ({ ...prev, gradeRanges: tags }))}
+                  multiSelect={true}
+                />
+              ) : (
+                <View style={styles.tagsDisplay}>
+                  {profileData?.gradeRanges?.length > 0 ? (
+                    profileData.gradeRanges.map((gradeId, index) => {
+                      const grade = GRADE_RANGES.find(g => g.id === gradeId);
+                      return (
+                        <View key={index} style={[styles.tagChip, { backgroundColor: roleColors.primary + '20' }]}>
+                          <Text style={[styles.tagChipText, { color: roleColors.primary }]}>{grade?.label || gradeId}</Text>
+                        </View>
+                      );
+                    })
+                  ) : (
+                    <Text style={styles.emptyText}>No grade levels specified</Text>
+                  )}
+                </View>
+              )}
+            </View>
+
+            {/* Specializations */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Specializations</Text>
+              {isEditing ? (
+                <TagSelector
+                  tags={SPECIALIZATIONS}
+                  selectedTags={profileData?.specializations || []}
+                  onTagPress={(tags) => setProfileData(prev => ({ ...prev, specializations: tags }))}
+                  multiSelect={true}
+                />
+              ) : (
+                <View style={styles.tagsDisplay}>
+                  {profileData?.specializations?.length > 0 ? (
+                    profileData.specializations.map((specId, index) => {
+                      const spec = SPECIALIZATIONS.find(s => s.id === specId);
+                      return (
+                        <View key={index} style={[styles.tagChip, { backgroundColor: roleColors.primary + '20' }]}>
+                          <Text style={[styles.tagChipText, { color: roleColors.primary }]}>{spec?.label || specId}</Text>
+                        </View>
+                      );
+                    })
+                  ) : (
+                    <Text style={styles.emptyText}>No specializations specified</Text>
+                  )}
+                </View>
+              )}
+            </View>
+
+            {/* Academic Interests */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Academic/Teaching Interests</Text>
+              {isEditing ? (
+                <TagSelector
+                  tags={ACADEMIC_INTERESTS}
+                  selectedTags={profileData?.academicInterests || []}
+                  onTagPress={(tags) => setProfileData(prev => ({ ...prev, academicInterests: tags }))}
+                  multiSelect={true}
+                />
+              ) : (
+                <View style={styles.tagsDisplay}>
+                  {profileData?.academicInterests?.length > 0 ? (
+                    profileData.academicInterests.map((interestId, index) => {
+                      const interest = ACADEMIC_INTERESTS.find(i => i.id === interestId);
+                      return (
+                        <View key={index} style={[styles.tagChip, { backgroundColor: roleColors.primary + '20' }]}>
+                          <Text style={[styles.tagChipText, { color: roleColors.primary }]}>{interest?.label || interestId}</Text>
+                        </View>
+                      );
+                    })
+                  ) : (
+                    <Text style={styles.emptyText}>No interests specified</Text>
+                  )}
+                </View>
+              )}
+            </View>
+
+            {/* Qualifications (Text fields) */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Qualifications</Text>
+              
+              <View style={styles.field}>
+                <Text style={styles.label}>Certifications & Licenses</Text>
+                <TextInput
+                  style={[styles.textArea, !isEditing && styles.inputDisabled]}
+                  value={profileData?.certifications || ''}
+                  onChangeText={(text) => setProfileData(prev => ({ ...prev, certifications: text }))}
+                  placeholder="e.g., Texas Secondary Certification, IB Authorization"
+                  multiline
+                  numberOfLines={3}
+                  editable={isEditing}
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>Years of Experience</Text>
+                <TextInput
+                  style={[styles.input, !isEditing && styles.inputDisabled]}
+                  value={profileData?.yearsOfExperience?.toString() || ''}
+                  onChangeText={(text) => setProfileData(prev => ({ ...prev, yearsOfExperience: text }))}
+                  placeholder="e.g., 10"
+                  keyboardType="numeric"
+                  editable={isEditing}
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>Degrees</Text>
+                <TextInput
+                  style={[styles.textArea, !isEditing && styles.inputDisabled]}
+                  value={profileData?.degrees || ''}
+                  onChangeText={(text) => setProfileData(prev => ({ ...prev, degrees: text }))}
+                  placeholder="List degree name and field"
+                  multiline
+                  numberOfLines={3}
+                  editable={isEditing}
+                />
+              </View>
+
+              <View style={styles.field}>
+                <Text style={styles.label}>Educational Background</Text>
+                <TextInput
+                  style={[styles.textArea, !isEditing && styles.inputDisabled]}
+                  value={profileData?.education || ''}
+                  onChangeText={(text) => setProfileData(prev => ({ ...prev, education: text }))}
+                  placeholder="Describe your educational background"
+                  multiline
+                  numberOfLines={3}
+                  editable={isEditing}
+                />
+              </View>
+            </View>
+
+            {/* Teaching Approach */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Teaching Approach & Philosophy</Text>
+              {isEditing ? (
+                <TagSelector
+                  tags={TEACHING_PHILOSOPHY}
+                  selectedTags={profileData?.teachingApproach || []}
+                  onTagToggle={(tag) => {
+                    const currentTags = profileData?.teachingApproach || [];
+                    const newTags = currentTags.includes(tag)
+                      ? currentTags.filter(t => t !== tag)
+                      : [...currentTags, tag];
+                    setProfileData(prev => ({ ...prev, teachingApproach: newTags }));
+                  }}
+                  disabled={!isEditing}
+                />
+              ) : (
+                <View style={styles.tagContainer}>
+                  {profileData?.teachingApproach && profileData.teachingApproach.length > 0 ? (
+                    profileData.teachingApproach.map((tag, index) => (
+                      <View key={index} style={styles.tag}>
+                        <Text style={styles.tagText}>{tag.replace(/_/g, ' ')}</Text>
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.emptyText}>Not specified</Text>
+                  )}
+                </View>
+              )}
+            </View>
+
+            {/* Publications / Research */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Publications / Research Areas (Optional)</Text>
+              <TextInput
+                style={[styles.textArea, !isEditing && styles.inputDisabled]}
+                value={profileData?.publications || ''}
+                onChangeText={(text) => setProfileData(prev => ({ ...prev, publications: text }))}
+                placeholder="List any publications or research areas"
+                multiline
+                numberOfLines={3}
+                editable={isEditing}
+              />
             </View>
 
             {/* Saatavuus */}
