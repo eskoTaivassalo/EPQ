@@ -137,15 +137,21 @@ export const markAsRead = createAsyncThunk(
     try {
       console.log('📖 markAsRead called with notificationId:', notificationId);
       
-      // notificationId format: userId/notificationDocId or just notificationDocId
-      // For new structure we need userId, get from auth
       const userId = auth?.currentUser?.uid;
       if (!userId) throw new Error('Not authenticated');
       
-      console.log('👤 Current userId:', userId);
-      console.log('📍 Document path:', `users/${userId}/notifications/${notificationId}`);
+      // Get user profile to determine correct collection path
+      const profile = await userDatabaseService.getUserMainProfile(userId);
+      if (!profile || !profile.primaryRole) {
+        throw new Error('User profile not found');
+      }
       
-      const ref = doc(db, 'users', userId, 'notifications', notificationId);
+      const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(profile.primaryRole);
+      
+      console.log('👤 Current userId:', userId);
+      console.log('📍 Document path:', `serviceTypes/${serviceType}/${collectionName}/${userId}/notifications/${notificationId}`);
+      
+      const ref = doc(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications', notificationId);
       const snap = await getDoc(ref);
       if (!snap.exists()) {
         console.warn('[notifications] ⚠️ markAsRead skipped: doc does not exist', notificationId);

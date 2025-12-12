@@ -446,9 +446,22 @@ export async function listStudentsForTeacher(teacherId) {
   const results = [];
   for (const pid of parentIds) {
     try {
-      // Use hierarchical structure: users/{userId}/students/{userId}
-      const ref = doc(db, 'users', pid, 'students', pid);
-      const psnap = await getDoc(ref);
+      // Fetch parent profile from serviceTypes structure
+      // Try education/parents first (most common)
+      let ref = doc(db, 'serviceTypes', 'education', 'parents', pid);
+      let psnap = await getDoc(ref);
+      
+      // If not found in education, try other service types
+      if (!psnap.exists()) {
+        ref = doc(db, 'serviceTypes', 'therapy', 'clients', pid);
+        psnap = await getDoc(ref);
+      }
+      
+      if (!psnap.exists()) {
+        ref = doc(db, 'serviceTypes', 'coaching', 'athletes', pid);
+        psnap = await getDoc(ref);
+      }
+      
       if (psnap.exists()) {
         results.push({ id: pid, ...psnap.data() });
       }
