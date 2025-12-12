@@ -138,3 +138,83 @@ export async function listFeedbackGivenByUser(userId) {
   console.log('💬 Found', feedbacks.length, 'feedback items given by user');
   return feedbacks;
 }
+
+/**
+ * deleteFeedback - delete a feedback from user's profile
+ * @param {string} userId - The user who received the feedback
+ * @param {string} userRole - The role of the user who received the feedback
+ * @param {string} feedbackId - The ID of the feedback to delete
+ * @returns {Promise<void>}
+ */
+export async function deleteFeedback(userId, userRole, feedbackId) {
+  if (!db) throw new Error('Firestore not initialized');
+  if (!userId || !userRole || !feedbackId) throw new Error('Missing required parameters');
+  
+  const { deleteDoc } = await import('firebase/firestore');
+  
+  // Get user's collection info
+  const userInfo = getRoleCollectionInfo(userRole);
+  if (!userInfo) {
+    throw new Error(`Unknown role: ${userRole}`);
+  }
+  
+  const { serviceType, collection: collectionName } = userInfo;
+  
+  // Build path to feedback document
+  const feedbackDocRef = doc(
+    db, 
+    'serviceTypes', 
+    serviceType, 
+    collectionName, 
+    userId, 
+    'feedback', 
+    feedbackId
+  );
+  
+  console.log('🗑️ Deleting feedback:', feedbackId, 'from user:', userId);
+  
+  await deleteDoc(feedbackDocRef);
+  console.log('✅ Feedback deleted successfully');
+}
+
+/**
+ * markFeedbackAsRead - mark feedback as read (adds a field to track read status)
+ * @param {string} userId - The user who received the feedback
+ * @param {string} userRole - The role of the user who received the feedback
+ * @param {string} feedbackId - The ID of the feedback to mark as read
+ * @returns {Promise<void>}
+ */
+export async function markFeedbackAsRead(userId, userRole, feedbackId) {
+  if (!db) throw new Error('Firestore not initialized');
+  if (!userId || !userRole || !feedbackId) throw new Error('Missing required parameters');
+  
+  const { updateDoc } = await import('firebase/firestore');
+  
+  // Get user's collection info
+  const userInfo = getRoleCollectionInfo(userRole);
+  if (!userInfo) {
+    throw new Error(`Unknown role: ${userRole}`);
+  }
+  
+  const { serviceType, collection: collectionName } = userInfo;
+  
+  // Build path to feedback document
+  const feedbackDocRef = doc(
+    db, 
+    'serviceTypes', 
+    serviceType, 
+    collectionName, 
+    userId, 
+    'feedback', 
+    feedbackId
+  );
+  
+  console.log('👁️ Marking feedback as read:', feedbackId);
+  
+  await updateDoc(feedbackDocRef, {
+    isRead: true,
+    readAt: serverTimestamp()
+  });
+  
+  console.log('✅ Feedback marked as read');
+}

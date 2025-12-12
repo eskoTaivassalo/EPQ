@@ -733,6 +733,13 @@ const RoleDashboard = ({ navigation }) => {
             <Text style={[styles.sectionTitle, { color: roleColors.text }]}>
               {!isProvider ? 'Recent Feedback' : 'Recent Activity'}
             </Text>
+            {!isProvider && recentFeedback.length > 0 && (
+              <TouchableOpacity onPress={() => navigation.navigate('Feedback')}>
+                <Text style={[styles.seeAll, { color: roleColors.primary }]}>
+                  View All
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
           
           {!isProvider && recentFeedback.length > 0 ? (

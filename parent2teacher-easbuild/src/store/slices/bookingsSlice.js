@@ -555,8 +555,22 @@ export const updateBookingStatus = createAsyncThunk(
         // Use parentId from booking data if not provided in params
         const targetParentId = parentId || bookingData.parentId;
         
+        console.log('🎯 Notification target check:');
+        console.log('   - targetParentId:', targetParentId);
+        console.log('   - parentId param:', parentId);
+        console.log('   - bookingData.parentId:', bookingData.parentId);
+        console.log('   - auth.currentUser.uid:', auth.currentUser.uid);
+        console.log('   - currentUserId:', currentUserId);
+        console.log('   - Status:', status);
+        
         if (!targetParentId) {
+          console.warn('⚠️ No targetParentId found, skipping notification');
           return { bookingId, status };
+        }
+        
+        if (targetParentId === auth.currentUser.uid) {
+          console.warn('⚠️ WARNING: targetParentId matches current user! This means notification will go to the ACTOR (teacher) instead of the RECIPIENT (parent)');
+          console.warn('   This happens when testing with same account as both teacher and parent');
         }
         
         let notificationData = {
@@ -564,6 +578,8 @@ export const updateBookingStatus = createAsyncThunk(
           navigationTarget: 'Bookings',
           navigationParams: { bookingId }
         };
+        
+        console.log('📢 Will create notification for userId:', targetParentId);
 
         if (status === 'accepted') {
           notificationData.type = 'booking_accepted';
@@ -644,6 +660,12 @@ export const updateBookingStatus = createAsyncThunk(
         }
 
         if (notificationData.type) {
+          console.log('📨 Dispatching createNotification with data:', {
+            type: notificationData.type,
+            userId: notificationData.userId,
+            title: notificationData.title,
+            currentUser: auth.currentUser.uid
+          });
           dispatch(createNotification(notificationData));
         }
       }

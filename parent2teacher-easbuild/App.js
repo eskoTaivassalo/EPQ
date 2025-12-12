@@ -34,6 +34,7 @@ import RoleSelectionScreen from './src/screens/auth/RoleSelectionScreen';
 import FavoriteProvidersScreen from './src/screens/shared/FavoriteProvidersScreen';
 import ProviderAvailableSlotsScreen from './src/screens/shared/ProviderAvailableSlotsScreen';
 import ProviderWeeklyAvailabilityScreen from './src/screens/shared/ProviderWeeklyAvailabilityScreen';
+import FeedbackScreen from './src/screens/shared/FeedbackScreen';
 
 // LAZY LOADED SCREENS - Ladataan vain tarvittaessa
 // Shared screens (lazy - ei tarvita heti)
@@ -500,6 +501,7 @@ const AppNavigator = () => {
             <Stack.Screen name="ProviderWeeklyAvailability" component={ProviderWeeklyAvailabilityScreen} />
             
             {/* Shared screens - available to all roles */}
+            <Stack.Screen name="Feedback" component={FeedbackScreen} />
             <Stack.Screen name="Calendar" component={CalendarScreen} />
             <Stack.Screen 
               name="FullScreenSplash" 
