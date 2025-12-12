@@ -9,7 +9,8 @@ const TagSelector = ({
   selectedTags, 
   onTagPress, 
   multiSelect = true,
-  showIcons = false 
+  showIcons = false,
+  primaryColor = colors.primary
 }) => {
   const isSelected = (tag) => {
     const tagValue = tag.id || tag;
@@ -49,7 +50,8 @@ const TagSelector = ({
             key={tag.id || tag || index}
             style={[
               styles.tag,
-              isSelected(tag) && styles.tagSelected
+              { borderColor: primaryColor },
+              isSelected(tag) && { backgroundColor: primaryColor, borderColor: primaryColor }
             ]}
             onPress={() => handleTagPress(tag)}
           >
@@ -57,12 +59,13 @@ const TagSelector = ({
               <Ionicons 
                 name={tag.icon} 
                 size={16} 
-                color={isSelected(tag) ? colors.white : colors.primary}
+                color={isSelected(tag) ? colors.white : primaryColor}
                 style={styles.tagIcon}
               />
             )}
             <Text style={[
               styles.tagText,
+              { color: primaryColor },
               isSelected(tag) && styles.tagTextSelected
             ]}>
               {tag.label || tag}
@@ -97,21 +100,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: colors.primary,
     backgroundColor: colors.white,
     marginRight: 8,
     marginBottom: 8,
-  },
-  tagSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
   },
   tagIcon: {
     marginRight: 4,
   },
   tagText: {
     fontSize: 14,
-    color: colors.primary,
     fontWeight: '500',
   },
   tagTextSelected: {

@@ -270,6 +270,7 @@ export default function ClientsScreen({ navigation }) {
           roleTo="parent"
           subject="General"
           subjects={teacherSubjects}
+          primaryColor={roleColors.primary}
         />
       )}
     </SafeAreaView>

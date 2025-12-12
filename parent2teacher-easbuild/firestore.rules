@@ -3,10 +3,309 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // TEMPORARY: Allow all operations for authenticated users (TESTING ONLY)
-    // TODO: Restore proper security rules before production
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+    // ====================================
+    // HELPER FUNCTIONS
+    // ====================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
     }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isTeacher() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+    
+    function isParent() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent';
+    }
+    
+    function hasRole(role) {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+    
+    // ====================================
+    // USERS COLLECTION
+    // ====================================
+    match /users/{userId} {
+      // Any authenticated user can read user profiles
+      // (needed for bookings, messaging, finding providers)
+      allow read: if isAuthenticated();
+      
+      // Users can create their own profile during signup
+      allow create: if isOwner(userId) && 
+                       request.resource.data.keys().hasAll(['email', 'role', 'createdAt']);
+      
+      // Users can update their own profile (but not role or critical fields)
+      allow update: if isOwner(userId) && 
+                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'email', 'uid']);
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+    
+    // ====================================
+    // SERVICE TYPES (teachers, therapists, coaches, parents)
+    // ====================================
+    match /serviceTypes/{serviceType}/{collection}/{providerId} {
+      // Anyone can read provider profiles (for finding providers)
+      allow read: if isAuthenticated();
+      
+      // Providers can create/update their own profile
+      allow create, update: if isOwner(providerId) && 
+                               hasRole(serviceType.split('_')[0]); // Extract role from serviceType
+      
+      // Only admins can delete provider profiles
+      allow delete: if isAdmin();
+      
+      // Availability slots subcollection
+      match /availabilitySlots/{slotId} {
+        // Authenticated users can read slots
+        allow read: if isAuthenticated();
+        
+        // Provider can create/delete their own slots
+        allow create, delete: if isOwner(providerId);
+        
+        // Provider can update their own slots, or clients can update when booking (status to 'booked')
+        allow update: if isOwner(providerId) || 
+                         (isAuthenticated() && 
+                          request.resource.data.status == 'booked' &&
+                          request.resource.data.parentId == request.auth.uid);
+      }
+      
+      // Feedback subcollection under providers
+      match /feedback/{feedbackId} {
+        // Anyone authenticated can read feedback
+        allow read: if isAuthenticated();
+        
+        // Users can create feedback
+        allow create: if isAuthenticated() && 
+                         request.resource.data.studentId == request.auth.uid;
+        
+        // Only author or admin can update/delete
+        allow update, delete: if isAuthenticated() && 
+                                 (resource.data.studentId == request.auth.uid || isAdmin());
+      }
+      
+      // Bookings subcollection under providers
+      match /bookings/{bookingId} {
+        allow read: if isAuthenticated() && 
+                       (resource.data.studentId == request.auth.uid || 
+                        resource.data.teacherId == request.auth.uid ||
+                        resource.data.parentId == request.auth.uid ||
+                        isAdmin());
+        
+        allow create: if isAuthenticated() && 
+                         (request.resource.data.studentId == request.auth.uid ||
+                          request.resource.data.parentId == request.auth.uid);
+        
+        allow update: if isAuthenticated() && (
+                         (resource.data.studentId == request.auth.uid || 
+                          resource.data.parentId == request.auth.uid) ||
+                         resource.data.teacherId == request.auth.uid ||
+                         isAdmin()
+                       );
+        
+        allow delete: if isAdmin();
+      }
+    }
+    
+    // Allow collectionGroup queries for parents (needed for teacher views of their students)
+    match /{path=**}/parents/{parentId} {
+      allow read: if isAuthenticated();
+    }
+    
+    // Allow collectionGroup queries for teachers (needed for finding providers)
+    match /{path=**}/teachers/{teacherId} {
+      allow read: if isAuthenticated();
+    }
+    
+    // Allow collectionGroup queries for therapists (needed for finding providers)
+    match /{path=**}/therapists/{therapistId} {
+      allow read: if isAuthenticated();
+    }
+    
+    // Allow collectionGroup queries for coaches (needed for finding providers)
+    match /{path=**}/coaches/{coachId} {
+      allow read: if isAuthenticated();
+    }
+    
+    // Allow collectionGroup queries for availability slots
+    match /{path=**}/availabilitySlots/{slotId} {
+      allow read: if isAuthenticated();
+    }
+    
+    // Allow collectionGroup queries for notifications
+    match /{path=**}/notifications/{notificationId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Allow collectionGroup queries for messages
+    match /{path=**}/messages/{messageId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.senderId == request.auth.uid || 
+                      resource.data.recipientId == request.auth.uid);
+      allow create: if isAuthenticated() && 
+                       request.resource.data.senderId == request.auth.uid;
+      allow update: if isAuthenticated() && 
+                       resource.data.recipientId == request.auth.uid;
+      allow delete: if isAuthenticated() && 
+                       resource.data.senderId == request.auth.uid;
+    }
+    
+    // ====================================
+    // BOOKINGS COLLECTION
+    // ====================================
+    match /bookings/{bookingId} {
+      // Users can read bookings where they are student or teacher
+      // Allow collectionGroup queries by checking if user is involved
+      allow read: if isAuthenticated() && 
+                     (resource.data.studentId == request.auth.uid || 
+                      resource.data.teacherId == request.auth.uid ||
+                      isAdmin());
+      
+      // Students can create bookings
+      allow create: if isAuthenticated() && 
+                       request.resource.data.studentId == request.auth.uid &&
+                       request.resource.data.keys().hasAll(['teacherId', 'studentId', 'date', 'status', 'createdAt']);
+      
+      // Students can cancel their bookings, teachers can approve/decline
+      allow update: if isAuthenticated() && (
+                       (resource.data.studentId == request.auth.uid && 
+                        request.resource.data.status == 'cancelled') ||
+                       (resource.data.teacherId == request.auth.uid && 
+                        request.resource.data.status in ['approved', 'declined', 'completed']) ||
+                       isAdmin()
+                     );
+      
+      // Only admins can delete bookings
+      allow delete: if isAdmin();
+    }
+    
+    // Allow collectionGroup queries for bookings (needed for teacher/student/parent views)
+    match /{path=**}/bookings/{bookingId} {
+      allow read: if isAuthenticated() && 
+                     (resource.data.studentId == request.auth.uid || 
+                      resource.data.teacherId == request.auth.uid ||
+                      resource.data.parentId == request.auth.uid ||
+                      isAdmin());
+    }
+    
+    // ====================================
+    // MESSAGES COLLECTION
+    // ====================================
+    match /messages/{messageId} {
+      // Users can read messages where they are sender or recipient
+      allow read: if isAuthenticated() && 
+                     (resource.data.senderId == request.auth.uid || 
+                      resource.data.recipientId == request.auth.uid ||
+                      isAdmin());
+      
+      // Users can create messages where they are the sender
+      allow create: if isAuthenticated() && 
+                       request.resource.data.senderId == request.auth.uid &&
+                       request.resource.data.keys().hasAll(['senderId', 'recipientId', 'text', 'timestamp', 'read']);
+      
+      // Recipients can mark messages as read
+      allow update: if isAuthenticated() && 
+                       resource.data.recipientId == request.auth.uid &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      
+      // Only sender or admin can delete
+      allow delete: if isAuthenticated() && 
+                       (resource.data.senderId == request.auth.uid || isAdmin());
+    }
+    
+    // ====================================
+    // NOTIFICATIONS COLLECTION
+    // ====================================
+    match /notifications/{notificationId} {
+      // Users can only read their own notifications
+      allow read: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+      
+      // System/admins can create notifications
+      allow create: if isAdmin() ||
+                       (isAuthenticated() && request.resource.data.userId != null);
+      
+      // Users can update their own notifications (mark as read)
+      allow update: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      
+      // Users can delete their own notifications
+      allow delete: if isAuthenticated() && 
+                       resource.data.userId == request.auth.uid;
+    }
+    
+    // ====================================
+    // FAVORITES COLLECTION
+    // ====================================
+    match /favorites/{userId}/providers/{providerId} {
+      // Users can read/write their own favorites
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Allow collectionGroup queries for favorites
+    match /{path=**}/favorites/{userId} {
+      allow read, write: if isAuthenticated();
+    }
+    
+    // Allow collectionGroup queries for favorites/providers
+    match /{path=**}/providers/{providerId} {
+      allow read: if isAuthenticated();
+    }
+    
+    // ====================================
+    // FEEDBACK COLLECTION
+    // ====================================
+    match /feedback/{feedbackId} {
+      // Anyone authenticated can read feedback
+      allow read: if isAuthenticated();
+      
+      // Users can create feedback
+      allow create: if isAuthenticated() && 
+                       request.resource.data.studentId == request.auth.uid &&
+                       request.resource.data.keys().hasAll(['studentId', 'teacherId', 'rating', 'createdAt']);
+      
+      // Only author or admin can update/delete
+      allow update, delete: if isAuthenticated() && 
+                               (resource.data.studentId == request.auth.uid || isAdmin());
+    }
+    
+    // ====================================
+    // ADMIN ANALYTICS
+    // ====================================
+    match /analytics/{document=**} {
+      // Only admins can access analytics
+      allow read, write: if isAdmin();
+    }
+    
+    // ====================================
+    // SYSTEM SETTINGS
+    // ====================================
+    match /settings/{document=**} {
+      // Anyone can read system settings
+      allow read: if isAuthenticated();
+      
+      // Only admins can modify settings
+      allow write: if isAdmin();
+    }
+    
+    // ====================================
+    // DENY ALL OTHER ACCESS
+    // ====================================
+    // Any collection not explicitly allowed is denied by default
   }
 }

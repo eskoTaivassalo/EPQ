@@ -292,11 +292,11 @@ const BookingsScreen = ({ navigation }) => {
             }
           ]}>
             <Text style={styles.statusText}>
-              {isPending ? 'Odottaa' :
-               isApproved ? 'Vahvistettu' :
-               isCompleted ? 'Valmis' :
-               isCancelled ? 'Peruttu' :
-               isDeclined ? 'Hylätty' : booking.status}
+              {isPending ? 'Pending' :
+               isApproved ? 'Confirmed' :
+               isCompleted ? 'Completed' :
+               isCancelled ? 'Cancelled' :
+               isDeclined ? 'Declined' : booking.status}
             </Text>
           </View>
         </View>
@@ -440,8 +440,8 @@ const BookingsScreen = ({ navigation }) => {
       {/* Filters - Outside main ScrollView */}
       <View style={styles.filtersContainer}>
         <View style={styles.filtersContent}>
-          {renderFilterButton('all', 'Kaikki', 'list', counts.all)}
-          {renderFilterButton('pending', 'Odottavat', 'time-outline', counts.pending)}
+          {renderFilterButton('all', 'All', 'list', counts.all)}
+          {renderFilterButton('pending', 'Pending', 'time-outline', counts.pending)}
         </View>
       </View>
 
@@ -460,11 +460,11 @@ const BookingsScreen = ({ navigation }) => {
         {filteredBookings.length === 0 ? (
           <View style={commonStyles.emptyState}>
             <Ionicons name="calendar-outline" size={64} color={colors.textLight} style={commonStyles.emptyStateIcon} />
-            <Text style={commonStyles.emptyStateTitle}>Ei varauksia</Text>
+            <Text style={commonStyles.emptyStateTitle}>No bookings</Text>
             <Text style={commonStyles.emptyStateText}>
               {selectedFilter === 'pending' 
-                ? 'Ei odottavia varauksia tällä hetkellä' 
-                : 'Varauksesi näkyvät täällä'}
+                ? 'No pending bookings at the moment' 
+                : 'Your bookings will appear here'}
             </Text>
           </View>
         ) : (

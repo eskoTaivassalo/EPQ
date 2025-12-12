@@ -28,6 +28,7 @@ import { SUBJECTS } from '../constants/tags';
  * @param {string} bookingId - Optional booking ID
  * @param {string} subject - Subject/topic
  * @param {array} subjects - Available subjects for selection
+ * @param {string} primaryColor - Primary color for header
  */
 export default function FeedbackModal({ 
   visible, 
@@ -40,7 +41,8 @@ export default function FeedbackModal({
   roleTo = 'parent',
   bookingId = null,
   subject = 'General',
-  subjects = []
+  subjects = [],
+  primaryColor = colors.primary
 }) {
   const [feedbackText, setFeedbackText] = useState('');
   // Initialize with first subject from teacher's subjects, or fallback to subject param
@@ -98,19 +100,24 @@ export default function FeedbackModal({
     <Modal
       visible={visible}
       transparent
-      animationType="slide"
+      animationType="fade"
       onRequestClose={handleClose}
     >
-      <View style={styles.backdrop}>
-        <View style={styles.modalContainer}>
-          <View style={styles.header}>
-            <Text style={styles.title}>Give Feedback</Text>
-            <TouchableOpacity onPress={handleClose} disabled={submitting}>
-              <Ionicons name="close" size={24} color={colors.text} />
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={[styles.modalHeader, { backgroundColor: primaryColor }]}>
+            <Ionicons name="chatbox" size={28} color={colors.white} />
+            <Text style={styles.modalTitle}>Give Feedback</Text>
+            <TouchableOpacity 
+              onPress={handleClose} 
+              disabled={submitting}
+              style={styles.modalCloseButton}
+            >
+              <Ionicons name="close" size={24} color={colors.white} />
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.content}>
+          <ScrollView style={styles.modalBody}>
             <View style={styles.studentInfo}>
               <Ionicons name="person-circle" size={40} color={colors.primary} />
               <View style={styles.studentDetails}>
@@ -128,6 +135,7 @@ export default function FeedbackModal({
                 onTagPress={(selected) => setSelectedSubject(selected)}
                 multiSelect={false}
                 showIcons={true}
+                primaryColor={primaryColor}
               />
               {availableSubjectTags.length === 0 && (
                 <Text style={styles.warningText}>
@@ -148,28 +156,31 @@ export default function FeedbackModal({
               textAlignVertical="top"
               editable={!submitting}
             />
-
-            <View style={styles.actions}>
-              <TouchableOpacity 
-                style={styles.cancelButton} 
-                onPress={handleClose}
-                disabled={submitting}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.submitButton, submitting && styles.submitButtonDisabled]} 
-                onPress={handleSubmit}
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.submitButtonText}>Submit Feedback</Text>
-                )}
-              </TouchableOpacity>
-            </View>
           </ScrollView>
+
+          <View style={styles.modalFooter}>
+            <TouchableOpacity 
+              style={styles.modalCancelButton} 
+              onPress={handleClose}
+              disabled={submitting}
+            >
+              <Text style={styles.modalCancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.modalSubmitButton, { backgroundColor: primaryColor }, submitting && styles.submitButtonDisabled]} 
+              onPress={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <>
+                  <Ionicons name="send" size={20} color={colors.white} />
+                  <Text style={styles.modalSubmitButtonText}>Submit</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
@@ -177,29 +188,33 @@ export default function FeedbackModal({
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  modalOverlay: {
     ...commonStyles.modalOverlay,
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '90%',
-    ...commonStyles.shadowHeavy,
-  },
-  header: {
-    ...commonStyles.rowBetween,
     padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
-  title: {
+  modalContent: {
+    ...commonStyles.modalContainer,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 0,
+  },
+  modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: colors.text,
+    color: colors.white,
+    flex: 1,
+    marginLeft: 12,
   },
-  content: {
+  modalCloseButton: {
+    padding: 4,
+  },
+  modalBody: {
     padding: 20,
   },
   studentInfo: {
@@ -219,13 +234,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text,
   },
-  studentSubject: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
   label: {
-    ...commonStyles.label,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textDark,
+    marginBottom: 8,
   },
   subjectSection: {
     marginBottom: 20,
@@ -237,7 +250,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   textArea: {
-    ...commonStyles.input,
+    backgroundColor: colors.background,
     borderRadius: 12,
     padding: 15,
     fontSize: 15,
@@ -245,44 +258,41 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     minHeight: 150,
-    marginBottom: 20,
   },
-  actions: {
+  modalFooter: {
     flexDirection: 'row',
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
     gap: 12,
-    marginBottom: 20,
   },
-  cancelButton: {
+  modalCancelButton: {
     flex: 1,
-    paddingVertical: 15,
-    borderRadius: 10,
+    paddingVertical: 12,
+    backgroundColor: colors.lightGray,
+    borderRadius: 8,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  cancelButtonText: {
-    color: colors.textSecondary,
+  modalCancelButtonText: {
+    color: colors.textDark,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  submitButton: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    paddingVertical: 15,
-    borderRadius: 10,
+  modalSubmitButton: {
+    flex: 2,
+    flexDirection: 'row',
+    paddingVertical: 12,
+    borderRadius: 8,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    justifyContent: 'center',
+    gap: 8,
   },
   submitButtonDisabled: {
     opacity: 0.6,
   },
-  submitButtonText: {
+  modalSubmitButtonText: {
     color: colors.white,
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
 });

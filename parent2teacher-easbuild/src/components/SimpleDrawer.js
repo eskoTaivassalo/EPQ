@@ -62,7 +62,7 @@ export default function SimpleDrawer({ visible, onClose, navigation, menuItems, 
             {/* Header */}
             <View style={styles.header}>
               <View style={styles.headerContent}>
-                <AppLogo size={70} />
+                <AppLogo size={90} />
                 <Text style={[styles.userTypeLabel, { color: roleColors?.primary || colors.primary }]}>
                   {userType === 'teacher' ? 'Teacher' : 'Parent'}
                 </Text>
