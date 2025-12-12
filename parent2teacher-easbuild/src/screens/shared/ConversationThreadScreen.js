@@ -56,7 +56,9 @@ export default function ConversationThreadScreen({ navigation, route }) {
         ? (userId1 === user.uid ? userId2 : userId1)
         : (senderId === user.uid ? recipientId : senderId);
       
-      await addDoc(collection(db, 'serviceTypes', 'education', 'messages'), {
+      // Store support message under sender's document
+      const senderCollection = (user.role || role) === 'teacher' ? 'teachers' : 'parents';
+      await addDoc(collection(db, 'serviceTypes', 'education', senderCollection, user.uid, 'messages'), {
         senderId: user.uid,
         recipientId: recipientUserId,
         senderRole: user.role || role || 'guest',

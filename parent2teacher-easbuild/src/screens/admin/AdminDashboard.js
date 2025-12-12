@@ -110,8 +110,9 @@ const AdminDashboard = ({ navigation }) => {
       let recentSupportMessages = [];
       
       try {
+        const { collectionGroup } = await import('firebase/firestore');
         const messagesQuery = query(
-          collection(db, 'serviceTypes', 'education', 'messages'),
+          collectionGroup(db, 'messages'),
           where('recipientId', '==', user?.uid),
           where('type', '==', 'support')
         );

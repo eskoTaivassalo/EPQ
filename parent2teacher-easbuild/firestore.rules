@@ -42,38 +42,36 @@ service cloud.firestore {
     // serviceTypes/{serviceType}/{collectionName}/{userId}
     // ========================================
     
-    // Messages collection
-    match /serviceTypes/{serviceType}/messages/{messageId} {
-      allow read: if isAuthenticated() && (
-        request.auth.uid == resource.data.teacherId || 
-        request.auth.uid == resource.data.parentId ||
-        request.auth.uid == resource.data.senderId ||
-        request.auth.uid == resource.data.recipientId
-      );
-      allow create: if isAuthenticated() && (
-        request.auth.uid == request.resource.data.teacherId ||
-        request.auth.uid == request.resource.data.parentId ||
-        request.auth.uid == request.resource.data.senderId
-      );
-      allow update: if isAuthenticated() && (
-        request.auth.uid == resource.data.teacherId || 
-        request.auth.uid == resource.data.parentId ||
-        request.auth.uid == resource.data.senderId ||
-        request.auth.uid == resource.data.recipientId
-      );
-      allow delete: if isAuthenticated() && (
-        request.auth.uid == resource.data.senderId ||
-        request.auth.uid == resource.data.teacherId ||
-        request.auth.uid == resource.data.parentId
-      );
-    }
-    
     // Role profiles (teachers, students, therapists, etc.)
     match /serviceTypes/{serviceType}/{collectionName}/{userId} {
       allow read: if isAuthenticated();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
+      
+      // Messages subcollection (messages stored under sender's document)
+      match /messages/{messageId} {
+        // Allow read if user is sender, recipient, or any participant in the conversation
+        allow read: if isAuthenticated() && (
+          request.auth.uid == resource.data.senderId ||
+          request.auth.uid == resource.data.recipientId ||
+          request.auth.uid == resource.data.teacherId ||
+          request.auth.uid == resource.data.parentId
+        );
+        // Only the sender (owner of parent document) can create messages
+        allow create: if isAuthenticated() && (
+          request.auth.uid == userId ||
+          request.auth.uid == request.resource.data.senderId
+        );
+        // Allow update for sender or recipient (e.g., marking as read)
+        allow update: if isAuthenticated() && (
+          request.auth.uid == resource.data.senderId ||
+          request.auth.uid == resource.data.recipientId ||
+          request.auth.uid == resource.data.teacherId ||
+          request.auth.uid == resource.data.parentId
+        );
+        allow delete: if isAuthenticated() && request.auth.uid == resource.data.senderId;
+      }
       
       // Availability Slots subcollection
       match /availabilitySlots/{slotId} {
@@ -140,6 +138,33 @@ service cloud.firestore {
         request.auth.uid == resource.data.parentId
       );
       allow write: if isAuthenticated();
+    }
+    
+    // Messages collection group (for conversation queries)
+    match /{path=**}/messages/{messageId} {
+      // Allow read if user is involved in the conversation
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == resource.data.recipientId ||
+        request.auth.uid == resource.data.teacherId ||
+        request.auth.uid == resource.data.parentId
+      );
+      // Create allowed if authenticated (handled by parent document rules)
+      allow create: if isAuthenticated();
+      // Update allowed if participant
+      allow update: if isAuthenticated() && (
+        resource == null ||
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == resource.data.recipientId ||
+        request.auth.uid == resource.data.teacherId ||
+        request.auth.uid == resource.data.parentId
+      );
+      // Delete only by sender
+      allow delete: if isAuthenticated() && (
+        resource != null &&
+        request.auth.uid == resource.data.senderId
+      );
     }
     
     // ========================================

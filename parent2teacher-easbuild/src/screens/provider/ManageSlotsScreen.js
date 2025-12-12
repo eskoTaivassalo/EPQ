@@ -62,6 +62,7 @@ export default function ManageSlotsScreen({ navigation }) {
       let fetchedSlots = snapshot.docs.map(doc => ({
         id: doc.id,
         ref: doc.ref, // Store reference for deletion
+        docPath: doc.ref.path, // Unique path for each document
         ...doc.data()
       })).filter(slot => {
         // Filter out slots with invalid dates
@@ -363,7 +364,7 @@ export default function ManageSlotsScreen({ navigation }) {
       {/* Slots list */}
       <FlatList
         data={slots}
-        keyExtractor={(item, index) => item.id || `slot-${index}`}
+        keyExtractor={(item, index) => item.docPath || item.id || `slot-${index}`}
         renderItem={renderSlot}
         contentContainerStyle={styles.listContent}
         ListEmptyComponent={

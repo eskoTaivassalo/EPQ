@@ -22,7 +22,11 @@ export async function sendMessage({ teacherId, parentId, senderType, text, servi
     read: false,
     createdAt: serverTimestamp(),
   };
-  const ref = collection(db, 'serviceTypes', serviceType, 'messages');
+  
+  // Save message under sender's document: serviceTypes/{serviceType}/{teachers|parents}/{senderId}/messages
+  const senderId = senderType === 'teacher' ? teacherId : parentId;
+  const senderCollection = senderType === 'teacher' ? 'teachers' : 'parents';
+  const ref = collection(db, 'serviceTypes', serviceType, senderCollection, senderId, 'messages');
   const res = await addDoc(ref, payload);
 
   // Determine recipient
@@ -81,12 +85,17 @@ export async function sendMessage({ teacherId, parentId, senderType, text, servi
 
 /**
  * listMessagesForConversation - returns ordered messages between a teacher and a parent.
+ * Uses collectionGroup to query messages from both teacher's and parent's message collections
  */
 export async function listMessagesForConversation(teacherId, parentId, limit = 50, serviceType = 'education') {
   if (!db) throw new Error('Firestore not initialized');
-  const ref = collection(db, 'serviceTypes', serviceType, 'messages');
+  
+  // Use collectionGroup to search all 'messages' subcollections
+  const { collectionGroup } = await import('firebase/firestore');
+  const messagesRef = collectionGroup(db, 'messages');
+  
   const q = query(
-    ref,
+    messagesRef,
     where('parentId', '==', parentId),
     where('teacherId', '==', teacherId),
     orderBy('createdAt', 'asc')
@@ -150,12 +159,16 @@ export async function listGradesForParentTeacher(teacherId, parentId) {
 
 /**
  * subscribeToConversation - realtime updates for a conversation between teacherId & parentId
+ * Uses collectionGroup to listen to messages from both users' collections
  */
 export function subscribeToConversation(teacherId, parentId, onChange, serviceType = 'education') {
   if (!db) throw new Error('Firestore not initialized');
-  const ref = collection(db, 'serviceTypes', serviceType, 'messages');
+  
+  const { collectionGroup } = require('firebase/firestore');
+  const messagesRef = collectionGroup(db, 'messages');
+  
   const q = query(
-    ref,
+    messagesRef,
     where('parentId', '==', parentId),
     where('teacherId', '==', teacherId),
     orderBy('createdAt', 'asc')
@@ -169,6 +182,7 @@ export function subscribeToConversation(teacherId, parentId, onChange, serviceTy
 
 /**
  * subscribeToSupportConversation - realtime updates for support messages between two users
+ * Uses collectionGroup to listen to messages from both users' collections
  * @param {string} userId1 - First user ID (can be sender or recipient)
  * @param {string} userId2 - Second user ID (can be sender or recipient)
  * @param {function} onChange - Callback with messages array
@@ -176,17 +190,16 @@ export function subscribeToConversation(teacherId, parentId, onChange, serviceTy
  */
 export function subscribeToSupportConversation(userId1, userId2, onChange, serviceType = 'education') {
   if (!db) throw new Error('Firestore not initialized');
-  const ref = collection(db, 'serviceTypes', serviceType, 'messages');
+  
+  const { collectionGroup } = require('firebase/firestore');
+  const messagesRef = collectionGroup(db, 'messages');
   
   // Query messages where:
   // (senderId = userId1 AND recipientId = userId2) OR (senderId = userId2 AND recipientId = userId1)
   // AND type = 'support'
   
-  // Since Firestore doesn't support OR queries directly with compound conditions,
-  // we need to do two separate queries and merge results
-  
   const q1 = query(
-    ref,
+    messagesRef,
     where('senderId', '==', userId1),
     where('recipientId', '==', userId2),
     where('type', '==', 'support'),
@@ -194,7 +207,7 @@ export function subscribeToSupportConversation(userId1, userId2, onChange, servi
   );
   
   const q2 = query(
-    ref,
+    messagesRef,
     where('senderId', '==', userId2),
     where('recipientId', '==', userId1),
     where('type', '==', 'support'),
@@ -246,6 +259,7 @@ export function subscribeToSupportConversation(userId1, userId2, onChange, servi
  * listConversationsForUser - derive conversations by grouping messages by the counterpart id.
  * Returns items: { counterpartId: string, counterpartRole: 'teacher'|'parent'|'support', lastMessage, lastAt, type, category, subject }
  * Supports both regular teacher<->parent messages and support messages (type='support')
+ * Uses collectionGroup to query across all message subcollections
  * @param {string} userId - User ID
  * @param {string} role - User role ('teacher' or 'parent')
  * @param {boolean} includeSupport - Whether to include support messages (default: false)
@@ -253,21 +267,23 @@ export function subscribeToSupportConversation(userId1, userId2, onChange, servi
  */
 export async function listConversationsForUser(userId, role, includeSupport = false, serviceType = 'education') {
   if (!db) throw new Error('Firestore not initialized');
-  const ref = collection(db, 'serviceTypes', serviceType, 'messages');
+  
+  const { collectionGroup } = await import('firebase/firestore');
+  const messagesRef = collectionGroup(db, 'messages');
   
   // Query 1: Regular messages (teacher<->parent)
   const q1 = role === 'teacher'
-    ? query(ref, where('teacherId', '==', userId), orderBy('createdAt', 'desc'))
-    : query(ref, where('parentId', '==', userId), orderBy('createdAt', 'desc'));
+    ? query(messagesRef, where('teacherId', '==', userId), orderBy('createdAt', 'desc'))
+    : query(messagesRef, where('parentId', '==', userId), orderBy('createdAt', 'desc'));
   
   // Only query support messages if includeSupport is true
   const queries = [getDocs(q1)];
   
   if (includeSupport) {
     // Query 2: Support messages where user is recipient
-    const q2 = query(ref, where('recipientId', '==', userId), orderBy('createdAt', 'desc'));
+    const q2 = query(messagesRef, where('recipientId', '==', userId), orderBy('createdAt', 'desc'));
     // Query 3: Support messages where user is sender
-    const q3 = query(ref, where('senderId', '==', userId), orderBy('createdAt', 'desc'));
+    const q3 = query(messagesRef, where('senderId', '==', userId), orderBy('createdAt', 'desc'));
     queries.push(getDocs(q2), getDocs(q3));
   }
   
@@ -434,7 +450,9 @@ export async function sendSupportMessage({ userId, senderName, senderEmail, send
       createdAt: serverTimestamp(),
     };
 
-    const messagesRef = fsCollection(db, 'serviceTypes', 'education', 'messages');
+    // Store support message under sender's document (like regular messages)
+    const senderCollection = senderRole === 'teacher' ? 'teachers' : 'parents';
+    const messagesRef = fsCollection(db, 'serviceTypes', 'education', senderCollection, userId, 'messages');
     const messageDoc = await addDoc(messagesRef, messagePayload);
     messages.push({ id: messageDoc.id, ...messagePayload });
 
