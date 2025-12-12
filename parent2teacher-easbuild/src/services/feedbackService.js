@@ -1,7 +1,7 @@
 // Feedback service: Firestore feedback collection helpers
-import { addDoc, collection, serverTimestamp, doc } from 'firebase/firestore';
-import { db } from '../config/firebaseConfig';
-import { getRoleCollectionInfo } from './userDatabaseService';
+import { addDoc, collection, serverTimestamp, doc, getDoc } from 'firebase/firestore';
+import { db, auth } from '../config/firebaseConfig';
+import { getRoleCollectionInfo, getUserMainProfile } from './userDatabaseService';
 
 /**
  * addFeedback - create feedback from one user to another, optionally linked to booking/lesson
@@ -66,6 +66,71 @@ export async function addFeedback({
   
   const res = await addDoc(feedbackCollectionRef, payload);
   console.log('💬 Feedback saved with ID:', res.id);
+  
+  // Create notification for receiver
+  try {
+    console.log('🔔 Creating notification for feedback recipient:', toUserId);
+    
+    // Get receiver's profile to determine their name
+    const receiverProfile = await getUserMainProfile(toUserId);
+    const receiverName = receiverProfile?.displayName || receiverProfile?.name || 'User';
+    
+    // Get sender's profile for the notification
+    const senderProfile = await getUserMainProfile(fromUserId);
+    const senderName = senderProfile?.displayName || senderProfile?.name || 'Teacher';
+    
+    // Create notification document
+    const notificationRef = doc(
+      db,
+      'serviceTypes',
+      serviceType,
+      collectionName,
+      toUserId,
+      'notifications',
+      `notif_feedback_${res.id}`
+    );
+    
+    const notificationData = {
+      type: 'feedback_received',
+      title: '💬 New Feedback',
+      message: `${senderName} gave you feedback${subject ? ' on ' + subject : ''}`,
+      userId: toUserId,
+      feedbackId: res.id,
+      fromUserId,
+      subject,
+      read: false,
+      navigationTarget: 'Feedback',
+      navigationParams: { feedbackId: res.id },
+      createdAt: serverTimestamp()
+    };
+    
+    await addDoc(collection(userDocRef, 'notifications'), notificationData);
+    console.log('✅ Feedback notification created');
+    
+    // Send push notification if available
+    if (auth.currentUser?.uid !== toUserId) {
+      try {
+        const { sendExpoPushNotification } = await import('./pushService');
+        const userDoc = await getDoc(doc(db, 'users', toUserId));
+        const token = userDoc.exists() ? userDoc.data()?.push?.expo?.token : null;
+        
+        if (token) {
+          await sendExpoPushNotification(
+            token,
+            '💬 New Feedback',
+            `${senderName}: ${feedbackText.substring(0, 100)}${feedbackText.length > 100 ? '...' : ''}`,
+            { type: 'feedback_received', feedbackId: res.id }
+          );
+          console.log('📲 Push notification sent');
+        }
+      } catch (pushErr) {
+        console.warn('Failed to send push notification:', pushErr);
+      }
+    }
+  } catch (notifErr) {
+    console.error('Failed to create feedback notification:', notifErr);
+    // Don't fail the whole operation if notification fails
+  }
   
   return { id: res.id, ...payload };
 }
