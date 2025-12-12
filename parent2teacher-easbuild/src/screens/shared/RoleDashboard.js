@@ -28,6 +28,7 @@ import { fetchNotifications, startNotificationListener, stopNotificationListener
 import { useAppData } from '../../hooks/useAppData';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { listStudentsForTeacher } from '../../services/availabilityService';
+import { listFeedbackForUser } from '../../services/feedbackService';
 
 const RoleDashboard = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -44,6 +45,7 @@ const RoleDashboard = ({ navigation }) => {
   const [declineModalVisible, setDeclineModalVisible] = useState(false);
   const [bookingToDecline, setBookingToDecline] = useState(null);
   const [declineReason, setDeclineReason] = useState('');
+  const [recentFeedback, setRecentFeedback] = useState([]);
   
   const role = getCanonicalRole(user?.role || user?.userType);
   const roleConfig = getRoleConfig(role);
@@ -213,6 +215,17 @@ const RoleDashboard = ({ navigation }) => {
       }
       
       setStats(calculatedStats);
+      
+      // Load recent feedback for parents (clients)
+      if (!isProvider && user?.uid) {
+        try {
+          const feedbacks = await listFeedbackForUser(user.uid, role);
+          setRecentFeedback(feedbacks.slice(0, 5)); // Show only 5 most recent
+          console.log('📬 Loaded', feedbacks.length, 'feedbacks for parent');
+        } catch (error) {
+          console.warn('Failed to load feedback:', error);
+        }
+      }
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -714,24 +727,64 @@ const RoleDashboard = ({ navigation }) => {
           </View>
         </Modal>
 
-        {/* Recent Activity */}
+        {/* Recent Activity / Feedback */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: roleColors.text }]}>
-              Recent Activity
+              {!isProvider ? 'Recent Feedback' : 'Recent Activity'}
             </Text>
-            <TouchableOpacity>
-              <Text style={[styles.seeAll, { color: roleColors.primary }]}>
-                See All
+          </View>
+          
+          {!isProvider && recentFeedback.length > 0 ? (
+            <View>
+              {recentFeedback.map((feedback, index) => (
+                <View 
+                  key={feedback.id} 
+                  style={[
+                    styles.feedbackCard,
+                    { backgroundColor: roleColors.card, borderLeftColor: roleColors.primary }
+                  ]}
+                >
+                  <View style={styles.feedbackHeader}>
+                    <View style={styles.feedbackHeaderLeft}>
+                      <Ionicons name="chatbox-ellipses" size={20} color={roleColors.primary} />
+                      {feedback.subject && (
+                        <View style={[styles.feedbackSubjectBadge, { backgroundColor: roleColors.primaryLight || roleColors.primary + '20' }]}>
+                          <Ionicons name="book-outline" size={12} color={roleColors.primary} />
+                          <Text style={[styles.feedbackSubjectBadgeText, { color: roleColors.primary }]}>
+                            {feedback.subject}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={[styles.feedbackDate, { color: roleColors.textSecondary }]}>
+                      {feedback.createdAt?.toDate ? 
+                        new Date(feedback.createdAt.toDate()).toLocaleDateString('fi-FI', { 
+                          day: 'numeric', 
+                          month: 'short',
+                          year: 'numeric'
+                        }) 
+                        : 'Recently'}
+                    </Text>
+                  </View>
+                  <Text style={[styles.feedbackText, { color: roleColors.text }]}>
+                    {feedback.feedbackText}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={[styles.emptyState, { backgroundColor: roleColors.card }]}>
+              <Ionicons 
+                name={!isProvider ? "chatbox-outline" : "time-outline"} 
+                size={48} 
+                color={roleColors.textSecondary} 
+              />
+              <Text style={[styles.emptyText, { color: roleColors.textSecondary }]}>
+                {!isProvider ? 'No feedback yet' : 'No recent activity'}
               </Text>
-            </TouchableOpacity>
-          </View>
-          <View style={[styles.emptyState, { backgroundColor: roleColors.card }]}>
-            <Ionicons name="time-outline" size={48} color={roleColors.textSecondary} />
-            <Text style={[styles.emptyText, { color: roleColors.textSecondary }]}>
-              No recent activity
-            </Text>
-          </View>
+            </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -1027,6 +1080,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.textSecondary,
     marginTop: 4,
+  },
+  feedbackCard: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderLeftWidth: 4,
+    ...commonStyles.shadow,
+  },
+  feedbackHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  feedbackHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  feedbackDate: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  feedbackText: {
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  feedbackSubjectBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  feedbackSubjectBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Legacy styles (kept for compatibility)
+  feedbackSubject: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 4,
+  },
+  feedbackSubjectText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
 

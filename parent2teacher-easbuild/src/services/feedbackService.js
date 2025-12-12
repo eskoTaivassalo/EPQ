@@ -14,6 +14,7 @@ import { getRoleCollectionInfo } from './userDatabaseService';
  * @param {string} [params.bookingId]
  * @param {string} [params.lessonId]
  * @param {string} [params.feedbackText]
+ * @param {string} [params.subject] Subject/topic of feedback
  * @param {number} [params.rating] 1-5
  * @param {Array<string>} [params.categories] e.g. ['aktiivisuus','osaaminen']
  */
@@ -25,13 +26,14 @@ export async function addFeedback({
   bookingId = null,
   lessonId = null,
   feedbackText = '',
+  subject = null,
   rating = null,
   categories = []
 }) {
   if (!db) throw new Error('Firestore not initialized');
   if (!fromUserId || !toUserId || !roleFrom || !roleTo) throw new Error('Missing required fields');
   
-  console.log('💬 Adding feedback:', { fromUserId, toUserId, roleFrom, roleTo });
+  console.log('💬 Adding feedback:', { fromUserId, toUserId, roleFrom, roleTo, subject });
   
   // Get receiver's collection info to save feedback to their profile
   const receiverInfo = getRoleCollectionInfo(roleTo);
@@ -53,12 +55,14 @@ export async function addFeedback({
     bookingId,
     lessonId,
     feedbackText,
+    subject,
     rating,
     categories,
     createdAt: serverTimestamp()
   };
   
   console.log('💬 Saving feedback to path:', `serviceTypes/${serviceType}/${collectionName}/${toUserId}/feedback`);
+  console.log('💬 Feedback payload:', payload);
   
   const res = await addDoc(feedbackCollectionRef, payload);
   console.log('💬 Feedback saved with ID:', res.id);
