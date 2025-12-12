@@ -23,6 +23,7 @@ import {
 } from '../../store/slices/notificationsSlice';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { Swipeable } from 'react-native-gesture-handler';
+import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 
 /**
  * NotificationsScreen - Display all user notifications
@@ -36,6 +37,11 @@ const NotificationsScreen = ({ navigation }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [selectedCancellation, setSelectedCancellation] = useState(null);
+  
+  // Get role-based colors
+  const role = currentUser?.role || currentUser?.userType || 'parent';
+  const canonicalRole = getCanonicalRole(role);
+  const roleColors = getRoleColors(canonicalRole);
 
   useEffect(() => {
     if (currentUser?.uid) {
@@ -237,7 +243,7 @@ const NotificationsScreen = ({ navigation }) => {
         overshootRight={false}
       >
         <TouchableOpacity
-          style={[styles.card, !item.read && styles.unreadCard]}
+          style={[styles.card, !item.read && { ...styles.unreadCard, borderLeftColor: roleColors.primary }]}
           onPress={() => {
             console.log('🔔 Notification tapped:', { id: item.id, type: item.type, read: item.read, navigationTarget: item.navigationTarget });
             
@@ -286,7 +292,7 @@ const NotificationsScreen = ({ navigation }) => {
             <Text style={styles.time}>{formatTime(item.createdAt)}</Text>
           </View>
           
-          {!item.read && <View style={styles.unreadDot} />}
+            {!item.read && <View style={[styles.unreadDot, { backgroundColor: roleColors.primary }]} />}
         </TouchableOpacity>
       </Swipeable>
     );
@@ -315,7 +321,7 @@ const NotificationsScreen = ({ navigation }) => {
   return (
     <View style={commonStyles.safeArea}>
       <WatercolorBackground />
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
         <TouchableOpacity 
           onPress={() => navigation.goBack()} 
           style={styles.backButton}
@@ -470,7 +476,7 @@ const NotificationsScreen = ({ navigation }) => {
               {/* Show rebooking button for declined bookings (always for parents) or cancellations with teacherId */}
               {(selectedCancellation?.type === 'booking_declined' || selectedCancellation?.navigationParams?.teacherId) && (
                 <TouchableOpacity 
-                  style={styles.modalBookButton}
+                  style={[styles.modalBookButton, { backgroundColor: roleColors.primary }]}
                   onPress={() => {
                     setCancelModalVisible(false);
                     // For declined bookings, try to get teacherId from navigationParams or data
@@ -504,11 +510,15 @@ const NotificationsScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: colors.secondary,
     ...commonStyles.rowBetween,
     paddingHorizontal: 8,
     paddingVertical: 12,
-    paddingTop: 48
+    paddingTop: 48,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   backButton: {
     padding: 8,
@@ -535,7 +545,6 @@ const styles = StyleSheet.create({
   },
   unreadCard: {
     borderLeftWidth: 4,
-    borderLeftColor: colors.primary
   },
   iconContainer: {
     width: 44,
@@ -571,7 +580,6 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: colors.primary,
     marginLeft: 8,
     marginTop: 4
   },
@@ -723,7 +731,6 @@ const styles = StyleSheet.create({
     flex: 2,
     flexDirection: 'row',
     paddingVertical: 12,
-    backgroundColor: colors.primary,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
