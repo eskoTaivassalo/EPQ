@@ -162,7 +162,16 @@ export default function ConversationThreadScreen({ navigation, route }) {
             multiline
             maxLength={500}
           />
-          <TouchableOpacity style={[styles.sendBtn, { backgroundColor: roleColors.primary }]} onPress={handleSend}>
+          <TouchableOpacity 
+            style={[
+              styles.sendBtn, 
+              { 
+                backgroundColor: roleColors.primary,
+                shadowColor: roleColors.primary 
+              }
+            ]} 
+            onPress={handleSend}
+          >
             <Ionicons name="send" size={20} color={colors.white} />
           </TouchableOpacity>
         </View>
@@ -181,8 +190,7 @@ const styles = StyleSheet.create({
     alignItems: 'center', 
     justifyContent: 'space-between', 
     paddingHorizontal: 16, 
-    paddingVertical: 16, 
-    backgroundColor: colors.primary,
+    paddingVertical: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -242,7 +250,6 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   messageBubbleMine: {
-    backgroundColor: colors.primary,
     borderBottomRightRadius: 4,
   },
   messageBubbleTheir: {
@@ -305,9 +312,7 @@ const styles = StyleSheet.create({
     height: 44, 
     borderRadius: 22, 
     alignItems: 'center', 
-    justifyContent: 'center', 
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
+    justifyContent: 'center',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 3,
