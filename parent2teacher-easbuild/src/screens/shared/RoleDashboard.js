@@ -362,6 +362,7 @@ const RoleDashboard = ({ navigation }) => {
         menuItems={menuItems}
         userType={roleConfig.legacyName}
         onLogout={logout}
+        roleColors={roleColors}
       />
 
       <ScrollView

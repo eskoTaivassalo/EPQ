@@ -71,8 +71,8 @@ export const colors = {
  * Käytetään roolien erottamiseen, mutta muut värit pysyvät yhtenäisinä
  */
 export const roleAccents = {
-  teacher: '#FF6B35',        // Oranssi
-  parent: '#3498DB',         // Sininen
+  teacher: '#E8824C',        // Pehmeä oranssi
+  parent: '#E87D72',         // Pehmeä punainen
   therapist: '#9B59B6',      // Purppura
   therapyClient: '#8E44AD',  // Tumma purppura
   coach: '#2ECC71',          // Vihreä

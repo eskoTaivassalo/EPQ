@@ -3,12 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Animated }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, commonStyles } from '../styles/commonStyles';
+import AppLogo from './AppLogo';
 
 /**
  * SimpleDrawer - Kevyt drawer-valikko ilman natiiviriippuvuuksia
  * Käyttää React Native:n Modal + Animated komponentteja
  */
-export default function SimpleDrawer({ visible, onClose, navigation, menuItems, userType, onLogout }) {
+export default function SimpleDrawer({ visible, onClose, navigation, menuItems, userType, onLogout, roleColors }) {
   const slideAnim = React.useRef(new Animated.Value(300)).current;
 
   React.useEffect(() => {
@@ -60,10 +61,12 @@ export default function SimpleDrawer({ visible, onClose, navigation, menuItems, 
           <SafeAreaView style={styles.drawer}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.appName}>EPQ</Text>
-              <Text style={styles.userTypeLabel}>
-                {userType === 'teacher' ? '👨‍🏫 Teacher' : '👨‍👩‍👧 Parent'}
-              </Text>
+              <View style={styles.headerContent}>
+                <AppLogo size={70} />
+                <Text style={[styles.userTypeLabel, { color: roleColors?.primary || colors.primary }]}>
+                  {userType === 'teacher' ? 'Teacher' : 'Parent'}
+                </Text>
+              </View>
             </View>
 
             {/* Menu items */}
@@ -80,7 +83,7 @@ export default function SimpleDrawer({ visible, onClose, navigation, menuItems, 
                   <Ionicons 
                     name={item.icon} 
                     size={22} 
-                    color={colors.primary} 
+                    color={roleColors?.primary || colors.primary} 
                     style={styles.menuIcon}
                   />
                   <Text style={styles.menuLabel}>{item.label}</Text>
@@ -141,10 +144,14 @@ const styles = StyleSheet.create({
     flex: 1,
   }, 
   header: {
-    backgroundColor: colors.primary,
-    padding: 24,
-    paddingTop: 40,
+    padding: 16,
+    paddingTop: 24,
     borderBottomLeftRadius: 24,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
   },
   appName: {
     fontSize: 24,
@@ -154,10 +161,9 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   userTypeLabel: {
-    fontSize: 15,
+    fontSize: 18,
     color: colors.white,
-    opacity: 0.95,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   menuContainer: {
     flex: 1,
