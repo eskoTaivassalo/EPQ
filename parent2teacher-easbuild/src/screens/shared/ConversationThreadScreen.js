@@ -6,11 +6,14 @@ import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
 import { subscribeToConversation, subscribeToSupportConversation, sendMessage } from '../../services/communicationService';
+import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 
 export default function ConversationThreadScreen({ navigation, route }) {
   const { teacherId: teacherIdParam, parentId: parentIdParam, recipientName, isSupportConversation, userId1, userId2, senderId, recipientId, category, subject } = route.params || {};
   const { user } = useAuth();
   const role = (user?.userType || user?.type) === 'teacher' ? 'teacher' : 'parent';
+  const canonicalRole = getCanonicalRole(role);
+  const roleColors = getRoleColors(canonicalRole);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
   const listRef = useRef(null);
@@ -99,7 +102,10 @@ export default function ConversationThreadScreen({ navigation, route }) {
     
     return (
       <View style={[styles.messageContainer, mine ? styles.messageContainerMine : styles.messageContainerTheir]}>
-        <View style={[styles.messageBubble, mine ? styles.messageBubbleMine : styles.messageBubbleTheir]}>
+        <View style={[
+          styles.messageBubble, 
+          mine ? { ...styles.messageBubbleMine, backgroundColor: roleColors.primary } : styles.messageBubbleTheir
+        ]}>
           <Text style={[styles.messageText, mine ? styles.messageTextMine : styles.messageTextTheir]}>
             {item.text || item.content}
           </Text>
@@ -114,7 +120,7 @@ export default function ConversationThreadScreen({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <WatercolorBackground />
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color={colors.white} />
         </TouchableOpacity>
@@ -156,7 +162,7 @@ export default function ConversationThreadScreen({ navigation, route }) {
             multiline
             maxLength={500}
           />
-          <TouchableOpacity style={styles.sendBtn} onPress={handleSend}>
+          <TouchableOpacity style={[styles.sendBtn, { backgroundColor: roleColors.primary }]} onPress={handleSend}>
             <Ionicons name="send" size={20} color={colors.white} />
           </TouchableOpacity>
         </View>
