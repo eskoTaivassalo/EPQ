@@ -94,9 +94,19 @@ export default function ConversationThreadScreen({ navigation, route }) {
       mine = (role === 'teacher' && item.senderType === 'teacher') || (role === 'parent' && item.senderType === 'parent');
     }
     
+    const timestamp = item.createdAt?.toDate ? item.createdAt.toDate() : new Date();
+    const timeString = timestamp.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
+    
     return (
-      <View style={[styles.message, mine ? styles.mine : styles.their]}> 
-        <Text style={styles.messageText}>{item.text || item.content}</Text>
+      <View style={[styles.messageContainer, mine ? styles.messageContainerMine : styles.messageContainerTheir]}>
+        <View style={[styles.messageBubble, mine ? styles.messageBubbleMine : styles.messageBubbleTheir]}>
+          <Text style={[styles.messageText, mine ? styles.messageTextMine : styles.messageTextTheir]}>
+            {item.text || item.content}
+          </Text>
+          <Text style={[styles.messageTime, mine ? styles.messageTimeMine : styles.messageTimeTheir]}>
+            {timeString}
+          </Text>
+        </View>
       </View>
     );
   };
@@ -133,8 +143,9 @@ export default function ConversationThreadScreen({ navigation, route }) {
           data={messages}
           keyExtractor={(it) => it.id}
           renderItem={renderItem}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 8, flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         />
         <View style={styles.inputRow}>
           <TextInput
@@ -155,18 +166,145 @@ export default function ConversationThreadScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.secondary },
-  backBtn: { padding: 6 },
-  headerTextContainer: { flex: 1, alignItems: 'center' },
-  headerTitle: { color: colors.white, fontSize: 18, fontWeight: '700' },
-  headerSubtitle: { color: colors.white, fontSize: 12, opacity: 0.9, marginTop: 2 },
-  headerCategory: { color: colors.white, fontSize: 10, opacity: 0.8, marginTop: 2, fontWeight: '600' },
-  message: { maxWidth: '80%', padding: 10, borderRadius: 12, marginBottom: 8 },
-  mine: { alignSelf: 'flex-end', backgroundColor: colors.primary },
-  their: { alignSelf: 'flex-start', backgroundColor: '#E0E0E0' },
-  messageText: { color: colors.white },
-  inputRow: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: colors.white, borderTopWidth: 1, borderTopColor: colors.border },
-  input: { flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 8, marginRight: 8, maxHeight: 100, minHeight: 40 },
-  sendBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.secondary },
+  container: { 
+    flex: 1, 
+    backgroundColor: colors.background 
+  },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: 16, 
+    paddingVertical: 16, 
+    backgroundColor: colors.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  backBtn: { 
+    padding: 8,
+    borderRadius: 8,
+  },
+  headerTextContainer: { 
+    flex: 1, 
+    alignItems: 'center',
+    paddingHorizontal: 8,
+  },
+  headerTitle: { 
+    color: colors.white, 
+    fontSize: 18, 
+    fontWeight: '700',
+  },
+  headerSubtitle: { 
+    color: colors.white, 
+    fontSize: 13, 
+    opacity: 0.9, 
+    marginTop: 2,
+  },
+  headerCategory: { 
+    color: colors.white, 
+    fontSize: 11, 
+    opacity: 0.85, 
+    marginTop: 2, 
+    fontWeight: '600',
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  messageContainer: {
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  messageContainerMine: {
+    alignItems: 'flex-end',
+  },
+  messageContainerTheir: {
+    alignItems: 'flex-start',
+  },
+  messageBubble: {
+    maxWidth: '75%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  messageBubbleMine: {
+    backgroundColor: colors.primary,
+    borderBottomRightRadius: 4,
+  },
+  messageBubbleTheir: {
+    backgroundColor: colors.surface,
+    borderBottomLeftRadius: 4,
+  },
+  messageText: {
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  messageTextMine: {
+    color: colors.white,
+  },
+  messageTextTheir: {
+    color: colors.text,
+  },
+  messageTime: {
+    fontSize: 11,
+    marginTop: 4,
+  },
+  messageTimeMine: {
+    color: 'rgba(255,255,255,0.7)',
+    textAlign: 'right',
+  },
+  messageTimeTheir: {
+    color: colors.textSecondary,
+    textAlign: 'right',
+  },
+  inputRow: { 
+    flexDirection: 'row', 
+    alignItems: 'flex-end', 
+    padding: 12, 
+    paddingBottom: 16,
+    backgroundColor: colors.surface,
+    borderTopWidth: 1, 
+    borderTopColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 5,
+  },
+  input: { 
+    flex: 1, 
+    backgroundColor: colors.white,
+    borderWidth: 1, 
+    borderColor: colors.border, 
+    borderRadius: 22, 
+    paddingHorizontal: 16, 
+    paddingVertical: 10, 
+    paddingTop: 10,
+    marginRight: 10, 
+    maxHeight: 100, 
+    minHeight: 44,
+    fontSize: 15,
+    color: colors.text,
+  },
+  sendBtn: { 
+    width: 44, 
+    height: 44, 
+    borderRadius: 22, 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+    elevation: 3,
+  },
 });
