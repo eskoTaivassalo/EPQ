@@ -8,9 +8,12 @@ import { useAuth } from '../../hooks/useAuth';
 import { submitUserReport } from '../../services/communicationService';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { SUBJECTS, LOCATIONS, TEACHING_METHODS, getTagLabels } from '../../constants/tags';
+import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 
 const FavoriteProvidersScreen = ({ navigation }) => {
   const { user } = useAuth();
+  const role = getCanonicalRole(user?.role || user?.userType);
+  const roleColors = getRoleColors(role);
   const { 
     getFavoriteTeachers, // TODO: rename to getFavoriteProviders
     removeFromFavorites, 
@@ -232,30 +235,23 @@ const FavoriteProvidersScreen = ({ navigation }) => {
         <Text style={styles.phoneText}>Phone: {item.phone || item.phoneNumber || item.profile?.phoneNumber}</Text>
       )}
 
-      <View style={{ flexDirection: 'row', gap: 10 }}>
+      <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
         <TouchableOpacity 
-          style={[commonStyles.row, {
-            backgroundColor: colors.secondary,
-            flex: 1,
-            justifyContent: 'center',
-            paddingVertical: 12,
-            borderRadius: 8,
-            marginTop: 8
-          }]}
+          style={[styles.actionButton, { backgroundColor: colors.secondary }]}
           onPress={() => handleContactTeacher(item)}
         >
           <Ionicons name="chatbubble" size={16} color={colors.white} />
-          <Text style={styles.contactButtonText}>Contact</Text>
+          <Text style={styles.actionButtonText}>Contact</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.contactButton, { flex: 1, backgroundColor: colors.primary }]}
+          style={[styles.actionButton, { backgroundColor: colors.primary }]}
           onPress={() => navigation.navigate('ProviderWeeklyAvailability', { 
             teacherId: item.id,
             teacherName: item.name || item.fullName || item.displayName || 'Teacher'
           })}
         >
           <Ionicons name="calendar" size={16} color={colors.white} />
-          <Text style={styles.contactButtonText}>Calendar</Text>
+          <Text style={styles.actionButtonText}>Calendar</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -264,12 +260,18 @@ const FavoriteProvidersScreen = ({ navigation }) => {
   return (
     <SafeAreaView style={commonStyles.safeArea}>
       <WatercolorBackground />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.white} />
+      <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Favorites</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerTitleContainer}>
+          <Ionicons name="heart" size={24} color="#FFFFFF" />
+          <Text style={styles.headerTitle}>Favorite Teachers</Text>
+        </View>
+        <View style={{ width: 40 }} />
       </View>
 
       <FlatList
@@ -293,7 +295,27 @@ const FavoriteProvidersScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  headerTitle: { color: colors.white, fontSize: 18, fontWeight: 'bold' },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 15,
+  },
+  backButton: {
+    padding: 5,
+  },
+  headerTitleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: '700',
+  },
   teachersList: { flex: 1, padding: 20 },
   avatarContainer: {
     width: 60,
@@ -327,7 +349,32 @@ const styles = StyleSheet.create({
   description: { fontSize: 14, color: colors.textSecondary, lineHeight: 20, marginVertical: 8 },
   emptyInlineText: { fontSize: 12, color: colors.textSecondary, fontStyle: 'italic' },
   phoneText: { fontSize: 12, color: colors.text, marginBottom: 8 },
-  contactButtonText: { color: colors.white, fontSize: 14, fontWeight: '600', marginLeft: 6 },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 6,
+  },
+  actionButtonText: {
+    color: colors.white,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  emptyTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.text,
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+  },
 });
 
 export default FavoriteProvidersScreen;
