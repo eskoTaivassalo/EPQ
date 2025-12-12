@@ -492,6 +492,17 @@ export class AuthService {
    */
   static async getGoogleUserInfo() {
     try {
+      // Varmista että edellinen sessio on puhdistettu
+      try {
+        const isSignedIn = await GoogleSignin.isSignedIn();
+        if (isSignedIn) {
+          console.log('Previous Google session found, signing out first...');
+          await GoogleSignin.signOut();
+        }
+      } catch (cleanupError) {
+        console.log('Google session cleanup skipped:', cleanupError.message);
+      }
+      
       // Tarkista onko Google Play Services saatavilla
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       
@@ -516,6 +527,13 @@ export class AuthService {
         familyName: user?.familyName,
       };
     } catch (error) {
+      // Varmista että Google-sessio puhdistetaan virhetilanteessa
+      try {
+        await GoogleSignin.signOut();
+      } catch (signOutError) {
+        // Ignore sign out errors
+      }
+      
       if (error.code === 'SIGN_IN_CANCELLED' || error.code === '-5') {
         throw new Error('Kirjautuminen peruutettiin');
       } else if (error.code === 'IN_PROGRESS') {
@@ -561,6 +579,17 @@ export class AuthService {
    */
   static async signInWithGoogle() {
     try {
+      // Varmista että edellinen sessio on puhdistettu
+      try {
+        const isSignedIn = await GoogleSignin.isSignedIn();
+        if (isSignedIn) {
+          console.log('Previous Google session found, signing out first...');
+          await GoogleSignin.signOut();
+        }
+      } catch (cleanupError) {
+        console.log('Google session cleanup skipped:', cleanupError.message);
+      }
+      
       // Tarkista onko Google Play Services saatavilla
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
       
@@ -588,6 +617,13 @@ export class AuthService {
       
       return userCredential;
     } catch (error) {
+      // Varmista että Google-sessio puhdistetaan virhetilanteessa
+      try {
+        await GoogleSignin.signOut();
+      } catch (signOutError) {
+        // Ignore sign out errors
+      }
+      
       // Käyttäjäystävälliset virheilmoitukset
       if (error.code === 'SIGN_IN_CANCELLED' || error.code === '-5') {
         throw new Error('Kirjautuminen peruutettiin');

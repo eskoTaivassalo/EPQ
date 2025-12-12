@@ -276,18 +276,25 @@ export const logoutUser = createAsyncThunk(
   'auth/logoutUser',
   async (_, { rejectWithValue, dispatch }) => {
     try {
-      // 1. Sign out from Firebase
+      // 1. Sign out from Google (if signed in via Google)
+      try {
+        await AuthService.signOutFromGoogle();
+      } catch (googleError) {
+        console.log('Google sign out skipped:', googleError.message);
+      }
+      
+      // 2. Sign out from Firebase
       if (auth) {
         await signOut(auth);
       }
       
-      // 2. Clear AsyncStorage
+      // 3. Clear AsyncStorage
       await AsyncStorage.removeItem('user');
       
-      // 3. Clear session data
+      // 4. Clear session data
       await SessionManager.clearSession();
       
-      // 4. Clear all Redux slices (CRITICAL for device reuse!)
+      // 5. Clear all Redux slices (CRITICAL for device reuse!)
       dispatch({ type: 'notifications/clearNotifications' });
       dispatch({ type: 'bookings/clearBookings' });
       dispatch({ type: 'appData/clearData' });
