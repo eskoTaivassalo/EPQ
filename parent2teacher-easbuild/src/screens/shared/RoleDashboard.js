@@ -34,7 +34,7 @@ const RoleDashboard = ({ navigation }) => {
   const bookings = useSelector(selectBookings) || [];
   const unreadNotifications = useSelector(state => state.notifications.unreadCount);
   const { logout } = useAuth();
-  const { getParentById } = useAppData();
+  const { getParentById, getParents } = useAppData();
   const { getFavoriteTeachers } = useAppData();
   const [stats, setStats] = useState({});
   const [refreshing, setRefreshing] = useState(false);
@@ -103,6 +103,15 @@ const RoleDashboard = ({ navigation }) => {
   const loadDashboardData = async () => {
     try {
       setRefreshing(true);
+      
+      // Load parent data for providers (needed to show names in pending requests)
+      if (isProvider && user?.uid) {
+        try {
+          await getParents();
+        } catch (error) {
+          console.warn('Failed to load parents data:', error);
+        }
+      }
       
       // Refresh notifications - silently fail if auth not ready
       if (user?.uid) {
