@@ -27,6 +27,7 @@ import { fetchTeacherBookings, fetchParentBookings, selectBookings, updateBookin
 import { fetchNotifications, startNotificationListener, stopNotificationListener } from '../../store/slices/notificationsSlice';
 import { useAppData } from '../../hooks/useAppData';
 import { colors, commonStyles } from '../../styles/commonStyles';
+import { listStudentsForTeacher } from '../../services/availabilityService';
 
 const RoleDashboard = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -175,11 +176,24 @@ const RoleDashboard = ({ navigation }) => {
       let calculatedStats = {};
       
       if (isProvider) {
-        // Provider stats
-        const uniqueClients = new Set(bookings.map(b => b.parentId)).size;
+        // Provider stats - fetch actual students from database (same way as Students screen)
+        console.log('📊 Dashboard: Calculating provider stats');
+        console.log('📊 Total bookings:', bookings.length);
+        
+        let actualStudentsCount = 0;
+        try {
+          const students = await listStudentsForTeacher(user.uid);
+          actualStudentsCount = students.length;
+          console.log('📊 Actual students from database:', actualStudentsCount);
+        } catch (error) {
+          console.warn('📊 Failed to fetch students count:', error);
+          // Fallback to unique parentIds from bookings
+          actualStudentsCount = new Set(bookings.map(b => b.parentId)).size;
+        }
+        
         calculatedStats = {
           activeBookings: confirmedBookings.length,
-          totalClients: uniqueClients,
+          totalClients: actualStudentsCount,
           unreadMessages: 0, // TODO: Get from messages
           upcomingSessions: upcomingBookings.length,
           pendingRequests: calculatedPendingBookings.length,

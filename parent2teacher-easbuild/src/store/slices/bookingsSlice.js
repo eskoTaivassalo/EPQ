@@ -189,9 +189,20 @@ export const fetchParentBookings = createAsyncThunk(
         where('parentId', '==', uid)
       );
       const snap = await getDocs(q);
-      console.log(`📚 Fetched ${snap.docs.length} parent bookings from serviceTypes structure`);
+      console.log(`📚 Fetched ${snap.docs.length} parent bookings from serviceTypes structure (may include duplicates)`);
       
-      const bookings = snap.docs.map(d => {
+      // Deduplicate by booking ID (same booking exists under both teacher and parent paths)
+      const uniqueBookingsMap = new Map();
+      snap.docs.forEach(doc => {
+        if (!uniqueBookingsMap.has(doc.id)) {
+          uniqueBookingsMap.set(doc.id, doc);
+        }
+      });
+      const uniqueDocs = Array.from(uniqueBookingsMap.values());
+      
+      console.log(`📚 After deduplication: ${uniqueDocs.length} unique bookings`);
+      
+      const bookings = uniqueDocs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
         
@@ -272,12 +283,23 @@ export const fetchTeacherBookings = createAsyncThunk(
       const snap = await getDocs(q);
       const docs = Array.isArray(snap?.docs) ? snap.docs : [];
       
-      console.log(`📚 Fetched ${docs.length} teacher bookings from serviceTypes structure`);
-      docs.forEach((doc, idx) => {
+      console.log(`📚 Fetched ${docs.length} teacher bookings from serviceTypes structure (may include duplicates)`);
+      
+      // Deduplicate by booking ID (same booking exists under both teacher and parent paths)
+      const uniqueBookingsMap = new Map();
+      docs.forEach(doc => {
+        if (!uniqueBookingsMap.has(doc.id)) {
+          uniqueBookingsMap.set(doc.id, doc);
+        }
+      });
+      const uniqueDocs = Array.from(uniqueBookingsMap.values());
+      
+      console.log(`📚 After deduplication: ${uniqueDocs.length} unique bookings`);
+      uniqueDocs.forEach((doc, idx) => {
         console.log(`  ${idx + 1}. Booking ID: ${doc.id}, Path: ${doc.ref.path}, Status: ${doc.data()?.status}`);
       });
       
-      const bookings = docs.map(d => {
+      const bookings = uniqueDocs.map(d => {
         const data = d.data();
         const createdAt = data?.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
         
