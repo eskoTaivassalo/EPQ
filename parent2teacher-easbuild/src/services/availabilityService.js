@@ -77,11 +77,17 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
     where('date', '<=', toISODate(toDate))
   );
   const existingSnap = await getDocs(existingSlotsQuery);
-  const existingSlots = existingSnap.docs.map(d => ({
-    id: d.id,
-    start: new Date(d.data().start),
-    end: new Date(d.data().end)
-  }));
+  const existingSlots = existingSnap.docs.map(d => {
+    const data = d.data();
+    return {
+      id: d.id,
+      start: new Date(data.start),
+      end: new Date(data.end),
+      status: data.status
+    };
+  });
+
+  console.log(`📋 Found ${existingSlots.length} existing slots in date range`);
 
   // Iterate days
   await runTransaction(db, async (tx) => {
@@ -102,20 +108,37 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
         const slotEnd = addMinutes(slotStart, durationMin);
         if (slotEnd > end) break; // do not overflow daily end
 
-        // Check for overlap with existing slots
-        const hasOverlap = existingSlots.some(existing => {
-          // Overlap occurs if: new slot starts before existing ends AND new slot ends after existing starts
-          return slotStart < existing.end && slotEnd > existing.start;
-        });
+        const slotKey = `${teacherId}#${slotStart.toISOString()}`; // unique key
 
-        if (hasOverlap) {
-          console.warn(`⚠️ Skipping overlapping slot: ${slotStart.toISOString()}`);
+        // Check if this exact slot already exists (exact time match)
+        const exactMatch = existingSlots.find(s => 
+          s.start.getTime() === slotStart.getTime() && 
+          s.end.getTime() === slotEnd.getTime()
+        );
+
+        if (exactMatch) {
+          console.warn(`⚠️ Skipping duplicate slot: ${slotStart.toISOString()} (status: ${exactMatch.status})`);
           skipped.push(slotStart.toISOString());
           cursor = slotEnd;
           continue;
         }
 
-        const slotKey = `${teacherId}#${slotStart.toISOString()}`; // unique key
+        // Check for ANY overlap with existing slots (including partial overlaps)
+        const hasOverlap = existingSlots.some(existing => {
+          // Overlap occurs if: new slot starts before existing ends AND new slot ends after existing starts
+          const overlaps = slotStart < existing.end && slotEnd > existing.start;
+          if (overlaps) {
+            console.warn(`⚠️ Overlap: new ${slotStart.toISOString()}-${slotEnd.toISOString()} vs existing ${existing.start.toISOString()}-${existing.end.toISOString()} (${existing.status})`);
+          }
+          return overlaps;
+        });
+
+        if (hasOverlap) {
+          skipped.push(slotStart.toISOString());
+          cursor = slotEnd;
+          continue;
+        }
+
         const slotId = slotKey; // deterministic id to avoid duplicates
         // Use hierarchical path: serviceTypes/{serviceType}/{collectionName}/{userId}/availabilitySlots/{slotId}
         const slotRef = getAvailabilitySlotDoc(teacherId, userRole, slotId);
@@ -141,7 +164,8 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
         existingSlots.push({
           id: slotId,
           start: slotStart,
-          end: slotEnd
+          end: slotEnd,
+          status: 'available'
         });
 
         cursor = slotEnd;
@@ -224,7 +248,14 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
     const slot = slotDocSnap.data();
     
     if (slot.status !== 'available') {
-      throw new Error('Slot not available');
+      const slotTime = new Date(slot.start).toLocaleString('en-US', {
+        weekday: 'short',
+        month: 'short', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+      throw new Error(`This time slot (${slotTime}) is no longer available. It may have been booked by another user. Please refresh and select a different time.`);
     }
     // Check if slot is in the future
     const slotStart = new Date(slot.start);

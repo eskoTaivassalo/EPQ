@@ -7,558 +7,147 @@ service cloud.firestore {
     // HELPER FUNCTIONS
     // ========================================
     
-    // Tarkista onko käyttäjä kirjautunut
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    // Tarkista onko käyttäjä dokumentin omistaja
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Tarkista onko email verifioitu
-    function isEmailVerified() {
-      return isAuthenticated() && request.auth.token.email_verified == true;
-    }
-    
-    // Validoi pakollinen kenttä
-    function hasField(field) {
-      return request.resource.data.keys().hasAll([field]);
-    }
-    
-    // Validoi että kenttä on string ja ei tyhjä
-    function isValidString(field) {
-      return hasField(field) && 
-             request.resource.data[field] is string && 
-             request.resource.data[field].size() > 0;
-    }
-    
-    // Validoi email-formaatti
-    function isValidEmail(email) {
-      return email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
-    }
-    
-    // Tarkista onko käyttäjä admin
     function isAdmin() {
       return isAuthenticated() && 
-             exists(/databases/$(database)/documents/admins/$(request.auth.token.email)) &&
-             get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.role == 'admin' &&
-             get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.isActive == true;
-    }
-    
-    // ========================================
-    // COLLECTION GROUP RULES (for hierarchical queries)
-    // These allow collectionGroup queries across all subcollections
-    // ========================================
-    
-    // Teachers collectionGroup - allows searching all teacher profiles
-    match /{path=**}/teachers/{teacherId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.uid == teacherId;
-    }
-    
-    // Students/Parents collectionGroup - allows searching all parent profiles
-    match /{path=**}/students/{studentId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.uid == studentId;
-    }
-    
-    // Therapists collectionGroup - allows searching all therapist profiles
-    match /{path=**}/therapists/{therapistId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated() && request.auth.uid == therapistId;
-    }
-    
-    // Availability Slots collectionGroup - allows querying all availability slots
-    match /{path=**}/availabilitySlots/{slotId} {
-      allow read: if isAuthenticated();
-      // Write permissions handled by specific path rules below
-    }
-    
-    // Bookings collectionGroup - allows querying all bookings by teacherId or parentId
-    match /{path=**}/bookings/{bookingId} {
-      allow read: if isAuthenticated() && 
-                    (resource.data.teacherId == request.auth.uid || 
-                     resource.data.parentId == request.auth.uid);
-      // Write permissions handled by specific path rules below
-    }
-    
-    // ========================================
-    // SERVICE TYPES COLLECTION
-    // New hierarchical structure: serviceTypes/{serviceType}/{collection}/{userId}
-    // ========================================
-    
-    // Messages under serviceTypes
-    // serviceTypes/{serviceType}/messages/{messageId}
-    match /serviceTypes/{serviceType}/messages/{messageId} {
-      // Read: Sender or recipient can read messages
-      allow read: if isAuthenticated() && 
-                    (request.auth.uid == resource.data.teacherId || 
-                     request.auth.uid == resource.data.parentId ||
-                     request.auth.uid == resource.data.senderId ||
-                     request.auth.uid == resource.data.recipientId);
-      
-      // Create: Authenticated users can create messages as sender
-      allow create: if isAuthenticated() && 
-                      (request.auth.uid == request.resource.data.teacherId ||
-                       request.auth.uid == request.resource.data.parentId ||
-                       request.auth.uid == request.resource.data.senderId);
-      
-      // Update: Sender or recipient can update (e.g. mark as read)
-      allow update: if isAuthenticated() && 
-                      (request.auth.uid == resource.data.teacherId || 
-                       request.auth.uid == resource.data.parentId ||
-                       request.auth.uid == resource.data.senderId ||
-                       request.auth.uid == resource.data.recipientId);
-      
-      // Delete: Sender or recipient can delete
-      allow delete: if isAuthenticated() && 
-                      (request.auth.uid == resource.data.teacherId ||
-                       request.auth.uid == resource.data.parentId ||
-                       request.auth.uid == resource.data.senderId ||
-                       request.auth.uid == resource.data.recipientId);
-    }
-    
-    match /serviceTypes/{serviceType}/{collectionName}/{userId} {
-      // Read: All authenticated users can read profiles
-      allow read: if isAuthenticated();
-      
-      // Write: Only owner can create/update/delete their own profile
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isOwner(userId) || isAdmin();
-      
-      // Availability Slots subcollection
-      // serviceTypes/{serviceType}/{collectionName}/{userId}/availabilitySlots/{slotId}
-      match /availabilitySlots/{slotId} {
-        // Read: All authenticated users can read slots
-        allow read: if isAuthenticated();
-        
-        // Create: Only owner can create slots
-        allow create: if isAuthenticated() && 
-                        isOwner(userId) &&
-                        request.resource.data.teacherId == userId;
-        
-        // Update: Owner can update, or anyone can book/release
-        allow update: if isAuthenticated() && 
-                        (isOwner(userId) ||
-                         request.resource.data.status in ['booked', 'pending', 'available']);
-        
-        // Delete: Only owner can delete
-        allow delete: if isAuthenticated() && isOwner(userId);
-      }
-      
-      // Bookings subcollection
-      // serviceTypes/{serviceType}/{collectionName}/{userId}/bookings/{bookingId}
-      match /bookings/{bookingId} {
-        // Read: Owner can read their own bookings, or if they are involved in the booking
-        allow read: if isAuthenticated() && 
-                      (isOwner(userId) || 
-                       request.auth.uid == resource.data.teacherId || 
-                       request.auth.uid == resource.data.parentId);
-        
-        // Create: Anyone can create a booking if they are the parent/client
-        allow create: if isAuthenticated() && 
-                        request.resource.data.parentId == request.auth.uid;
-        
-        // Update: Owner or participants can update booking status
-        allow update: if isAuthenticated() && 
-                        (isOwner(userId) || 
-                         request.auth.uid == resource.data.teacherId || 
-                         request.auth.uid == resource.data.parentId);
-        
-        // Delete: Only owner can delete
-        allow delete: if isAuthenticated() && isOwner(userId);
-      }
+             exists(/databases/$(database)/documents/admins/$(request.auth.token.email));
     }
     
     // ========================================
     // USERS COLLECTION (Main profiles)
     // ========================================
     match /users/{userId} {
-      // Luku: Vain kirjautuneet käyttäjät voivat lukea käyttäjätietoja
       allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
       
-      // Kirjoitus: Vain omistaja voi luoda/päivittää
-      allow create: if isOwner(userId) && 
-                      isValidString('email') && 
-                      isValidEmail(request.resource.data.email);
-      
-      allow update: if isOwner(userId);
-      
-      // Poisto: Vain omistaja voi poistaa
-      allow delete: if isOwner(userId);
-      
-      // ========================================
-      // NOTIFICATIONS SUBCOLLECTION
-      // users/{userId}/notifications/{notificationId}
-      // ========================================
+      // Notifications subcollection
       match /notifications/{notificationId} {
-        // Luku: Vain omistaja voi lukea omat notifikaationsa
-        allow read: if isAuthenticated() && isOwner(userId);
-        
-        // Luonti: Kuka tahansa kirjautunut voi luoda notifikaation (lähettäjä)
-        // userId täytyy täsmätä parent path:in kanssa
-        allow create: if isAuthenticated();
-        
-        // Päivitys: Vain omistaja voi päivittää (esim. merkitä luetuksi)
-        allow update: if isAuthenticated() && isOwner(userId);
-        
-        // Poisto: Vain omistaja voi poistaa
-        allow delete: if isAuthenticated() && isOwner(userId);
+        allow read: if isOwner(userId);
+        allow write: if isAuthenticated(); // Anyone can create notifications for user
+        allow delete: if isOwner(userId);
       }
+    }
+    
+    // ========================================
+    // SERVICE TYPES COLLECTION
+    // serviceTypes/{serviceType}/{collectionName}/{userId}
+    // ========================================
+    
+    // Messages collection
+    match /serviceTypes/{serviceType}/messages/{messageId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == resource.data.teacherId || 
+        request.auth.uid == resource.data.parentId ||
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == resource.data.recipientId
+      );
+      allow create: if isAuthenticated() && (
+        request.auth.uid == request.resource.data.teacherId ||
+        request.auth.uid == request.resource.data.parentId ||
+        request.auth.uid == request.resource.data.senderId
+      );
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.teacherId || 
+        request.auth.uid == resource.data.parentId ||
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == resource.data.recipientId
+      );
+      allow delete: if isAuthenticated() && (
+        request.auth.uid == resource.data.senderId ||
+        request.auth.uid == resource.data.teacherId ||
+        request.auth.uid == resource.data.parentId
+      );
+    }
+    
+    // Role profiles (teachers, students, therapists, etc.)
+    match /serviceTypes/{serviceType}/{collectionName}/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isOwner(userId) || isAdmin();
       
-      // ========================================
-      // ROLE SUBCOLLECTIONS
-      // Path: users/{userId}/{collectionName}/{roleDocId}
-      // Examples: 
-      //   users/123/teachers/123 - Teacher profile
-      //   users/123/students/123 - Student/Parent profile
-      //   users/456/therapists/456 - Therapist profile
-      // ========================================
-      match /{collectionName}/{roleDocId} {
-        // Luku: Kaikki kirjautuneet voivat lukea profiileja
+      // Availability Slots subcollection
+      match /availabilitySlots/{slotId} {
         allow read: if isAuthenticated();
-        
-        // Kirjoitus: Vain omistaja voi luoda/päivittää/poistaa
         allow create: if isOwner(userId);
-        allow update: if isOwner(userId) || isAdmin();
+        // Allow update if: owner, OR anyone can book/update available slots
+        allow update: if isAuthenticated();
+        allow delete: if isOwner(userId);
+      }
+      
+      // Bookings subcollection
+      match /bookings/{bookingId} {
+        // Allow read if: path owner, OR booking participant
+        allow read: if isAuthenticated() && (
+          isOwner(userId) || 
+          (resource != null && (
+            request.auth.uid == resource.data.teacherId || 
+            request.auth.uid == resource.data.parentId
+          ))
+        );
+        // Allow create for any authenticated user (for booking creation)
+        allow create: if isAuthenticated();
+        // Allow update for participants
+        allow update: if isAuthenticated() && (
+          isOwner(userId) || 
+          (resource != null && (
+            request.auth.uid == resource.data.teacherId || 
+            request.auth.uid == resource.data.parentId
+          ))
+        );
         allow delete: if isOwner(userId) || isAdmin();
-        
-        // ========================================
-        // AVAILABILITY SLOTS SUBCOLLECTION
-        // users/{userId}/{collectionName}/{roleDocId}/availabilitySlots/{slotId}
-        // ========================================
-        match /availabilitySlots/{slotId} {
-          // Luku: Kaikki kirjautuneet voivat lukea vapaita aikoja
-          allow read: if isAuthenticated();
-          
-          // Luonti: Vain roolidokumentin omistaja voi luoda slotteja
-          // Varmistetaan että teacherId vastaa roleDocId:tä ja userId:tä
-          allow create: if isAuthenticated() && 
-                          isOwner(userId) &&
-                          request.auth.uid == roleDocId &&
-                          request.auth.uid == request.resource.data.teacherId;
-          
-          // Päivitys: 
-          // - Roolidokumentin omistaja (teacher/therapist) voi päivittää
-          // - Muut käyttäjät voivat varata (status -> booked/pending)
-          // - Muut käyttäjät voivat vapauttaa (status -> available)
-          allow update: if isAuthenticated() && 
-                          (isOwner(userId) ||
-                           request.resource.data.status in ['booked', 'pending', 'available']);
-          
-          // Poisto: Vain roolidokumentin omistaja
-          allow delete: if isAuthenticated() && isOwner(userId);
-        }
       }
     }
     
     // ========================================
-    // TEACHERS COLLECTION
+    // COLLECTION GROUP QUERIES
     // ========================================
-    match /teachers/{teacherId} {
-      // Luku: Kaikki kirjautuneet voivat lukea opettajaprofiileja
+    
+    match /{path=**}/teachers/{teacherId} {
       allow read: if isAuthenticated();
-      
-      // Kirjoitus: Vain omistaja voi luoda/päivittää oman profiilinsa
-      allow create: if isOwner(teacherId) && 
-                      isValidString('name') &&
-                      isValidString('email') &&
-                      isValidEmail(request.resource.data.email) &&
-                      hasField('userType') &&
-                      request.resource.data.userType == 'teacher' &&
-                      hasField('createdAt');
-      
-      allow update: if (isOwner(teacherId) || isAdmin()) &&
-                      // Estä userType:n muuttaminen (paitsi jos kenttää ei ole)
-                      (!hasField('userType') || request.resource.data.userType == resource.data.userType);
-      
-      // Poisto: Vain omistaja tai admin voi poistaa
-      allow delete: if isOwner(teacherId) || isAdmin();
     }
     
-    // ========================================
-    // PARENTS COLLECTION
-    // ========================================
-    match /parents/{parentId} {
-      // Luku: Vain kirjautuneet voivat lukea vanhempien profiileja
-      // Opettajat voivat nähdä vanhempien profiileja kun he ottavat yhteyttä
+    match /{path=**}/students/{studentId} {
       allow read: if isAuthenticated();
-      
-      // Kirjoitus: Vain omistaja voi luoda/päivittää oman profiilinsa
-      allow create: if isOwner(parentId) && 
-                      isValidString('name') &&
-                      isValidString('email') &&
-                      isValidEmail(request.resource.data.email) &&
-                      hasField('userType') &&
-                      request.resource.data.userType == 'parent' &&
-                      hasField('createdAt');
-      
-      allow update: if (isOwner(parentId) || isAdmin()) &&
-                      // Estä userType:n muuttaminen (paitsi jos kenttää ei ole)
-                      (!hasField('userType') || request.resource.data.userType == resource.data.userType);
-      
-      // Poisto: Vain omistaja tai admin voi poistaa
-      allow delete: if isOwner(parentId) || isAdmin();
     }
     
-    // ========================================
-    // MESSAGES COLLECTION
-    // ========================================
-    match /messages/{messageId} {
-      // Luku: Lähettäjä tai vastaanottaja voivat lukea viestit
-      // Tukee sekä teacher<->parent että support-viestejä (senderId/recipientId)
-      allow read: if isAuthenticated() && 
-                    (request.auth.uid == resource.data.teacherId || 
-                     request.auth.uid == resource.data.parentId ||
-                     request.auth.uid == resource.data.senderId ||
-                     request.auth.uid == resource.data.recipientId);
-      
-      // Kirjoitus: Lähettäjä voi luoda viestejä
-      // Tukee teacher<->parent, support-viestit (type='support')
-      allow create: if isAuthenticated() && 
-                      (request.auth.uid == request.resource.data.teacherId ||
-                       request.auth.uid == request.resource.data.parentId ||
-                       request.auth.uid == request.resource.data.senderId);
-      
-      // Päivitys: Lähettäjä tai vastaanottaja voivat päivittää (esim. merkitä luetuksi)
-      allow update: if isAuthenticated() && 
-                      (request.auth.uid == resource.data.teacherId || 
-                       request.auth.uid == resource.data.parentId ||
-                       request.auth.uid == resource.data.senderId ||
-                       request.auth.uid == resource.data.recipientId);
-      
-      // Poisto: Lähettäjä tai vastaanottaja voivat poistaa
-      allow delete: if isAuthenticated() && 
-                      (request.auth.uid == resource.data.teacherId ||
-                       request.auth.uid == resource.data.parentId ||
-                       request.auth.uid == resource.data.senderId ||
-                       request.auth.uid == resource.data.recipientId);
-    }
-    
-    // ========================================
-    // CONVERSATIONS COLLECTION (Tuleva ominaisuus)
-    // ========================================
-    match /conversations/{conversationId} {
-      // Luku: Vain keskustelun osapuolet voivat lukea
-      allow read: if isAuthenticated() && 
-                    request.auth.uid in resource.data.participants;
-      
-      // Kirjoitus: Vain osallistujat voivat luoda/päivittää
-      allow create, update: if isAuthenticated() && 
-                              request.auth.uid in request.resource.data.participants;
-      
-      // Poisto: Kumpikaan osapuoli ei voi poistaa keskustelua
-      // (Vain admin voi poistaa, mikä vaatii Firebase Admin SDK:n)
-      allow delete: if false;
-    }
-    
-    // ========================================
-    // REVIEWS COLLECTION (Tuleva ominaisuus)
-    // ========================================
-    match /reviews/{reviewId} {
-      // Luku: Kaikki kirjautuneet voivat lukea arvosteluja
+    match /{path=**}/therapists/{therapistId} {
       allow read: if isAuthenticated();
-      
-      // Kirjoitus: Vain vanhemmat voivat kirjoittaa arvosteluja opettajista
-      allow create: if isAuthenticated() && 
-                      isEmailVerified() &&
-                      hasField('teacherId') &&
-                      hasField('parentId') &&
-                      request.auth.uid == request.resource.data.parentId &&
-                      hasField('rating') &&
-                      request.resource.data.rating >= 1 &&
-                      request.resource.data.rating <= 5 &&
-                      hasField('timestamp');
-      
-      // Päivitys: Vain arvostelun kirjoittaja voi päivittää 24h sisällä
-      allow update: if isAuthenticated() && 
-                      request.auth.uid == resource.data.parentId &&
-                      (request.time - resource.data.timestamp) < duration.value(24, 'h');
-      
-      // Poisto: Vain arvostelun kirjoittaja voi poistaa
-      allow delete: if isAuthenticated() && 
-                      request.auth.uid == resource.data.parentId;
     }
     
-    // ========================================
-    // BOOKINGS COLLECTION
-    // ========================================
-    match /bookings/{bookingId} {
-      // Luku: Kaikki kirjautuneet voivat lukea (queryt toimii)
+    match /{path=**}/coaches/{coachId} {
       allow read: if isAuthenticated();
-      
-      // Kirjoitus: Vain vanhempi voi luoda varauksen
-      allow create: if isAuthenticated() && 
-                      request.auth.uid == request.resource.data.parentId &&
-                      hasField('teacherId') &&
-                      hasField('date') &&
-                      hasField('status') &&
-                      request.resource.data.status in ['pending', 'booked'];
-      
-      // Päivitys: Sekä opettaja että vanhempi voivat päivittää
-      allow update: if isAuthenticated() && 
-                      (request.auth.uid == resource.data.teacherId || 
-                       request.auth.uid == resource.data.parentId);
-      
-      // Poisto: Kumpikin osapuoli voi peruuttaa varauksen
-      allow delete: if isAuthenticated() && 
-                      (request.auth.uid == resource.data.teacherId || 
-                       request.auth.uid == resource.data.parentId);
     }
     
-    // ========================================
-    // AVAILABILITY SLOTS COLLECTION
-    // ========================================
-    match /availabilitySlots/{slotId} {
-      // Luku: Kaikki kirjautuneet voivat lukea vapaita aikoja
+    match /{path=**}/availabilitySlots/{slotId} {
       allow read: if isAuthenticated();
-      
-      // Kirjoitus: Vain opettaja voi luoda omia slotteja
-      allow create: if isAuthenticated() && 
-                      request.auth.uid == request.resource.data.teacherId;
-      
-      // Päivitys: 
-      // - Opettaja voi aina päivittää omia slotteja
-      // - Oppilas/vanhempi voi varata slotin (status pending tai booked)
-      // - Oppilas/vanhempi voi vapauttaa slotin (status available) kun peruu varauksen
-      allow update: if isAuthenticated() && 
-                      (request.auth.uid == resource.data.teacherId ||
-                       request.resource.data.status == 'booked' ||
-                       request.resource.data.status == 'pending' ||
-                       request.resource.data.status == 'available');
-      
-      // Poisto: Vain opettaja voi poistaa
-      allow delete: if isAuthenticated() && 
-                      request.auth.uid == resource.data.teacherId;
+      allow write: if isAuthenticated(); // Allow authenticated users to book slots
+    }
+    
+    match /{path=**}/bookings/{bookingId} {
+      allow read: if isAuthenticated() && (
+        resource == null ||
+        request.auth.uid == resource.data.teacherId || 
+        request.auth.uid == resource.data.parentId
+      );
+      allow write: if isAuthenticated();
     }
     
     // ========================================
-    // RECURRING BOOKINGS COLLECTION
-    // ========================================
-    match /recurringBookings/{recurringId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && 
-                      request.auth.uid == request.resource.data.parentId;
-      allow update: if isAuthenticated() && 
-                      (request.auth.uid == resource.data.parentId || 
-                       request.auth.uid == resource.data.teacherId);
-      allow delete: if isAuthenticated() && 
-                      (request.auth.uid == resource.data.parentId || 
-                       request.auth.uid == resource.data.teacherId);
-    }
-    
-    // ========================================
-    // COMMUNICATIONS COLLECTION
-    // ========================================
-    match /communications/{communicationId} {
-      // Luku ja kirjoitus: Kaikki kirjautuneet käyttäjät
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
-    }
-    
-    // ========================================
-    // GRADES COLLECTION
-    // ========================================
-    match /grades/{gradeId} {
-      // Luku: Opettaja tai vanhempi voivat lukea
-      allow read: if isAuthenticated();
-      
-      // Kirjoitus: Vain opettaja voi lisätä arvosanoja
-      allow create: if isAuthenticated() && 
-                      request.auth.uid == request.resource.data.teacherId;
-      
-      // Päivitys ja poisto: Vain opettaja voi muokata
-      allow update, delete: if isAuthenticated() && 
-                              request.auth.uid == resource.data.teacherId;
-    }
-    
-    // ========================================
-    // FEEDBACK COLLECTION
-    // ========================================
-    match /feedback/{feedbackId} {
-      // Luku: Kaikki kirjautuneet käyttäjät voivat lukea palautteet (julkinen data)
-      // Tämä mahdollistaa opettajan rating-näyttämisen profiilissa
-      allow read: if isAuthenticated();
-      
-      // Kirjoitus: Opettaja tai vanhempi voi antaa palautetta
-      allow create: if isAuthenticated() && 
-                      request.auth.uid == request.resource.data.fromUserId &&
-                      hasField('toUserId') &&
-                      hasField('roleFrom') &&
-                      hasField('roleTo') &&
-                      hasField('createdAt');
-      
-      // Päivitys: Vain lähettäjä voi muokata omaa palautettaan
-      allow update: if isAuthenticated() && 
-                      request.auth.uid == resource.data.fromUserId;
-      
-      // Poisto: Vain lähettäjä voi poistaa oman palautteensa
-      allow delete: if isAuthenticated() && 
-                      request.auth.uid == resource.data.fromUserId;
-    }
-    
-    // ========================================
-    // ADMINS COLLECTION
+    // ADMIN COLLECTION
     // ========================================
     match /admins/{adminEmail} {
-      // Luku: Kaikki kirjautuneet voivat lukea admin-statuksen
-      // Tämä tarvitaan jotta authSlice voi tarkistaa admin-oikeudet loginissa
       allow read: if isAuthenticated();
-      
-      // Kirjoitus: EI kenelläkään (vain server-side/manuaalisesti)
-      allow write: if false;
-    }
-    
-    // ========================================
-    // CONTACT MESSAGES COLLECTION
-    // ========================================
-    match /contactMessages/{messageId} {
-      // Luku: Vain adminit voivat lukea yhteydenottoja
-      allow read: if isAdmin();
-      
-      // Kirjoitus: Kaikki kirjautuneet voivat lähettää viestin
-      allow create: if isAuthenticated() &&
-                      isValidString('name') &&
-                      isValidString('email') &&
-                      isValidEmail(request.resource.data.email) &&
-                      isValidString('subject') &&
-                      isValidString('message') &&
-                      hasField('category') &&
-                      hasField('createdAt');
-      
-      // Päivitys ja poisto: Vain adminit
-      allow update, delete: if isAdmin();
-    }
-    
-    // ========================================
-    // REPORTS COLLECTION
-    // ========================================
-    match /reports/{reportId} {
-      // Luku: Vain adminit voivat lukea raportit
-      allow read: if isAdmin();
-      
-      // Kirjoitus: Kirjautuneet käyttäjät voivat luoda raportteja
-      allow create: if isAuthenticated() &&
-                      hasField('reporterId') &&
-                      hasField('reportedId') &&
-                      hasField('reason') &&
-                      hasField('createdAt');
-      
-      // Päivitys ja poisto: Vain adminit
-      allow update, delete: if isAdmin();
-    }
-    
-    // ========================================
-    // ESTÄ MUUT KOKOELMAT
-    // ========================================
-    // Kaikki muut kokoelmat ovat kiellettyjä oletuksena
-    match /{document=**} {
-      allow read, write: if false;
+      allow write: if isAdmin();
     }
   }
 }

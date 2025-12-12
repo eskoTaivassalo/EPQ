@@ -4,10 +4,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { useAppData } from '../../hooks/useAppData';
+import { useAuth } from '../../hooks/useAuth';
+import { submitUserReport } from '../../services/communicationService';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { SUBJECTS, LOCATIONS, TEACHING_METHODS, getTagLabels } from '../../constants/tags';
 
 const FavoriteProvidersScreen = ({ navigation }) => {
+  const { user } = useAuth();
   const { 
     getFavoriteTeachers, // TODO: rename to getFavoriteProviders
     removeFromFavorites, 
@@ -25,6 +28,84 @@ const FavoriteProvidersScreen = ({ navigation }) => {
       await loadFavorites().catch(() => {});
     })();
   }, []);
+
+  const handleReportUser = (teacher) => {
+    const teacherName = teacher.name || teacher.fullName || teacher.displayName || 'this user';
+    Alert.alert(
+      'Report User',
+      `Are you sure you want to report ${teacherName}?`,
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        },
+        {
+          text: 'Report',
+          style: 'destructive',
+          onPress: () => {
+            Alert.alert(
+              'Select Reason',
+              'Why are you reporting this user?',
+              [
+                { text: 'Inappropriate behavior', onPress: () => submitReport(teacher.id, 'inappropriate_behavior') },
+                { text: 'Spam', onPress: () => submitReport(teacher.id, 'spam') },
+                { text: 'Fake profile', onPress: () => submitReport(teacher.id, 'fake_profile') },
+                { text: 'Other', onPress: () => submitReport(teacher.id, 'other') },
+                { text: 'Cancel', style: 'cancel' }
+              ]
+            );
+          }
+        }
+      ]
+    );
+  };
+
+  const submitReport = async (reportedUserId, reason) => {
+    try {
+      await submitUserReport({
+        reporterId: user?.uid,
+        reportedUserId,
+        reason,
+        serviceType: user?.serviceType || 'education'
+      });
+      
+      Alert.alert('Report Submitted', 'Thank you for helping keep our community safe.');
+    } catch (error) {
+      console.error('Error submitting report:', error);
+      Alert.alert('Error', 'Failed to submit report. Please try again.');
+    }
+  };
+
+  const showTeacherOptions = (teacher) => {
+    const teacherName = teacher.name || teacher.fullName || teacher.displayName || 'this teacher';
+    Alert.alert(
+      teacherName,
+      'Choose an action',
+      [
+        {
+          text: 'View Profile',
+          onPress: () => {
+            Alert.alert('Profile', 'Profile view coming soon!');
+          }
+        },
+        {
+          text: 'Send Message',
+          onPress: () => {
+            Alert.alert('Message', 'Messaging feature coming soon!');
+          }
+        },
+        {
+          text: 'Report User',
+          style: 'destructive',
+          onPress: () => handleReportUser(teacher)
+        },
+        {
+          text: 'Cancel',
+          style: 'cancel'
+        }
+      ]
+    );
+  };
 
   const handleContactTeacher = (teacher) => {
     const teacherName = teacher.name || teacher.fullName || teacher.displayName || 'this teacher';
@@ -83,6 +164,12 @@ const FavoriteProvidersScreen = ({ navigation }) => {
           accessibilityLabel={'Remove from favorites'}
         >
           <Ionicons name={'heart'} size={24} color={'#FF6B6B'} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.moreButton}
+          onPress={() => showTeacherOptions(item)}
+        >
+          <Ionicons name="ellipsis-vertical" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
 
@@ -155,7 +242,6 @@ const FavoriteProvidersScreen = ({ navigation }) => {
             borderRadius: 8,
             marginTop: 8
           }]}
-          onPress={() => navigation.navigate('ProviderWeeklyAvailability', { providerId: item.id })}
           onPress={() => handleContactTeacher(item)}
         >
           <Ionicons name="chatbubble" size={16} color={colors.white} />
@@ -231,6 +317,7 @@ const styles = StyleSheet.create({
   reviewCount: { fontSize: 12, color: colors.textSecondary },
   hourlyRate: { fontSize: 16, fontWeight: 'bold', color: colors.secondary },
   favoriteButton: { padding: 6, alignSelf: 'flex-start' },
+  moreButton: { padding: 6, alignSelf: 'flex-start' },
   tagsSection: { marginBottom: 8 },
   tagsSectionTitle: { fontSize: 12, color: colors.textSecondary, marginBottom: 4, fontWeight: '500' },
   tag: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },

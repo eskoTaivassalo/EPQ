@@ -153,17 +153,17 @@ export default function TeacherAvailabilityScreen({ navigation }) {
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Days */}
-        <View style={commonStyles.card}>
-          <Text style={styles.cardTitle}>Days</Text>
-          <View style={styles.chipsContainer}>
+        {/* Days Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>📅 Select Days</Text>
+          <View style={styles.daysRow}>
             {DAYS.map(d => (
               <TouchableOpacity 
                 key={d.id} 
-                style={[styles.chip, daysOfWeek.includes(d.id) && styles.chipActive]} 
+                style={[styles.dayChip, daysOfWeek.includes(d.id) && styles.dayChipActive]} 
                 onPress={() => toggleDay(d.id)}
               >
-                <Text style={[styles.chipText, daysOfWeek.includes(d.id) && styles.chipTextActive]}>
+                <Text style={[styles.dayText, daysOfWeek.includes(d.id) && styles.dayTextActive]}>
                   {d.label}
                 </Text>
               </TouchableOpacity>
@@ -171,34 +171,30 @@ export default function TeacherAvailabilityScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Subjects removed - client selects during booking */}
-
-        {/* Time Settings */}
-        <View style={commonStyles.card}>
-          <Text style={styles.cardTitle}>Time Settings</Text>
+        {/* Time & Session Settings */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>⏰ Schedule</Text>
           
-          <View style={styles.timeGrid}>
-            {/* Start Time */}
-            <View style={styles.timeBoxWide}>
-              <Text style={styles.timeBoxLabel}>Start Time</Text>
+          {/* Start Time & Duration in one row */}
+          <View style={styles.row}>
+            <View style={styles.halfBox}>
+              <Text style={styles.label}>Start Time</Text>
               <TouchableOpacity 
-                style={styles.timePickerBox}
+                style={styles.valueBubble}
                 onPress={() => setStartHour(startHour === 23 ? 0 : startHour + 1)}
-                onLongPress={() => setStartHour(Math.max(0, startHour - 1))}
               >
-                <Text style={styles.timeBoxValue}>
+                <Text style={styles.valueText}>
                   {startHour.toString().padStart(2, '0')}:{startMinute.toString().padStart(2, '0')}
                 </Text>
-                <Text style={styles.timeBoxHint}>tap to change</Text>
               </TouchableOpacity>
-              <View style={styles.quickMinutes}>
+              <View style={styles.quickRow}>
                 {[0, 15, 30, 45].map(min => (
                   <TouchableOpacity 
                     key={min}
-                    style={[styles.minuteChip, startMinute === min && styles.minuteChipActive]}
+                    style={[styles.quickBtn, startMinute === min && styles.quickBtnActive]}
                     onPress={() => setStartMinute(min)}
                   >
-                    <Text style={[styles.minuteChipText, startMinute === min && styles.minuteChipTextActive]}>
+                    <Text style={[styles.quickText, startMinute === min && styles.quickTextActive]}>
                       :{min.toString().padStart(2, '0')}
                     </Text>
                   </TouchableOpacity>
@@ -206,97 +202,75 @@ export default function TeacherAvailabilityScreen({ navigation }) {
               </View>
             </View>
 
-            {/* Duration */}
-            <View style={styles.timeBox}>
-              <Text style={styles.timeBoxLabel}>Duration</Text>
+            <View style={styles.halfBox}>
+              <Text style={styles.label}>Duration</Text>
               <TouchableOpacity 
-                style={styles.timePickerBox}
-                onPress={() => setDurationMin(durationMin >= 180 ? 15 : durationMin + 15)}
-                onLongPress={() => setDurationMin(Math.max(15, durationMin - 15))}
+                style={styles.valueBubble}
+                onPress={() => setDurationMin(durationMin >= 90 ? 30 : durationMin + 15)}
               >
-                <Text style={styles.timeBoxValue}>{durationMin}</Text>
-                <Text style={styles.timeBoxHint}>minutes</Text>
+                <Text style={styles.valueText}>{durationMin}m</Text>
               </TouchableOpacity>
-              <View style={styles.quickMinutes}>
+              <View style={styles.quickRow}>
                 {[30, 45, 60, 90].map(dur => (
                   <TouchableOpacity 
                     key={dur}
-                    style={[styles.minuteChip, durationMin === dur && styles.minuteChipActive]}
+                    style={[styles.quickBtn, durationMin === dur && styles.quickBtnActive]}
                     onPress={() => setDurationMin(dur)}
                   >
-                    <Text style={[styles.minuteChipText, durationMin === dur && styles.minuteChipTextActive]}>
-                      {dur}m
+                    <Text style={[styles.quickText, durationMin === dur && styles.quickTextActive]}>
+                      {dur}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
+          </View>
 
-            {/* Sessions Per Day */}
-            <View style={styles.timeBox}>
-              <Text style={styles.timeBoxLabel}>Sessions/Day</Text>
+          {/* Sessions & Range in one row */}
+          <View style={styles.row}>
+            <View style={styles.halfBox}>
+              <Text style={styles.label}>Sessions/Day</Text>
               <TouchableOpacity 
-                style={styles.timePickerBox}
+                style={styles.valueBubble}
                 onPress={() => setSessionsPerDay(sessionsPerDay >= 10 ? 1 : sessionsPerDay + 1)}
-                onLongPress={() => setSessionsPerDay(Math.max(1, sessionsPerDay - 1))}
               >
-                <Text style={styles.timeBoxValue}>{sessionsPerDay}</Text>
-                <Text style={styles.timeBoxHint}>tap to change</Text>
+                <Text style={styles.valueText}>{sessionsPerDay}</Text>
               </TouchableOpacity>
             </View>
 
-            {/* Range */}
-            <View style={styles.timeBox}>
-              <Text style={styles.timeBoxLabel}>Range</Text>
+            <View style={styles.halfBox}>
+              <Text style={styles.label}>Period</Text>
               <TouchableOpacity 
-                style={styles.timePickerBox}
+                style={styles.valueBubble}
                 onPress={() => setRangeDays(rangeDays >= 90 ? 7 : rangeDays + 7)}
-                onLongPress={() => setRangeDays(Math.max(7, rangeDays - 7))}
               >
-                <Text style={styles.timeBoxValue}>{rangeDays}</Text>
-                <Text style={styles.timeBoxHint}>days</Text>
+                <Text style={styles.valueText}>{rangeDays}d</Text>
               </TouchableOpacity>
-              <View style={styles.quickMinutes}>
-                {[7, 14, 30, 60].map(days => (
-                  <TouchableOpacity 
-                    key={days}
-                    style={[styles.minuteChip, rangeDays === days && styles.minuteChipActive]}
-                    onPress={() => setRangeDays(days)}
-                  >
-                    <Text style={[styles.minuteChipText, rangeDays === days && styles.minuteChipTextActive]}>
-                      {days}d
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
             </View>
+          </View>
 
-            {/* End Time - Calculated Display */}
-            <View style={styles.timeBoxWide}>
-              <Text style={styles.timeBoxLabel}>Daily Schedule</Text>
-              <View style={[styles.timePickerBox, styles.calculatedBox]}>
-                <Text style={styles.timeBoxValue}>
-                  {(() => {
-                    const totalMinutes = startHour * 60 + startMinute + (60 * sessionsPerDay);
-                    const endH = Math.floor(totalMinutes / 60) % 24;
-                    const endM = totalMinutes % 60;
-                    return `${startHour.toString().padStart(2, '0')}:${startMinute.toString().padStart(2, '0')} - ${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
-                  })()}
-                </Text>
-                <Text style={styles.timeBoxHint}>{sessionsPerDay} × {durationMin}min + breaks (hourly blocks)</Text>
-              </View>
-            </View>
+          {/* Summary */}
+          <View style={styles.summary}>
+            <Ionicons name="information-circle" size={16} color={colors.primary} />
+            <Text style={styles.summaryText}>
+              Daily: {startHour.toString().padStart(2, '0')}:{startMinute.toString().padStart(2, '0')} - {(() => {
+                const totalMinutes = startHour * 60 + startMinute + (60 * sessionsPerDay);
+                const endH = Math.floor(totalMinutes / 60) % 24;
+                const endM = totalMinutes % 60;
+                return `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+              })()}  •  {sessionsPerDay} × {durationMin}min
+            </Text>
           </View>
         </View>
 
         <TouchableOpacity 
-          style={[styles.generateButton, loading && { opacity: 0.6 }]} 
+          style={[styles.generateButton, loading && styles.generateButtonDisabled]} 
           onPress={handleGenerate} 
           disabled={loading}
         >
-          <Ionicons name="calendar" size={20} color={colors.white} style={{ marginRight: 8 }} />
+          <Ionicons name="calendar" size={22} color={colors.white} />
           <Text style={styles.generateButtonText}>
-            {loading ? 'Generating...' : 'Generate Time Slots'}
+            {loading ? 'Creating Slots...' : 'Generate Time Slots'}
           </Text>
         </TouchableOpacity>
       </ScrollView>
@@ -308,136 +282,166 @@ const styles = StyleSheet.create({
   header: { 
     backgroundColor: colors.secondary, 
     ...commonStyles.rowBetween,
-    paddingHorizontal: 12, 
-    paddingTop: 6, 
-    paddingBottom: 10 
+    paddingHorizontal: 16, 
+    paddingTop: 8, 
+    paddingBottom: 12,
   },
-  backButton: { padding: 4 },
-  headerTitle: { color: colors.white, fontSize: 16, fontWeight: 'bold' },
-  content: { padding: 12 },
+  backButton: { padding: 8 },
+  headerTitle: { 
+    color: colors.white, 
+    fontSize: 18, 
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  content: { 
+    flex: 1,
+    padding: 16,
+  },
   
-  cardTitle: {
-    fontSize: 12,
+  section: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 15,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 6,
+    marginBottom: 12,
+    letterSpacing: 0.3,
   },
   
-  chipsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    backgroundColor: colors.background,
-    borderWidth: 1.5,
-    borderColor: colors.border,
-  },
-  chipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  chipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  chipTextActive: {
-    color: colors.white,
-  },
-  
-  timeGrid: {
+  daysRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  timeBox: {
-    width: '48%',
-    minWidth: 150,
+  dayChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.border,
+    minWidth: 48,
+    alignItems: 'center',
   },
-  timeBoxWide: {
-    width: '100%',
+  dayChipActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
-  calculatedBox: {
-    backgroundColor: colors.textSecondary + '10',
-    borderColor: colors.textSecondary + '30',
+  dayText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
   },
-  timeBoxLabel: {
-    fontSize: 9,
+  dayTextActive: {
+    color: colors.white,
+  },
+  
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  halfBox: {
+    flex: 1,
+  },
+  label: {
+    fontSize: 11,
     fontWeight: '700',
     color: colors.textSecondary,
-    marginBottom: 4,
+    marginBottom: 6,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  timePickerBox: {
-    backgroundColor: colors.primary + '15',
-    borderRadius: 8,
-    padding: 6,
+  valueBubble: {
+    backgroundColor: colors.primary + '18',
+    borderRadius: 12,
+    padding: 12,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.primary + '30',
-    marginBottom: 3,
+    borderColor: colors.primary + '40',
+    marginBottom: 6,
   },
-  timeBoxValue: {
-    fontSize: 20,
+  valueText: {
+    fontSize: 24,
     fontWeight: '800',
     color: colors.primary,
     letterSpacing: 0.5,
   },
-  timeBoxHint: {
-    fontSize: 8,
-    color: colors.textSecondary,
-    marginTop: 1,
-    fontStyle: 'italic',
-  },
-  quickMinutes: {
+  quickRow: {
     flexDirection: 'row',
-    gap: 3,
-    justifyContent: 'center',
+    gap: 4,
+    justifyContent: 'space-between',
   },
-  minuteChip: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 6,
+  quickBtn: {
+    flex: 1,
+    paddingVertical: 6,
+    borderRadius: 8,
     backgroundColor: colors.background,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
+    alignItems: 'center',
   },
-  minuteChipActive: {
+  quickBtnActive: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
   },
-  minuteChipText: {
-    fontSize: 9,
+  quickText: {
+    fontSize: 11,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textSecondary,
   },
-  minuteChipTextActive: {
+  quickTextActive: {
     color: colors.white,
+  },
+  
+  summary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '10',
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 4,
+    gap: 8,
+  },
+  summaryText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.text,
+    fontWeight: '600',
+    lineHeight: 18,
   },
   
   generateButton: { 
     backgroundColor: colors.secondary, 
-    padding: 12, 
-    borderRadius: 10, 
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12, 
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 4,
-    marginBottom: 8,
+    gap: 10,
     shadowColor: colors.secondary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 6,
+    marginBottom: 20,
+  },
+  generateButtonDisabled: {
+    opacity: 0.6,
   },
   generateButtonText: { 
     color: colors.white, 
-    fontSize: 16, 
+    fontSize: 17, 
     fontWeight: '700',
     letterSpacing: 0.5,
   },
