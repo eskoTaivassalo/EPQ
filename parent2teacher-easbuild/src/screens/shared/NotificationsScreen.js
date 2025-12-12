@@ -330,7 +330,7 @@ const NotificationsScreen = ({ navigation }) => {
         </TouchableOpacity>
         
         <Text style={styles.headerTitle}>
-          Ilmoitukset {unreadCount > 0 && `(${unreadCount})`}
+          Notifications {unreadCount > 0 && `(${unreadCount})`}
         </Text>
         
         <TouchableOpacity 
