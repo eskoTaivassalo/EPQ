@@ -341,7 +341,7 @@ export default function LegalDocumentScreen({ route, navigation }) {
   const title = isPrivacy ? 'Privacy Policy' : 'Terms & Conditions';
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <WatercolorBackground />
       {/* Header */}
       <View style={styles.header}>

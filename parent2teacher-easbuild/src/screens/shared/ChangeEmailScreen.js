@@ -16,12 +16,15 @@ import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors } from '../../styles/commonStyles';
 import { useAuth } from '../../hooks/useAuth';
+import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 import { verifyBeforeUpdateEmail, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth, db } from '../../config/firebaseConfig';
 import { doc, updateDoc, getDoc } from 'firebase/firestore';
 
 export default function ChangeEmailScreen({ navigation }) {
   const { user, refreshUser, logout } = useAuth();
+  const role = getCanonicalRole(user?.role || user?.userType);
+  const roleColors = getRoleColors(role);
   const [currentPassword, setCurrentPassword] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [confirmEmail, setConfirmEmail] = useState('');
@@ -275,14 +278,14 @@ export default function ChangeEmailScreen({ navigation }) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <WatercolorBackground />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
           <TouchableOpacity
             onPress={() => navigation.goBack()}
             style={styles.backButton}
@@ -300,8 +303,8 @@ export default function ChangeEmailScreen({ navigation }) {
           keyboardShouldPersistTaps="handled"
         >
           {/* Info Card */}
-          <View style={styles.infoCard}>
-            <Ionicons name="information-circle" size={24} color={colors.primary} />
+          <View style={[styles.infoCard, { backgroundColor: roleColors.primary + '15' }]}>
+            <Ionicons name="information-circle" size={24} color={roleColors.primary} />
             <Text style={styles.infoText}>
               {isGoogleUser 
                 ? "You're signed in with Google. You can change your email address without entering a password."
@@ -403,10 +406,10 @@ export default function ChangeEmailScreen({ navigation }) {
 
           {/* Warning Card */}
           {!verificationSent && (
-            <View style={styles.warningCard}>
-              <Ionicons name="information-circle" size={24} color={colors.primary} />
+            <View style={[styles.warningCard, { backgroundColor: roleColors.primary + '15' }]}>
+              <Ionicons name="information-circle" size={24} color={roleColors.primary} />
               <View style={styles.warningTextContainer}>
-                <Text style={styles.warningTitle}>How it works</Text>
+                <Text style={[styles.warningTitle, { color: roleColors.primary }]}>How it works</Text>
                 <Text style={styles.warningText}>
                   1. We'll send a verification link to your new email{'\n'}
                   2. Click the link in your email to verify{'\n'}
@@ -465,7 +468,7 @@ export default function ChangeEmailScreen({ navigation }) {
           {/* Update Button (shows before email is sent) */}
           {!verificationSent && (
             <TouchableOpacity
-              style={[styles.updateButton, loading && styles.updateButtonDisabled]}
+              style={[styles.updateButton, { backgroundColor: roleColors.primary }, loading && styles.updateButtonDisabled]}
               onPress={handleChangeEmail}
               disabled={loading}
             >
@@ -509,8 +512,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: colors.primary,
+    paddingVertical: 16,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -538,7 +540,6 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     flexDirection: 'row',
-    backgroundColor: '#E3F2FD',
     padding: 16,
     borderRadius: 12,
     marginBottom: 24,
@@ -626,7 +627,6 @@ const styles = StyleSheet.create({
   },
   warningCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFF3E0',
     padding: 16,
     borderRadius: 12,
     marginBottom: 24,
@@ -647,7 +647,6 @@ const styles = StyleSheet.create({
   warningTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.warning,
     marginBottom: 4,
   },
   warningText: {
@@ -695,7 +694,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   updateButton: {
-    backgroundColor: colors.primary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

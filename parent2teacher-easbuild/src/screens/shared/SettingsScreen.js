@@ -295,7 +295,7 @@ EmailVerified: ${user?.emailVerified ? 'Yes' : 'No'}
   );
 
   return (
-    <SafeAreaView style={commonStyles.safeArea} edges={['bottom']}>
+    <SafeAreaView style={commonStyles.safeArea} edges={['top', 'bottom']}>
       <WatercolorBackground />
       {/* Header */}
       <View style={styles.header}>

@@ -22,7 +22,7 @@ import TagSelector from '../../components/TagSelector';
 import imagePickerService from '../../services/imagePickerService';
 import { colors, commonStyles } from '../../styles/commonStyles';
 import { SUBJECTS, LANGUAGES, TEACHING_METHODS, AVAILABILITY } from '../../constants/tags';
-import { ROLE_CONFIG, ROLE_TYPES } from '../../config/roleConfig';
+import { ROLE_CONFIG, ROLE_TYPES, getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 
 /**
  * Yhteinen profiilinäkymä kaikille rooleille
@@ -41,6 +41,8 @@ const ProfileScreen = ({ navigation }) => {
   // Määritä käyttäjän rooli
   const userRole = user?.userType || user?.role || 'client';
   const isProvider = userRole === 'teacher' || userRole === 'coach';
+  const canonicalRole = getCanonicalRole(userRole);
+  const roleColors = getRoleColors(canonicalRole);
 
   useFocusEffect(
     useCallback(() => {
@@ -282,7 +284,7 @@ const ProfileScreen = ({ navigation }) => {
       <SafeAreaView style={commonStyles.safeArea}>
         <WatercolorBackground />
         <View style={commonStyles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={roleColors.primary} />
           <Text style={commonStyles.loadingText}>Ladataan profiilia...</Text>
         </View>
       </SafeAreaView>
@@ -294,7 +296,7 @@ const ProfileScreen = ({ navigation }) => {
       <WatercolorBackground />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => isEditing ? setIsEditing(false) : navigation.goBack()}
@@ -332,19 +334,19 @@ const ProfileScreen = ({ navigation }) => {
           />
           <Text style={styles.profileName}>{profileData?.name || 'Nimi puuttuu'}</Text>
           <Text style={styles.profileEmail}>{profileData?.email}</Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>
+          <View style={[styles.roleBadge, { backgroundColor: roleColors.primary + '20' }]}>
+            <Text style={[styles.roleBadgeText, { color: roleColors.primary }]}>
               {isProvider ? '👨‍🏫 Teacher' : '👨‍👩‍👧 Parent/Student'}
             </Text>
           </View>
           
           {/* Add New Role Button */}
           <TouchableOpacity 
-            style={styles.addRoleButton}
+            style={[styles.addRoleButton, { borderColor: roleColors.primary }]}
             onPress={handleAddNewRole}
           >
-            <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
-            <Text style={styles.addRoleButtonText}>Lisää uusi rooli</Text>
+            <Ionicons name="add-circle-outline" size={20} color={roleColors.primary} />
+            <Text style={[styles.addRoleButtonText, { color: roleColors.primary }]}>Lisää uusi rooli</Text>
           </TouchableOpacity>
         </View>
 
@@ -419,8 +421,8 @@ const ProfileScreen = ({ navigation }) => {
                     profileData.needs.map((needId, index) => {
                       const subject = SUBJECTS.find(s => s.id === needId);
                       return (
-                        <View key={index} style={styles.tagChip}>
-                          <Text style={styles.tagChipText}>{subject?.label || needId}</Text>
+                        <View key={index} style={[styles.tagChip, { backgroundColor: roleColors.primary + '20' }]}>
+                          <Text style={[styles.tagChipText, { color: roleColors.primary }]}>{subject?.label || needId}</Text>
                         </View>
                       );
                     })
@@ -469,8 +471,8 @@ const ProfileScreen = ({ navigation }) => {
                     profileData.subjects.map((subjectId, index) => {
                       const subject = SUBJECTS.find(s => s.id === subjectId);
                       return (
-                        <View key={index} style={styles.tagChip}>
-                          <Text style={styles.tagChipText}>{subject?.label || subjectId}</Text>
+                        <View key={index} style={[styles.tagChip, { backgroundColor: roleColors.primary + '20' }]}>
+                          <Text style={[styles.tagChipText, { color: roleColors.primary }]}>{subject?.label || subjectId}</Text>
                         </View>
                       );
                     })
@@ -526,8 +528,8 @@ const ProfileScreen = ({ navigation }) => {
                     profileData.languages.map((langId, index) => {
                       const lang = LANGUAGES.find(l => l.id === langId);
                       return (
-                        <View key={index} style={styles.tagChip}>
-                          <Text style={styles.tagChipText}>{lang?.label || langId}</Text>
+                        <View key={index} style={[styles.tagChip, { backgroundColor: roleColors.primary + '20' }]}>
+                          <Text style={[styles.tagChipText, { color: roleColors.primary }]}>{lang?.label || langId}</Text>
                         </View>
                       );
                     })
@@ -554,8 +556,8 @@ const ProfileScreen = ({ navigation }) => {
                     profileData.teachingMethods.map((methodId, index) => {
                       const method = TEACHING_METHODS.find(m => m.id === methodId);
                       return (
-                        <View key={index} style={styles.tagChip}>
-                          <Text style={styles.tagChipText}>{method?.label || methodId}</Text>
+                        <View key={index} style={[styles.tagChip, { backgroundColor: roleColors.primary + '20' }]}>
+                          <Text style={[styles.tagChipText, { color: roleColors.primary }]}>{method?.label || methodId}</Text>
                         </View>
                       );
                     })
@@ -582,8 +584,8 @@ const ProfileScreen = ({ navigation }) => {
                     profileData.availability.map((availId, index) => {
                       const avail = AVAILABILITY.find(a => a.id === availId);
                       return (
-                        <View key={index} style={styles.tagChip}>
-                          <Text style={styles.tagChipText}>{avail?.label || availId}</Text>
+                        <View key={index} style={[styles.tagChip, { backgroundColor: roleColors.primary + '20' }]}>
+                          <Text style={[styles.tagChipText, { color: roleColors.primary }]}>{avail?.label || availId}</Text>
                         </View>
                       );
                     })
@@ -604,11 +606,15 @@ const ProfileScreen = ({ navigation }) => {
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: colors.secondary,
     ...commonStyles.rowBetween,
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   backButton: {
     padding: 5,
@@ -647,14 +653,12 @@ const styles = StyleSheet.create({
   },
   roleBadge: {
     ...commonStyles.badge,
-    backgroundColor: colors.primary + '20',
     paddingHorizontal: 20,
     paddingVertical: 8,
     marginTop: 15,
   },
   roleBadgeText: {
     fontSize: 14,
-    color: colors.primary,
     fontWeight: '600',
   },
   addRoleButton: {
@@ -665,11 +669,9 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     marginTop: 15,
     borderWidth: 1,
-    borderColor: colors.primary,
   },
   addRoleButtonText: {
     fontSize: 14,
-    color: colors.primary,
     fontWeight: '600',
     marginLeft: 8,
   },
@@ -713,7 +715,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   tagChip: {
-    backgroundColor: colors.primary + '20',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -722,7 +723,6 @@ const styles = StyleSheet.create({
   },
   tagChipText: {
     fontSize: 14,
-    color: colors.primary,
     fontWeight: '500',
   },
   emptyText: {
