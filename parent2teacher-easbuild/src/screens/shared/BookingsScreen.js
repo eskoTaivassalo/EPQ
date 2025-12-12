@@ -41,6 +41,7 @@ const BookingsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
   const { user } = useSelector(state => state.auth);
   const { myBookings = [], loading } = useSelector(state => state.bookings);
+  const { teachers = [], parents = [] } = useSelector(state => state.appData);
   
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [refreshing, setRefreshing] = useState(false);
@@ -62,6 +63,9 @@ const BookingsScreen = ({ navigation }) => {
 
   useEffect(() => {
     console.log('📋 BookingsScreen: bookings updated, count:', bookings.length);
+    if (bookings.length > 0) {
+      console.log('📋 First booking sample:', JSON.stringify(bookings[0], null, 2));
+    }
   }, [bookings]);
 
   // Reload bookings when screen comes into focus
@@ -87,6 +91,41 @@ const BookingsScreen = ({ navigation }) => {
     }
   };
 
+  // Helper function to get teacher/parent name with fallback
+  const getPersonName = (booking, isTeacher) => {
+    if (isTeacher) {
+      // Get teacher name
+      if (booking.teacherName) return booking.teacherName;
+      const teacher = teachers.find(t => t.id === booking.teacherId);
+      return teacher?.name || teacher?.displayName || 'Teacher';
+    } else {
+      // Get parent name
+      if (booking.parentName) return booking.parentName;
+      const parent = parents.find(p => p.id === booking.parentId);
+      return parent?.name || parent?.displayName || 'Parent';
+    }
+  };
+
+  // Helper function to get time from booking data
+  const getBookingTime = (booking) => {
+    // If timeSlot exists, use it
+    if (booking.timeSlot) return booking.timeSlot;
+    if (booking.time) return booking.time;
+    
+    // Otherwise, extract from start or date field
+    const timeSource = booking.start || booking.date;
+    if (!timeSource) return 'N/A';
+    
+    try {
+      const dateObj = new Date(timeSource);
+      const hours = dateObj.getHours();
+      const minutes = String(dateObj.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    } catch (e) {
+      return 'N/A';
+    }
+  };
+
   const filterBookings = (bookings) => {
     switch (selectedFilter) {
       case 'pending':
@@ -99,7 +138,8 @@ const BookingsScreen = ({ navigation }) => {
   const handleCancelBooking = async () => {
     try {
       const teacherId = bookingToCancel.teacherId;
-      const teacherName = bookingToCancel.teacherName;
+      const teacherName = getPersonName(bookingToCancel, true);
+      const parentName = getPersonName(bookingToCancel, false);
       
       await dispatch(cancelBooking({ 
         bookingId: bookingToCancel.id, 
@@ -112,31 +152,41 @@ const BookingsScreen = ({ navigation }) => {
       
       loadBookings();
       
-      // Navigate to Dashboard
-      navigation.navigate('Dashboard');
-      
-      // Ask if user wants to book a new time
-      Alert.alert(
-        'Varaus peruttu',
-        `Varauksesi on peruttu.\n\nHaluatko varata uuden ajan ${teacherName ? `opettajalta ${teacherName}` : 'samalta opettajalta'}?`,
-        [
-          {
-            text: 'Ei',
-            style: 'cancel'
-          },
-          {
-            text: 'Kyllä',
-            onPress: () => {
-              navigation.navigate('ProviderWeeklyAvailability', { 
-                teacherId: teacherId,
-                teacherName: teacherName,
-                teacherRole: bookingToCancel.teacherRole || 'teacher'
-              });
+      // Different behavior for provider vs client
+      if (isProvider) {
+        // Teacher cancelled - simple success message
+        Alert.alert(
+          'Booking Cancelled',
+          `Booking with ${parentName} has been cancelled.${cancelReason ? `\n\nReason: ${cancelReason}` : ''}`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        // Parent cancelled - offer to rebook
+        navigation.navigate('Dashboard');
+        
+        Alert.alert(
+          'Booking Cancelled',
+          `Your booking has been cancelled.\n\nWould you like to book a new time ${teacherName ? `with ${teacherName}` : 'with the same teacher'}?`,
+          [
+            {
+              text: 'No',
+              style: 'cancel'
+            },
+            {
+              text: 'Yes',
+              onPress: () => {
+                navigation.navigate('ProviderWeeklyAvailability', { 
+                  teacherId: teacherId,
+                  teacherName: teacherName,
+                  teacherRole: bookingToCancel.teacherRole || 'teacher'
+                });
+              }
             }
-          }
-        ]
-      );
+          ]
+        );
+      }
     } catch (error) {
+      console.error('Cancel booking error:', error);
       Alert.alert('Error', error?.message || 'Failed to cancel booking');
     }
   };
@@ -221,7 +271,7 @@ const BookingsScreen = ({ navigation }) => {
               color={roleColors.primary} 
             />
             <Text style={styles.bookingTitle}>
-              {isProvider ? booking.parentName : booking.teacherName}
+              {isProvider ? getPersonName(booking, false) : getPersonName(booking, true)}
             </Text>
           </View>
           <View style={[
@@ -248,13 +298,13 @@ const BookingsScreen = ({ navigation }) => {
           <View style={styles.bookingDetailRow}>
             <Ionicons name="calendar-outline" size={16} color="#666" />
             <Text style={styles.bookingDetailText}>
-              {booking.date ? new Date(booking.date).toLocaleDateString('fi-FI') : 'N/A'}
+              {booking.date ? new Date(booking.date).toLocaleDateString('en-US') : 'N/A'}
             </Text>
           </View>
           <View style={styles.bookingDetailRow}>
             <Ionicons name="time-outline" size={16} color="#666" />
             <Text style={styles.bookingDetailText}>
-              {booking.time || 'N/A'}
+              {getBookingTime(booking)}
             </Text>
           </View>
         </View>
@@ -266,14 +316,14 @@ const BookingsScreen = ({ navigation }) => {
               style={[styles.actionButton, styles.acceptButton]}
               onPress={() => handleBookingAction(booking.id, 'accepted')}
             >
-              <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+              <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" />
               <Text style={styles.actionButtonText}>Accept</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionButton, styles.declineButton]}
               onPress={() => handleBookingAction(booking.id, 'declined')}
             >
-              <Ionicons name="close-circle" size={20} color="#FFFFFF" />
+              <Ionicons name="close-circle" size={16} color="#FFFFFF" />
               <Text style={styles.actionButtonText}>Decline</Text>
             </TouchableOpacity>
           </View>
@@ -286,9 +336,21 @@ const BookingsScreen = ({ navigation }) => {
               style={[styles.actionButton, styles.cancelButton]}
               onPress={() => openCancelModal(booking)}
             >
-              <Ionicons name="close-circle" size={20} color="#FFFFFF" />
-              <Text style={styles.actionButtonText}>Peruuta</Text>
+              <Ionicons name="close-circle" size={16} color="#FFFFFF" />
+              <Text style={styles.actionButtonText}>Cancel</Text>
             </TouchableOpacity>
+            {isApproved && booking.meetingUrl && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.joinButton]}
+                onPress={() => {
+                  // Navigate to meeting or open URL
+                  Alert.alert('Meeting', 'Join meeting: ' + booking.meetingUrl);
+                }}
+              >
+                <Ionicons name="videocam" size={16} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Join Meeting</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -299,24 +361,22 @@ const BookingsScreen = ({ navigation }) => {
               style={[styles.actionButton, styles.cancelButton]}
               onPress={() => openCancelModal(booking)}
             >
-              <Ionicons name="close-circle" size={20} color="#FFFFFF" />
+              <Ionicons name="close-circle" size={16} color="#FFFFFF" />
               <Text style={styles.actionButtonText}>Cancel</Text>
             </TouchableOpacity>
+            {booking.meetingUrl && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.joinButton]}
+                onPress={() => {
+                  // Navigate to meeting or open URL
+                  Alert.alert('Meeting', 'Join meeting: ' + booking.meetingUrl);
+                }}
+              >
+                <Ionicons name="videocam" size={16} color="#FFFFFF" />
+                <Text style={styles.actionButtonText}>Join Meeting</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        )}
-
-        {/* Join meeting button for approved bookings */}
-        {isApproved && booking.meetingUrl && (
-          <TouchableOpacity
-            style={[styles.actionButton, styles.joinButton]}
-            onPress={() => {
-              // Navigate to meeting or open URL
-              Alert.alert('Meeting', 'Join meeting: ' + booking.meetingUrl);
-            }}
-          >
-            <Ionicons name="videocam" size={20} color="#FFFFFF" />
-            <Text style={styles.actionButtonText}>Join Meeting</Text>
-          </TouchableOpacity>
         )}
       </View>
     );
@@ -418,7 +478,7 @@ const BookingsScreen = ({ navigation }) => {
               <View style={commonStyles.row}>
                 <Ionicons name="close-circle" size={32} color={colors.error} />
                 <Text style={[commonStyles.modalTitle, { textAlign: 'left', marginLeft: 12 }]}>
-                  Peruuta varaus
+                  Cancel Booking
                 </Text>
               </View>
               <TouchableOpacity 
@@ -431,17 +491,17 @@ const BookingsScreen = ({ navigation }) => {
             <View style={[commonStyles.divider, commonStyles.mt16, { marginBottom: 16 }]} />
 
             <View style={commonStyles.formGroup}>
-              <Text style={commonStyles.label}>Syy peruutukselle (valinnainen)</Text>
+              <Text style={commonStyles.label}>Cancellation reason (optional)</Text>
               <TextInput
                 style={styles.modalTextInput}
-                placeholder="Esim. sairaus, aikataulu muuttui..."
+                placeholder="E.g. illness, schedule changed..."
                 value={cancelReason}
                 onChangeText={setCancelReason}
                 multiline
                 numberOfLines={4}
                 maxLength={200}
               />
-              <Text style={styles.modalHint}>{cancelReason.length}/200 merkkiä</Text>
+              <Text style={styles.modalHint}>{cancelReason.length}/200 characters</Text>
             </View>
 
             <View style={commonStyles.modalButtons}>
@@ -449,14 +509,14 @@ const BookingsScreen = ({ navigation }) => {
                 style={[commonStyles.modalButton, commonStyles.modalButtonSecondary]}
                 onPress={() => setCancelModalVisible(false)}
               >
-                <Text style={commonStyles.buttonText}>Takaisin</Text>
+                <Text style={commonStyles.buttonText}>Back</Text>
               </TouchableOpacity>
               <TouchableOpacity 
                 style={[commonStyles.modalButton, styles.modalConfirmButton]}
                 onPress={handleCancelBooking}
               >
                 <Ionicons name="trash-outline" size={18} color={colors.white} />
-                <Text style={styles.modalConfirmButtonText}>Peruuta varaus</Text>
+                <Text style={styles.modalConfirmButtonText}>Cancel Booking</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -587,13 +647,13 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   actionButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 8,
-    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+    gap: 4,
   },
   acceptButton: {
     backgroundColor: colors.success,
@@ -610,7 +670,7 @@ const styles = StyleSheet.create({
   actionButtonText: {
     color: colors.white,
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 13,
   },
   modalTextInput: {
     ...commonStyles.input,

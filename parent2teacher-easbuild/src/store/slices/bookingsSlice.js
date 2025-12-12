@@ -78,6 +78,7 @@ export const createBooking = createAsyncThunk(
       const state = getState?.();
       const userRole = clientRole || state?.auth?.user?.role || state?.auth?.user?.userType || 'parent';
       const providerRole = teacherRole || 'teacher';
+      const parentName = state?.auth?.user?.name || state?.auth?.user?.displayName || 'Parent';
       
       // Generate unique booking ID
       const bookingId = doc(collection(db, 'temp')).id;
@@ -86,16 +87,23 @@ export const createBooking = createAsyncThunk(
       const teacherRoleInfo = getRoleCollectionInfo(providerRole);
       const parentRoleInfo = getRoleCollectionInfo(userRole);
       
+      // Extract time from date
+      const bookingDate = new Date(date);
+      const timeSlot = `${bookingDate.getHours()}:${String(bookingDate.getMinutes()).padStart(2, '0')}`;
+      
       // Write payload for Firestore (can include serverTimestamp)
       const payloadToDB = {
         bookingId, // Add explicit bookingId field for easier querying
         teacherId,
         parentId,
+        teacherName: teacherName || 'Teacher',
+        parentName: parentName,
         teacherRole: providerRole, // Add role information for easier path reconstruction
         clientRole: userRole,      // Add role information for easier path reconstruction
         // Firestore rules require 'pending' on create
         status: 'pending',
         date: typeof date === 'string' ? date : toLocalISOString(new Date(date)),
+        timeSlot: timeSlot,
         notes: notes || '',
         createdAt: serverTimestamp(),
       };
@@ -703,11 +711,33 @@ export const cancelBooking = createAsyncThunk(
       console.log('🔴 Teacher path:', teacherDocRef.path);
       console.log('🔴 Client path:', clientDocRef.path);
       
-      await updateDoc(teacherDocRef, updatePayload);
-      console.log('🔴 Teacher doc updated');
+      // Update teacher's copy
+      try {
+        const teacherDocSnap = await getDoc(teacherDocRef);
+        if (teacherDocSnap.exists()) {
+          await updateDoc(teacherDocRef, updatePayload);
+          console.log('🔴 Teacher doc updated');
+        } else {
+          console.log('🔴 Teacher doc does not exist, skipping');
+        }
+      } catch (teacherUpdateErr) {
+        console.error('🔴 Failed to update teacher doc:', teacherUpdateErr);
+        // Don't throw - try to update client doc anyway
+      }
       
-      await updateDoc(clientDocRef, updatePayload);
-      console.log('🔴 Client doc updated');
+      // Update client's copy
+      try {
+        const clientDocSnap = await getDoc(clientDocRef);
+        if (clientDocSnap.exists()) {
+          await updateDoc(clientDocRef, updatePayload);
+          console.log('🔴 Client doc updated');
+        } else {
+          console.log('🔴 Client doc does not exist, skipping');
+        }
+      } catch (clientUpdateErr) {
+        console.error('🔴 Failed to update client doc:', clientUpdateErr);
+        // Don't throw - at least one copy should be updated
+      }
 
       // Free up the availability slot if it exists
       if (data.slotId) {
@@ -835,6 +865,7 @@ export const createRecurringBooking = createAsyncThunk(
       const state = getState?.();
       const userRole = clientRole || state?.auth?.user?.role || state?.auth?.user?.userType || 'parent';
       const providerRole = teacherRole || 'teacher';
+      const parentName = state?.auth?.user?.name || state?.auth?.user?.displayName || 'Parent';
       
       // Get role collection info for both teacher and parent
       const teacherRoleInfo = getRoleCollectionInfo(providerRole);
@@ -918,15 +949,21 @@ export const createRecurringBooking = createAsyncThunk(
         // Generate unique booking ID
         const bookingId = doc(collection(db, 'temp')).id;
         
+        // Extract time from booking date
+        const bookingTimeSlot = `${bookingDate.getHours()}:${String(bookingDate.getMinutes()).padStart(2, '0')}`;
+        
         // Create booking data
         const bookingData = {
           bookingId, // Add explicit bookingId field for easier querying
           teacherId,
           parentId,
+          teacherName: teacherName || 'Teacher',
+          parentName: parentName,
           teacherRole: providerRole, // Add role information for easier path reconstruction
           clientRole: userRole,      // Add role information for easier path reconstruction
           status: 'pending',
           date: bookingDate.toISOString(),
+          timeSlot: bookingTimeSlot,
           start: matchingSlot.start,
           end: matchingSlot.end,
           slotId: matchingSlot.id,
