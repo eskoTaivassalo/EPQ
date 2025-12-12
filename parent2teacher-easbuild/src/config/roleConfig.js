@@ -85,7 +85,7 @@ export const ROLE_CONFIG = {
     // UI Theme - yhtenäiset värit + rooli-spesifinen accent
     colors: {
       primary: roleAccents.teacher,  // Rooli-spesifinen accent-väri
-      secondary: colors.primaryDark,
+      secondary: roleAccents.teacher,
       accent: roleAccents.teacher,
       background: colors.background,
       card: colors.surface,
@@ -200,7 +200,7 @@ export const ROLE_CONFIG = {
     // UI Theme - yhtenäiset värit + rooli-spesifinen accent
     colors: {
       primary: roleAccents.parent,
-      secondary: colors.primaryDark,
+      secondary: roleAccents.parent,
       accent: roleAccents.parent,
       background: colors.background,
       card: colors.surface,

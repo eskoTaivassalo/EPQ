@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors, commonStyles } from '../../styles/commonStyles';
+import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 import { useAuth } from '../../hooks/useAuth';
 import { generateAvailabilitySlots } from '../../services/availabilityService';
 import { doc, getDoc } from 'firebase/firestore';
@@ -22,6 +23,8 @@ const DAYS = [
 
 export default function TeacherAvailabilityScreen({ navigation }) {
   const { user } = useAuth();
+  const role = getCanonicalRole(user?.role || user?.userType);
+  const roleColors = getRoleColors(role);
   const [daysOfWeek, setDaysOfWeek] = useState([1,2,3,4,5]);
   // Use hours as numbers for sliders (0-24)
   const [startHour, setStartHour] = useState(9);
@@ -142,7 +145,7 @@ export default function TeacherAvailabilityScreen({ navigation }) {
   return (
     <SafeAreaView style={commonStyles.safeArea}>
       <WatercolorBackground />
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
@@ -160,7 +163,10 @@ export default function TeacherAvailabilityScreen({ navigation }) {
             {DAYS.map(d => (
               <TouchableOpacity 
                 key={d.id} 
-                style={[styles.dayChip, daysOfWeek.includes(d.id) && styles.dayChipActive]} 
+                style={[
+                  styles.dayChip, 
+                  daysOfWeek.includes(d.id) && { backgroundColor: roleColors.primary, borderColor: roleColors.primary }
+                ]} 
                 onPress={() => toggleDay(d.id)}
               >
                 <Text style={[styles.dayText, daysOfWeek.includes(d.id) && styles.dayTextActive]}>
@@ -180,10 +186,10 @@ export default function TeacherAvailabilityScreen({ navigation }) {
             <View style={styles.halfBox}>
               <Text style={styles.label}>Start Time</Text>
               <TouchableOpacity 
-                style={styles.valueBubble}
+                style={[styles.valueBubble, { backgroundColor: roleColors.primary + '18', borderColor: roleColors.primary + '40' }]}
                 onPress={() => setStartHour(startHour === 23 ? 0 : startHour + 1)}
               >
-                <Text style={styles.valueText}>
+                <Text style={[styles.valueText, { color: roleColors.primary }]}>
                   {startHour.toString().padStart(2, '0')}:{startMinute.toString().padStart(2, '0')}
                 </Text>
               </TouchableOpacity>
@@ -191,7 +197,10 @@ export default function TeacherAvailabilityScreen({ navigation }) {
                 {[0, 15, 30, 45].map(min => (
                   <TouchableOpacity 
                     key={min}
-                    style={[styles.quickBtn, startMinute === min && styles.quickBtnActive]}
+                    style={[
+                      styles.quickBtn, 
+                      startMinute === min && { backgroundColor: roleColors.primary, borderColor: roleColors.primary }
+                    ]}
                     onPress={() => setStartMinute(min)}
                   >
                     <Text style={[styles.quickText, startMinute === min && styles.quickTextActive]}>
@@ -205,16 +214,19 @@ export default function TeacherAvailabilityScreen({ navigation }) {
             <View style={styles.halfBox}>
               <Text style={styles.label}>Duration</Text>
               <TouchableOpacity 
-                style={styles.valueBubble}
+                style={[styles.valueBubble, { backgroundColor: roleColors.primary + '18', borderColor: roleColors.primary + '40' }]}
                 onPress={() => setDurationMin(durationMin >= 90 ? 30 : durationMin + 15)}
               >
-                <Text style={styles.valueText}>{durationMin}m</Text>
+                <Text style={[styles.valueText, { color: roleColors.primary }]}>{durationMin}m</Text>
               </TouchableOpacity>
               <View style={styles.quickRow}>
                 {[30, 45, 60, 90].map(dur => (
                   <TouchableOpacity 
                     key={dur}
-                    style={[styles.quickBtn, durationMin === dur && styles.quickBtnActive]}
+                    style={[
+                      styles.quickBtn, 
+                      durationMin === dur && { backgroundColor: roleColors.primary, borderColor: roleColors.primary }
+                    ]}
                     onPress={() => setDurationMin(dur)}
                   >
                     <Text style={[styles.quickText, durationMin === dur && styles.quickTextActive]}>
@@ -231,27 +243,27 @@ export default function TeacherAvailabilityScreen({ navigation }) {
             <View style={styles.halfBox}>
               <Text style={styles.label}>Sessions/Day</Text>
               <TouchableOpacity 
-                style={styles.valueBubble}
+                style={[styles.valueBubble, { backgroundColor: roleColors.primary + '18', borderColor: roleColors.primary + '40' }]}
                 onPress={() => setSessionsPerDay(sessionsPerDay >= 10 ? 1 : sessionsPerDay + 1)}
               >
-                <Text style={styles.valueText}>{sessionsPerDay}</Text>
+                <Text style={[styles.valueText, { color: roleColors.primary }]}>{sessionsPerDay}</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.halfBox}>
               <Text style={styles.label}>Period</Text>
               <TouchableOpacity 
-                style={styles.valueBubble}
+                style={[styles.valueBubble, { backgroundColor: roleColors.primary + '18', borderColor: roleColors.primary + '40' }]}
                 onPress={() => setRangeDays(rangeDays >= 90 ? 7 : rangeDays + 7)}
               >
-                <Text style={styles.valueText}>{rangeDays}d</Text>
+                <Text style={[styles.valueText, { color: roleColors.primary }]}>{rangeDays}d</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Summary */}
-          <View style={styles.summary}>
-            <Ionicons name="information-circle" size={16} color={colors.primary} />
+          <View style={[styles.summary, { backgroundColor: roleColors.primary + '10' }]}>
+            <Ionicons name="information-circle" size={16} color={roleColors.primary} />
             <Text style={styles.summaryText}>
               Daily: {startHour.toString().padStart(2, '0')}:{startMinute.toString().padStart(2, '0')} - {(() => {
                 const totalMinutes = startHour * 60 + startMinute + (60 * sessionsPerDay);
@@ -264,7 +276,11 @@ export default function TeacherAvailabilityScreen({ navigation }) {
         </View>
 
         <TouchableOpacity 
-          style={[styles.generateButton, loading && styles.generateButtonDisabled]} 
+          style={[
+            styles.generateButton,
+            { backgroundColor: roleColors.secondary, shadowColor: roleColors.secondary },
+            loading && styles.generateButtonDisabled
+          ]} 
           onPress={handleGenerate} 
           disabled={loading}
         >
@@ -280,7 +296,6 @@ export default function TeacherAvailabilityScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   header: { 
-    backgroundColor: colors.secondary, 
     ...commonStyles.rowBetween,
     paddingHorizontal: 16, 
     paddingTop: 8, 
@@ -333,8 +348,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dayChipActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    // Colors applied inline with roleColors
   },
   dayText: {
     fontSize: 13,
@@ -362,18 +376,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   valueBubble: {
-    backgroundColor: colors.primary + '18',
     borderRadius: 12,
     padding: 12,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: colors.primary + '40',
     marginBottom: 6,
   },
   valueText: {
     fontSize: 24,
     fontWeight: '800',
-    color: colors.primary,
     letterSpacing: 0.5,
   },
   quickRow: {
@@ -391,8 +402,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   quickBtnActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
+    // Colors applied inline with roleColors
   },
   quickText: {
     fontSize: 11,
@@ -406,7 +416,6 @@ const styles = StyleSheet.create({
   summary: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primary + '10',
     borderRadius: 10,
     padding: 12,
     marginTop: 4,
@@ -421,7 +430,6 @@ const styles = StyleSheet.create({
   },
   
   generateButton: { 
-    backgroundColor: colors.secondary, 
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 12, 
@@ -429,7 +437,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 10,
-    shadowColor: colors.secondary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 12,
