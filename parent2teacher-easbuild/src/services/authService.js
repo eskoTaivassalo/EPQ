@@ -708,18 +708,7 @@ export class AuthService {
 
       console.log('✅ Firebase Auth profile updated');
 
-      // Päivitä Firestore profiilikuva - käytetään userDatabaseService
-      // Päivitä main profile
-      const mainUserDocRef = doc(db, 'users', userId);
-      await updateDoc(mainUserDocRef, {
-        photoURL: downloadURL,
-        profileImageUrl: downloadURL,
-        updatedAt: new Date().toISOString()
-      });
-
-      console.log('✅ Firestore main profile updated');
-
-      // Päivitä role profile
+      // Päivitä Firestore profiilikuva - ONLY in serviceTypes (no users collection)
       // Path: serviceTypes/{serviceType}/{collectionName}/{userId}
       const role = userType === 'teacher' ? 'service_provider' : 'parent';
       const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(role);

@@ -205,11 +205,11 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
         // Show service picker
         selectedService = await new Promise(resolve => {
           Alert.alert(
-            `Valitse ${serviceLabel}`,
-            `Valitse haluamasi ${serviceLabel}:`,
+            `Select ${serviceLabel}`,
+            `Choose your preferred ${serviceLabel}:`,
             [
               ...availableServices.map(service => ({ text: service, onPress: () => resolve(service) })),
-              { text: 'Peruuta', style: 'cancel', onPress: () => resolve(null) }
+              { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) }
             ]
           );
         });
@@ -356,15 +356,15 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
     const startDate = new Date(bookedSlotData.slotStart);
     const endTime = new Date(startDate.getTime() + 45 * 60 * 1000); // Assuming 45 min slots
     
-    const confirmMessage = `${startDate.toLocaleDateString('fi-FI')} klo ${startDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}\nAine: ${bookedSlotData.subject || 'N/A'}`;
+    const confirmMessage = `${startDate.toLocaleDateString('en-US')} at ${startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}\nSubject: ${bookedSlotData.subject || 'N/A'}`;
     
     const ok = await new Promise(resolve => {
       Alert.alert(
-        'Vahvista varaus',
+        'Confirm Booking',
         confirmMessage,
         [
-          { text: 'Peruuta', style: 'cancel', onPress: () => resolve(false) },
-          { text: 'Varaa', onPress: () => resolve(true) },
+          { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+          { text: 'Book', onPress: () => resolve(true) },
         ]
       );
     });

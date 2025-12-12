@@ -152,7 +152,7 @@ const ProfileScreen = ({ navigation }) => {
       hasLoadedRef.current = true;
     } catch (error) {
       console.error('Error loading profile:', error);
-      Alert.alert('Virhe', 'Profiilin lataaminen epäonnistui');
+      Alert.alert('Error', 'Failed to load profile');
     } finally {
       setLoading(false);
     }
@@ -160,24 +160,24 @@ const ProfileScreen = ({ navigation }) => {
 
   const saveProfile = async () => {
     if (!db || !user?.uid) {
-      Alert.alert('Virhe', 'Kirjaudu sisään ensin');
+      Alert.alert('Error', 'Please sign in first');
       return;
     }
 
     // Validointi
     if (!profileData.name?.trim()) {
-      Alert.alert('Virhe', 'Nimi on pakollinen');
+      Alert.alert('Error', 'Name is required');
       return;
     }
     
     // Validointi provider-käyttäjille
     if (isProvider) {
       if (!profileData.subjects?.length) {
-        Alert.alert('Virhe', 'Valitse ainakin yksi oppiaine');
+        Alert.alert('Error', 'Select at least one subject');
         return;
       }
       if (!profileData.hourlyRate || parseFloat(profileData.hourlyRate) <= 0) {
-        Alert.alert('Virhe', 'Aseta tuntihinta (suurempi kuin 0)');
+        Alert.alert('Error', 'Set hourly rate (greater than 0)');
         return;
       }
     }
@@ -237,12 +237,12 @@ const ProfileScreen = ({ navigation }) => {
 
       await setDoc(docRef, updateData, { merge: true });
       
-      Alert.alert('Onnistui', 'Profiili tallennettu');
+      Alert.alert('Success', 'Profile saved');
       setIsEditing(false);
       await loadProfile(); // Lataa uudelleen
     } catch (error) {
       console.error('Error saving profile:', error);
-      Alert.alert('Virhe', 'Profiilin tallentaminen epäonnistui');
+      Alert.alert('Error', 'Failed to save profile');
     } finally {
       setSaving(false);
     }
@@ -275,10 +275,10 @@ const ProfileScreen = ({ navigation }) => {
       console.log('✅ Image uploaded successfully:', downloadURL);
       setProfileData(prev => ({ ...prev, photoURL: downloadURL }));
       
-      Alert.alert('Onnistui', 'Profiilikuva ladattu');
+      Alert.alert('Success', 'Profile image uploaded');
     } catch (error) {
       console.error('❌ Error uploading image:', error);
-      Alert.alert('Virhe', 'Kuvan lataaminen epäonnistui: ' + error.message);
+      Alert.alert('Error', 'Image upload failed: ' + error.message);
     } finally {
       setSaving(false);
     }

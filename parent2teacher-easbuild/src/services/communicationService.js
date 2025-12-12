@@ -48,13 +48,29 @@ export async function sendMessage({ teacherId, parentId, senderType, text, servi
     if (typeof window !== 'undefined' && window.store) {
       window.store.dispatch(createNotification(notificationData));
     } else {
-      // Fallback: create directly to Firestore
-      const { addDoc, collection, serverTimestamp } = await import('firebase/firestore');
-      await addDoc(collection(db, 'users', recipientId, 'notifications'), {
-        ...notificationData,
-        read: false,
-        createdAt: serverTimestamp()
-      });
+      // Fallback: create directly to Firestore - use setDoc like bookings
+      const { setDoc, doc, serverTimestamp } = await import('firebase/firestore');
+      const { getUserMainProfile, getRoleCollectionInfo } = await import('./userDatabaseService');
+      
+      const profile = await getUserMainProfile(recipientId);
+      if (profile && profile.primaryRole) {
+        const { serviceType, collection: collectionName } = getRoleCollectionInfo(profile.primaryRole);
+        const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const notificationRef = doc(
+          db,
+          'serviceTypes',
+          serviceType,
+          collectionName,
+          recipientId,
+          'notifications',
+          notificationId
+        );
+        await setDoc(notificationRef, {
+          ...notificationData,
+          read: false,
+          createdAt: serverTimestamp()
+        });
+      }
     }
   } catch (err) {
     console.warn('[message] Failed to create in-app notification:', err);

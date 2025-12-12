@@ -49,16 +49,17 @@ export default function ConversationsScreen({ navigation, route }) {
       
       await Promise.all(ids.map(async (id) => {
         try {
-          // Try new structure first
+          // Try serviceTypes structure
           const snap = await getDoc(doc(db, 'serviceTypes', 'education', collectionName, id));
           const data = snap.exists() ? snap.data() : null;
           
-          // If not found, try old 'users' collection as fallback
+          // If not found in primary collection, try the other one (teacher vs parent)
           if (!data) {
-            const userSnap = await getDoc(doc(db, 'users', id));
-            if (userSnap.exists()) {
-              const userData = userSnap.data();
-              map[id] = userData?.name || userData?.fullName || userData?.displayName || id;
+            const otherCollection = collectionName === 'teachers' ? 'parents' : 'teachers';
+            const otherSnap = await getDoc(doc(db, 'serviceTypes', 'education', otherCollection, id));
+            if (otherSnap.exists()) {
+              const otherData = otherSnap.data();
+              map[id] = otherData?.name || otherData?.fullName || otherData?.displayName || id;
             } else {
               map[id] = id;
             }

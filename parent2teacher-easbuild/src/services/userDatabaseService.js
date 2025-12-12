@@ -40,6 +40,9 @@ import {
  * Returns collection info for structure: serviceTypes/{serviceType}/{collection}/{userId}
  */
 export const getRoleCollectionInfo = (role) => {
+  // Normalize role to lowercase for consistent lookup
+  const normalizedRole = role ? role.toLowerCase() : '';
+  
   const roleMap = {
     // Education
     'teacher': { serviceType: 'education', collection: 'teachers', isProvider: true },
@@ -56,63 +59,25 @@ export const getRoleCollectionInfo = (role) => {
     'athlete': { serviceType: 'coaching', collection: 'athletes', isProvider: false },
   };
   
-  return roleMap[role] || { serviceType: 'education', collection: 'parents', isProvider: false };
+  return roleMap[normalizedRole] || { serviceType: 'education', collection: 'parents', isProvider: false };
 };
 
 /**
- * Create or update main user profile in users/{userId}
+ * Create or update main user profile - now stored only in serviceTypes hierarchy
+ * No longer uses users collection
  */
 export const createOrUpdateUserProfile = async (userId, userData) => {
-  try {
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
-    
-    const mainProfile = {
-      uid: userId,
-      email: userData.email,
-      displayName: userData.name || userData.fullName,
-      emailVerified: userData.emailVerified || false,
-      updatedAt: new Date().toISOString(),
-    };
-    
-    if (userSnap.exists()) {
-      // Update existing user - add new role to roles array
-      const existingData = userSnap.data();
-      const existingRoles = existingData.roles || [];
-      const newRole = userData.role || userData.userType;
-      
-      if (!existingRoles.includes(newRole)) {
-        existingRoles.push(newRole);
-      }
-      
-      await updateDoc(userRef, {
-        ...mainProfile,
-        roles: existingRoles,
-        // Don't override primaryRole if it already exists
-        ...(existingData.primaryRole ? {} : { primaryRole: newRole })
-      });
-      
-      return { ...existingData, ...mainProfile, roles: existingRoles };
-    } else {
-      // Create new user
-      const newUserData = {
-        ...mainProfile,
-        roles: [userData.role || userData.userType],
-        primaryRole: userData.role || userData.userType,
-        createdAt: new Date().toISOString(),
-      };
-      
-      if (userData.profileImageUrl) {
-        newUserData.profileImageUrl = userData.profileImageUrl;
-      }
-      
-      await setDoc(userRef, newUserData);
-      return newUserData;
-    }
-  } catch (error) {
-    console.error('Error creating/updating user profile:', error);
-    throw error;
-  }
+  // This function is kept for compatibility but doesn't create users collection anymore
+  // All data goes to role-specific profile in serviceTypes
+  return {
+    uid: userId,
+    email: userData.email,
+    displayName: userData.name || userData.fullName,
+    name: userData.name || userData.fullName,
+    emailVerified: userData.emailVerified || false,
+    role: userData.role || userData.userType,
+    userType: userData.role || userData.userType,
+  };
 };
 
 /**
@@ -138,9 +103,16 @@ export const createOrUpdateRoleProfile = async (userId, role, profileData) => {
     const roleProfile = {
       ...profileData,
       userId,
+      uid: userId,
       role,
+      userType: role,
       serviceType,
       collectionName,
+      email: profileData.email,
+      name: profileData.name || profileData.fullName,
+      fullName: profileData.name || profileData.fullName,
+      displayName: profileData.name || profileData.fullName,
+      emailVerified: profileData.emailVerified || false,
       updatedAt: new Date().toISOString(),
     };
     
@@ -178,18 +150,28 @@ export const createOrUpdateRoleProfile = async (userId, role, profileData) => {
 };
 
 /**
- * Get user's main profile
+ * Get user's main profile from serviceTypes structure
+ * Searches both teachers and parents collections
  */
 export const getUserMainProfile = async (userId) => {
   try {
-    const userRef = doc(db, 'users', userId);
-    const userSnap = await getDoc(userRef);
+    // Try teachers first
+    const teacherRef = doc(db, 'serviceTypes', 'education', 'teachers', userId);
+    const teacherSnap = await getDoc(teacherRef);
     
-    if (!userSnap.exists()) {
-      return null;
+    if (teacherSnap.exists()) {
+      return { id: teacherSnap.id, ...teacherSnap.data(), primaryRole: 'SERVICE_PROVIDER' };
     }
     
-    return { id: userSnap.id, ...userSnap.data() };
+    // Try parents
+    const parentRef = doc(db, 'serviceTypes', 'education', 'parents', userId);
+    const parentSnap = await getDoc(parentRef);
+    
+    if (parentSnap.exists()) {
+      return { id: parentSnap.id, ...parentSnap.data(), primaryRole: 'CLIENT' };
+    }
+    
+    return null;
   } catch (error) {
     console.error('Error getting user main profile:', error);
     throw error;
@@ -257,23 +239,11 @@ export const registerUserWithRole = async (userId, userData) => {
   try {
     const role = userData.role || userData.userType;
     
-    // 1. Create/update main user profile
-    const mainProfile = await createOrUpdateUserProfile(userId, {
-      email: userData.email,
-      name: userData.name || userData.fullName,
-      fullName: userData.name || userData.fullName,
-      emailVerified: userData.emailVerified || false,
-      role,
-      userType: role,
-      profileImageUrl: userData.profileImageUrl,
-    });
-    
-    // 2. Create role-specific profile with all the extra data
+    // Create role-specific profile with ALL user data (no separate users collection)
     const roleProfile = await createOrUpdateRoleProfile(userId, role, userData);
     
     return {
-      ...mainProfile,
-      roleProfile,
+      ...roleProfile,
       userType: role,
     };
   } catch (error) {

@@ -318,24 +318,40 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
   // Fire-and-forget: create an in-app notification for the teacher
   try {
     if (teacherIdForNotify) {
-      const startStr = new Date(startISO).toLocaleString();
-      await addDoc(collection(db, 'users', teacherIdForNotify, 'notifications'), {
-        userId: teacherIdForNotify,
-        type: 'booking',
-        title: 'New booking',
-        message: `A parent booked a session for ${startStr}${bookedSubject ? ` (Subject: ${bookedSubject})` : ''}.`,
-        read: false,
-        createdAt: serverTimestamp(),
-        data: {
-          slotId,
-          bookingId: bookingId,
-          parentId,
-          start: startISO,
-          end: endISO,
-          subject: bookedSubject || null,
-          ...metadata,
-        },
-      });
+      const { getUserMainProfile, getRoleCollectionInfo } = await import('./userDatabaseService');
+      const profile = await getUserMainProfile(teacherIdForNotify);
+      
+      if (profile && profile.primaryRole) {
+        const { serviceType, collection: collectionName } = getRoleCollectionInfo(profile.primaryRole);
+        const startStr = new Date(startISO).toLocaleString();
+        const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const notificationRef = doc(
+          db,
+          'serviceTypes',
+          serviceType,
+          collectionName,
+          teacherIdForNotify,
+          'notifications',
+          notificationId
+        );
+        await setDoc(notificationRef, {
+          userId: teacherIdForNotify,
+          type: 'booking',
+          title: 'New booking',
+          message: `A parent booked a session for ${startStr}${bookedSubject ? ` (Subject: ${bookedSubject})` : ''}.`,
+          read: false,
+          createdAt: serverTimestamp(),
+          data: {
+            slotId,
+            bookingId: bookingId,
+            parentId,
+            start: startISO,
+            end: endISO,
+            subject: bookedSubject || null,
+            ...metadata,
+          },
+        });
+      }
 
       // Try sending a push notification via Expo (best-effort)
       try {

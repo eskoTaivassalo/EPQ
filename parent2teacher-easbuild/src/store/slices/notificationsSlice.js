@@ -10,11 +10,13 @@ import {
   deleteDoc,
   doc, 
   getDoc,
+  setDoc,
   serverTimestamp,
   Timestamp,
   onSnapshot
 } from 'firebase/firestore';
 import { db, auth } from '../../config/firebaseConfig';
+import * as userDatabaseService from '../../services/userDatabaseService';
 
 // Store active listener for cleanup
 let activeNotificationListener = null;
@@ -39,9 +41,16 @@ export const fetchNotifications = createAsyncThunk(
         return rejectWithValue('user_mismatch');
       }
       
-      // Use subcollection under user document
-      const q = collection(db, 'users', userId, 'notifications');
-      const snapshot = await getDocs(q);
+      // Get notification collection from serviceTypes structure
+      const profile = await userDatabaseService.getUserMainProfile(userId);
+      if (!profile || !profile.primaryRole) {
+        console.warn(`No profile found for userId ${userId}`);
+        return [];
+      }
+      
+      const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(profile.primaryRole);
+      const notificationsRef = collection(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications');
+      const snapshot = await getDocs(notificationsRef);
       const notifications = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -75,7 +84,31 @@ export const createNotification = createAsyncThunk(
         console.warn('[createNotification] ⚠️ WARNING: Creating notification for SELF (sender = receiver). This is OK for testing but may indicate a bug.');
       }
       
-      const docRef = await addDoc(collection(db, 'users', notificationData.userId, 'notifications'), {
+      // Get user profile to determine collection
+      const profile = await userDatabaseService.getUserMainProfile(notificationData.userId);
+      if (!profile || !profile.primaryRole) {
+        throw new Error('User profile not found');
+      }
+      
+      const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(profile.primaryRole);
+      console.log('🔔 Creating notification at path:', `serviceTypes/${serviceType}/${collectionName}/${notificationData.userId}/notifications`);
+      console.log('🔔 Profile role:', profile.primaryRole, 'serviceType:', serviceType, 'collection:', collectionName);
+      
+      // Generate notification ID
+      const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Use setDoc with explicit path like bookings do
+      const notificationRef = doc(
+        db,
+        'serviceTypes',
+        serviceType,
+        collectionName,
+        notificationData.userId,
+        'notifications',
+        notificationId
+      );
+      
+      await setDoc(notificationRef, {
         ...notificationData,
         read: false,
         createdAt: serverTimestamp()
@@ -84,7 +117,7 @@ export const createNotification = createAsyncThunk(
       // Do NOT read back here: sender isn't allowed to read receiver's notifications by rules.
       // Return a serializable client timestamp for immediate UI update; the server timestamp remains in Firestore.
       return {
-        id: docRef.id,
+        id: notificationId,
         ...notificationData,
         read: false,
         createdAt: new Date().toISOString()
@@ -135,14 +168,19 @@ export const markAllAsRead = createAsyncThunk(
   'notifications/markAllAsRead',
   async (userId) => {
     try {
+      const profile = await userDatabaseService.getUserMainProfile(userId);
+      if (!profile || !profile.primaryRole) return [];
+      
+      const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(profile.primaryRole);
+      const notificationsRef = collection(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications');
       const q = query(
-        collection(db, 'users', userId, 'notifications'),
+        notificationsRef,
         where('read', '==', false)
       );
       const snapshot = await getDocs(q);
       
       const updates = snapshot.docs.map(document => 
-        updateDoc(doc(db, 'users', userId, 'notifications', document.id), { read: true })
+        updateDoc(doc(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications', document.id), { read: true })
       );
       
       await Promise.all(updates);
@@ -162,7 +200,11 @@ export const deleteNotification = createAsyncThunk(
       const userId = auth?.currentUser?.uid;
       if (!userId) throw new Error('Not authenticated');
       
-      await deleteDoc(doc(db, 'users', userId, 'notifications', notificationId));
+      const profile = await userDatabaseService.getUserMainProfile(userId);
+      if (!profile || !profile.primaryRole) throw new Error('User profile not found');
+      
+      const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(profile.primaryRole);
+      await deleteDoc(doc(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications', notificationId));
       return notificationId;
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -176,14 +218,19 @@ export const clearReadNotifications = createAsyncThunk(
   'notifications/clearRead',
   async (userId) => {
     try {
+      const profile = await userDatabaseService.getUserMainProfile(userId);
+      if (!profile || !profile.primaryRole) return [];
+      
+      const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(profile.primaryRole);
+      const notificationsRef = collection(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications');
       const q = query(
-        collection(db, 'users', userId, 'notifications'),
+        notificationsRef,
         where('read', '==', true)
       );
       const snapshot = await getDocs(q);
       
       const deletions = snapshot.docs.map(document => 
-        deleteDoc(doc(db, 'users', userId, 'notifications', document.id))
+        deleteDoc(doc(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications', document.id))
       );
       
       await Promise.all(deletions);
@@ -203,19 +250,23 @@ export const deleteOldNotifications = createAsyncThunk(
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      const q = collection(db, 'users', userId, 'notifications');
-      const snapshot = await getDocs(q);
+      const profile = await userDatabaseService.getUserMainProfile(userId);
+      if (!profile || !profile.primaryRole) return [];
+      
+      const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(profile.primaryRole);
+      const notificationsRef = collection(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications');
+      const snapshot = await getDocs(notificationsRef);
       
       // Filter old notifications client-side
-      const oldDocs = snapshot.docs.filter(doc => {
-        const createdAt = doc.data().createdAt;
+      const oldDocs = snapshot.docs.filter(docSnap => {
+        const createdAt = docSnap.data().createdAt;
         if (!createdAt) return false;
         const date = createdAt.toDate ? createdAt.toDate() : new Date(createdAt);
         return date < thirtyDaysAgo;
       });
       
       const deletions = oldDocs.map(document => 
-        deleteDoc(doc(db, 'users', userId, 'notifications', document.id))
+        deleteDoc(doc(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications', document.id))
       );
       
       await Promise.all(deletions);
@@ -228,7 +279,7 @@ export const deleteOldNotifications = createAsyncThunk(
 );
 
 // Start real-time listener (replaces polling)
-export const startNotificationListener = (userId, dispatch) => {
+export const startNotificationListener = async (userId, dispatch) => {
   // Stop existing listener if any
   if (activeNotificationListener) {
     activeNotificationListener();
@@ -237,9 +288,13 @@ export const startNotificationListener = (userId, dispatch) => {
 
   if (!userId) return;
 
-  const q = collection(db, 'users', userId, 'notifications');
+  const profile = await userDatabaseService.getUserMainProfile(userId);
+  if (!profile || !profile.primaryRole) return;
+  
+  const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(profile.primaryRole);
+  const notificationsRef = collection(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications');
 
-  activeNotificationListener = onSnapshot(q, 
+  activeNotificationListener = onSnapshot(notificationsRef, 
     (snapshot) => {
       const notifications = snapshot.docs.map(doc => {
         const data = doc.data();

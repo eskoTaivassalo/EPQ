@@ -27,6 +27,7 @@ import AppLogo from '../../components/AppLogo';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { ROLE_CONFIG, ROLE_TYPES } from '../../config/roleConfig';
 import { getRoleCollectionInfo } from '../../services/userDatabaseService';
+import * as userDatabaseService from '../../services/userDatabaseService';
 
 const LoginScreen = ({ route, navigation }) => {
   const { userType } = route.params || {};
@@ -145,11 +146,10 @@ const LoginScreen = ({ route, navigation }) => {
       const { user } = userCredential;
       const uid = user.uid;
       
-      // Fetch user profile from new hierarchical structure
-      const mainProfileRef = doc(db, 'users', uid);
-      const mainProfileSnap = await getDoc(mainProfileRef);
+      // Fetch user profile from serviceTypes structure
+      const mainProfile = await userDatabaseService.getUserMainProfile(uid);
 
-      if (!mainProfileSnap.exists()) {
+      if (!mainProfile) {
         // User doesn't have a profile yet - show role selection
         setGoogleExistingLoading(false);
         
@@ -187,7 +187,8 @@ const LoginScreen = ({ route, navigation }) => {
         return;
       }
 
-      const mainData = mainProfileSnap.data();
+      // mainProfile already contains all data (including primaryRole)
+      const mainData = mainProfile;
       
       // Check if user has multiple roles
       const roles = mainData.roles || [mainData.primaryRole];
@@ -209,17 +210,8 @@ const LoginScreen = ({ route, navigation }) => {
         return;
       }
       
-      // Fetch role-specific data
-      let roleData = null;
-      if (mainData.primaryRole) {
-        const { serviceType, collection: collectionName } = getRoleCollectionInfo(mainData.primaryRole);
-        const roleProfileRef = doc(db, 'serviceTypes', serviceType, collectionName, uid);
-        const roleProfileSnap = await getDoc(roleProfileRef);
-        
-        if (roleProfileSnap.exists()) {
-          roleData = roleProfileSnap.data();
-        }
-      }
+      // Data already fetched by getUserMainProfile
+      const roleData = mainData;
 
       const normalizeUser = (firebaseUser, mainProfile, roleProfile) => {
         if (!firebaseUser) return null;

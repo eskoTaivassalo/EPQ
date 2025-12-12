@@ -86,9 +86,8 @@ export const loginUser = createAsyncThunk(
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
       
-      // Hae käyttäjän tiedot uudella hierarkkisella rakenteella
-      const mainProfileRef = doc(db, 'users', firebaseUser.uid);
-      const mainProfileDoc = await getDoc(mainProfileRef);
+      // Hae käyttäjän tiedot serviceTypes rakenteesta
+      const mainProfile = await userDatabaseService.getUserMainProfile(firebaseUser.uid);
       
       let userData = {
         uid: firebaseUser.uid,
@@ -99,8 +98,8 @@ export const loginUser = createAsyncThunk(
         timestamp: Date.now()
       };
 
-      if (mainProfileDoc && mainProfileDoc.exists()) {
-        const firestoreData = serializeFirestoreData(mainProfileDoc.data());
+      if (mainProfile) {
+        const firestoreData = serializeFirestoreData(mainProfile);
         
         // 🚫 CHECK IF ACCOUNT IS DELETED
         if (firestoreData.isDeleted) {
@@ -109,22 +108,12 @@ export const loginUser = createAsyncThunk(
         
         userData = { ...userData, ...firestoreData };
         
-        // Hae myös role-specific data jos on primaryRole
-        if (firestoreData.primaryRole) {
-          const { category, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(firestoreData.primaryRole);
-          const roleProfileRef = doc(db, 'users', firebaseUser.uid, collectionName, firebaseUser.uid);
-          const roleProfileDoc = await getDoc(roleProfileRef);
-          
-          if (roleProfileDoc && roleProfileDoc.exists()) {
-            const roleData = serializeFirestoreData(roleProfileDoc.data());
-            userData = { ...userData, ...roleData };
-          }
-        }
-        
         // 🔄 SYNC EMAIL: Check if Firebase Auth email differs from Firestore email
-        if (firebaseUser.email !== firestoreData.email) {
+        if (firebaseUser.email !== firestoreData.email && firestoreData.primaryRole) {
           try {
-            await updateDoc(mainProfileRef, {
+            const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(firestoreData.primaryRole);
+            const roleProfileRef = doc(db, 'serviceTypes', serviceType, collectionName, firebaseUser.uid);
+            await updateDoc(roleProfileRef, {
               email: firebaseUser.email,
               updatedAt: new Date().toISOString()
             });
