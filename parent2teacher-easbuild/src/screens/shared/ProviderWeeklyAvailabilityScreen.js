@@ -99,10 +99,10 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
         // Calculate duration in minutes
         const durationMinutes = (endDate - startDate) / (1000 * 60);
         
-        // Create compact title showing time range
+        // Create compact title showing time range with tap indicator
         const startTime = startDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
         const endTime = endDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' });
-        const title = durationMinutes <= 30 ? `${startTime}` : `${startTime}-${endTime}`;
+        const title = `📅 ${startTime}${durationMinutes > 30 ? `-${endTime}` : ''}\n👆 Tap to book`;
         
         return {
           id: s.id,
@@ -459,8 +459,8 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
         events={events}
         date={currentDate}
         mode="week"
-        height={650}
-        hourRowHeight={50}
+        height={750}
+        hourRowHeight={70}
         onPressEvent={onPressEvent}
         swipeEnabled={false}
         showTime={true}
@@ -469,8 +469,8 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
         scrollOffsetMinutes={480}
         hourStyle={{
           color: '#000000',
-          fontSize: 9,
-          fontWeight: '500',
+          fontSize: 11,
+          fontWeight: '600',
         }}
         theme={{
           palette: {
@@ -486,20 +486,26 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
           todayName: { 
             color: colors.secondary, 
             fontWeight: 'bold', 
-            fontSize: 11 
+            fontSize: 13 
           },
           hour: { 
             color: '#000000', 
-            fontSize: 10,
-            fontWeight: '600'
+            fontSize: 12,
+            fontWeight: '700'
           },
         }}
         eventCellStyle={(event) => ({
           backgroundColor: '#4CAF50',
           borderLeftColor: '#2E7D32',
-          borderLeftWidth: 4,
-          borderRadius: 6,
-          padding: 4,
+          borderLeftWidth: 5,
+          borderRadius: 8,
+          padding: 8,
+          minHeight: 50,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 3,
+          elevation: 3,
         })}
         isRTL={false}
       />
