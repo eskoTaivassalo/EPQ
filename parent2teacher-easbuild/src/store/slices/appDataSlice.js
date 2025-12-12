@@ -421,7 +421,7 @@ export const createParentProfile = createAsyncThunk(
 
 export const loadFavoritesForCurrentUser = createAsyncThunk(
   'appData/loadFavoritesForCurrentUser',
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, getState }) => {
     try {
       if (!auth?.currentUser) {
         console.log('❤️ Favorites: No authenticated user, returning empty');
@@ -429,15 +429,36 @@ export const loadFavoritesForCurrentUser = createAsyncThunk(
       }
       if (!db) throw new Error('Firebase database not initialized');
 
-      // Use hierarchical structure: users/{userId}/students/{userId}
-      const parentRef = doc(db, 'users', auth.currentUser.uid, 'students', auth.currentUser.uid);
-      const snapshot = await getDoc(parentRef);
+      // Get user's role from Redux state or AsyncStorage
+      const state = getState();
+      const user = state.auth?.user;
+      let userRole = user?.role || user?.userType || user?.type;
+      
+      // Fallback: try to get from AsyncStorage
+      if (!userRole) {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const storedRole = await AsyncStorage.getItem('userRole');
+        userRole = storedRole || 'client';
+      }
+      
+      // Get collection name from roleConfig
+      const { getRoleConfig } = require('../../config/roleConfig');
+      const roleConfig = getRoleConfig(userRole);
+      const collectionName = roleConfig?.collectionName || 'parents';
+      
+      // Default serviceType
+      const serviceType = user?.serviceType || 'education';
+
+      // Use correct hierarchical structure: serviceTypes/{serviceType}/{collectionName}/{userId}
+      const userRef = doc(db, 'serviceTypes', serviceType, collectionName, auth.currentUser.uid);
+      const snapshot = await getDoc(userRef);
       if (!snapshot.exists()) {
-        console.log('❤️ Favorites: Parent doc not found, returning empty');
+        console.log('❤️ Favorites: User doc not found, returning empty');
         return [];
       }
       const data = snapshot.data() || {};
       const favorites = data.favoriteTeacherIds || [];
+      console.log('❤️ Favorites: Loaded', favorites.length, 'favorites');
       return favorites;
     } catch (error) {
       console.error('❌ Favorites: Load error', error);
@@ -448,16 +469,46 @@ export const loadFavoritesForCurrentUser = createAsyncThunk(
 
 export const addFavoriteTeacher = createAsyncThunk(
   'appData/addFavoriteTeacher',
-  async (teacherId, { rejectWithValue }) => {
+  async (teacherId, { rejectWithValue, getState }) => {
     try {
       if (!auth?.currentUser) throw new Error('Not authenticated');
       if (!db) throw new Error('Firebase database not initialized');
       
-      // Use hierarchical structure: users/{userId}/students/{userId}
-      const parentRef = doc(db, 'users', auth.currentUser.uid, 'students', auth.currentUser.uid);
-      await updateDoc(parentRef, {
-        favoriteTeacherIds: arrayUnion(teacherId)
-      });
+      // Get user's role from Redux state or AsyncStorage
+      const state = getState();
+      const user = state.auth?.user;
+      let userRole = user?.role || user?.userType || user?.type;
+      
+      // Fallback: try to get from AsyncStorage
+      if (!userRole) {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const storedRole = await AsyncStorage.getItem('userRole');
+        userRole = storedRole || 'client';
+      }
+      
+      // Get collection name from roleConfig
+      const { getRoleConfig } = require('../../config/roleConfig');
+      const roleConfig = getRoleConfig(userRole);
+      const collectionName = roleConfig?.collectionName || 'parents';
+      
+      // Default serviceType
+      const serviceType = user?.serviceType || 'education';
+      
+      // Use correct hierarchical structure: serviceTypes/{serviceType}/{collectionName}/{userId}
+      const userRef = doc(db, 'serviceTypes', serviceType, collectionName, auth.currentUser.uid);
+      
+      // Check if document exists, if not create it first
+      const docSnap = await getDoc(userRef);
+      if (!docSnap.exists()) {
+        await setDoc(userRef, {
+          favoriteTeacherIds: [teacherId]
+        }, { merge: true });
+      } else {
+        await updateDoc(userRef, {
+          favoriteTeacherIds: arrayUnion(teacherId)
+        });
+      }
+      
       console.log('❤️ Favorites: Added', teacherId);
       return teacherId;
     } catch (error) {
@@ -469,17 +520,37 @@ export const addFavoriteTeacher = createAsyncThunk(
 
 export const removeFavoriteTeacher = createAsyncThunk(
   'appData/removeFavoriteTeacher',
-  async (teacherId, { rejectWithValue }) => {
+  async (teacherId, { rejectWithValue, getState }) => {
     try {
       if (!auth?.currentUser) throw new Error('Not authenticated');
       if (!db) throw new Error('Firebase database not initialized');
       
-      // Use hierarchical structure: users/{userId}/students/{userId}
-      const parentRef = doc(db, 'users', auth.currentUser.uid, 'students', auth.currentUser.uid);
-      await updateDoc(parentRef, {
+      // Get user's role from Redux state or AsyncStorage
+      const state = getState();
+      const user = state.auth?.user;
+      let userRole = user?.role || user?.userType || user?.type;
+      
+      // Fallback: try to get from AsyncStorage
+      if (!userRole) {
+        const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+        const storedRole = await AsyncStorage.getItem('userRole');
+        userRole = storedRole || 'client';
+      }
+      
+      // Get collection name from roleConfig
+      const { getRoleConfig } = require('../../config/roleConfig');
+      const roleConfig = getRoleConfig(userRole);
+      const collectionName = roleConfig?.collectionName || 'parents';
+      
+      // Default serviceType
+      const serviceType = user?.serviceType || 'education';
+      
+      // Use correct hierarchical structure: serviceTypes/{serviceType}/{collectionName}/{userId}
+      const userRef = doc(db, 'serviceTypes', serviceType, collectionName, auth.currentUser.uid);
+      await updateDoc(userRef, {
         favoriteTeacherIds: arrayRemove(teacherId)
       });
-      console.log('❤️ Favorites: Removed', teacherId);
+      console.log('💔 Favorites: Removed', teacherId);
       return teacherId;
     } catch (error) {
       console.error('❌ Favorites: Remove error', error);
