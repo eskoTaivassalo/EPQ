@@ -10,7 +10,7 @@ import { useAuth } from '../../hooks/useAuth';
 import RecurringBookingModal from '../../components/RecurringBookingModal';
 import { useDispatch } from 'react-redux';
 import { createRecurringBooking } from '../../store/slices/bookingsSlice';
-import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, collectionGroup, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../../config/firebaseConfig';
 import { getRoleCollectionInfo } from '../../services/userDatabaseService';
 
@@ -243,14 +243,16 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       const startDate = new Date(bookedSlotData.slotStart);
       const interval = frequency === 'weekly' ? 7 : 14;
       
-      // Get teacher's available slots
+      // Get teacher's available slots using collectionGroup to search across hierarchical structure
       const availableSlotsQuery = query(
-        collection(db, 'availabilitySlots'),
+        collectionGroup(db, 'availabilitySlots'),
         where('teacherId', '==', bookedSlotData.teacherId),
         where('status', '==', 'available')
       );
       const availableSlotsSnap = await getDocs(availableSlotsQuery);
       const availableSlots = availableSlotsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+      
+      console.log('🔍 Pre-check: Found', availableSlots.length, 'available slots for teacher');
       
       // Check which dates have available slots
       let availableCount = 0;
@@ -284,26 +286,26 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       
       // Show confirmation with actual availability info
       const endTime = new Date(startDate.getTime() + 45 * 60 * 1000);
-      const frequencyText = frequency === 'weekly' ? 'viikoittain' : 'joka toinen viikko';
+      const frequencyText = frequency === 'weekly' ? 'weekly' : 'every two weeks';
       
-      let confirmMessage = `Ensimmäinen varaus:\n${startDate.toLocaleDateString('fi-FI')} klo ${startDate.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}\n\nAine: ${bookedSlotData.subject || 'N/A'}\nToistuvuus: ${frequencyText}\n\n`;
+      let confirmMessage = `First booking:\n${startDate.toLocaleDateString('en-US')} at ${startDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - ${endTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}\n\nSubject: ${bookedSlotData.subject || 'N/A'}\nFrequency: ${frequencyText}\n\n`;
       
       if (availableCount === numberOfWeeks) {
-        confirmMessage += `✅ Kaikki ${numberOfWeeks} varausta voidaan luoda.`;
+        confirmMessage += `✅ All ${numberOfWeeks} bookings can be created.`;
       } else if (availableCount > 0) {
-        confirmMessage += `⚠️ Vain ${availableCount}/${numberOfWeeks} varausta voidaan luoda.\nOpettajalla ei ole vapaita aikoja ${unavailableDates.length} päivämäärälle.`;
+        confirmMessage += `⚠️ Only ${availableCount}/${numberOfWeeks} bookings can be created.\nTeacher has no available slots for ${unavailableDates.length} dates.`;
       } else {
-        Alert.alert('Ei vapaita aikoja', 'Opettajalla ei ole vapaita aikoja yhdelläkään pyydetyllä päivämäärällä.');
+        Alert.alert('No Available Times', 'Teacher has no available slots for any of the requested dates.');
         return;
       }
       
       const ok = await new Promise(resolve => {
         Alert.alert(
-          'Vahvista toistuva varaus',
+          'Confirm Recurring Booking',
           confirmMessage,
           [
-            { text: 'Peruuta', style: 'cancel', onPress: () => resolve(false) },
-            { text: 'Luo varaukset', onPress: () => resolve(true) },
+            { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+            { text: 'Create Bookings', onPress: () => resolve(true) },
           ]
         );
       });
@@ -324,17 +326,17 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       // Show detailed results with all booked dates
       const { bookings, skippedBookings } = result;
       
-      let successMessage = `Luodut varaukset (${bookings.length} kpl):\n\n`;
+      let successMessage = `Created bookings (${bookings.length} total):\n\n`;
       bookings.forEach((booking, index) => {
         const date = new Date(booking.date);
-        successMessage += `${index + 1}. ${date.toLocaleDateString('fi-FI')} klo ${date.toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' })}\n`;
+        successMessage += `${index + 1}. ${date.toLocaleDateString('en-US')} at ${date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}\n`;
       });
       
       if (skippedBookings && skippedBookings.length > 0) {
-        successMessage += `\n⚠️ Ohitetut päivämäärät (${skippedBookings.length} kpl):\nOpettajalla ei ollut vapaita aikoja näille ajoille.`;
-        Alert.alert('Varaukset luotu 📅', successMessage);
+        successMessage += `\n⚠️ Skipped dates (${skippedBookings.length} total):\nTeacher had no available slots for these times.`;
+        Alert.alert('Bookings Created 📅', successMessage);
       } else {
-        Alert.alert('Onnistui! 🎉', successMessage);
+        Alert.alert('Success! 🎉', successMessage);
       }
       
       // Reload to show updated calendar

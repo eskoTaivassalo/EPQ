@@ -232,13 +232,16 @@ const RoleDashboard = ({ navigation }) => {
 
   const handleAcceptAll = async (recurringBookingId) => {
     try {
-      await dispatch(approveAllRecurringBookings({ recurringBookingId })).unwrap();
+      console.log('🔄 Starting Accept All for recurring booking:', recurringBookingId);
+      const result = await dispatch(approveAllRecurringBookings({ recurringBookingId })).unwrap();
+      console.log('✅ Accept All succeeded:', result);
       alert('✅ All recurring bookings accepted!');
       // Refresh bookings
       if (isProvider) {
         await dispatch(fetchTeacherBookings());
       }
     } catch (error) {
+      console.error('❌ Accept All failed:', error);
       alert('❌ Failed to accept recurring bookings: ' + error);
     }
   };

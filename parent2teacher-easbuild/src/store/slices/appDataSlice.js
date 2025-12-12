@@ -252,10 +252,10 @@ export const fetchParents = createAsyncThunk(
       
       console.log('📊 Redux: User authenticated, fetching parents...');
       
-      // Use collectionGroup to query all parents/students from hierarchical structure
-      // This finds all users/{userId}/students/{userId} documents
+      // Use collectionGroup to query all parents from hierarchical structure
+      // This finds all serviceTypes/education/parents/{userId} documents
       console.log('🔍 Redux: Fetching parents using collectionGroup query...');
-      const parentsQuery = collectionGroup(db, 'students');
+      const parentsQuery = collectionGroup(db, 'parents');
       const parentsSnapshot = await getDocs(parentsQuery);
       
       console.log(`📄 Redux: Found ${parentsSnapshot.docs.length} parent/student profiles`);

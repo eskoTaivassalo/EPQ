@@ -32,7 +32,7 @@ service cloud.firestore {
       // Notifications subcollection
       match /notifications/{notificationId} {
         allow read: if isOwner(userId);
-        allow write: if isAuthenticated(); // Anyone can create notifications for user
+        allow write: if isAuthenticated();
         allow delete: if isOwner(userId);
       }
     }
@@ -42,79 +42,51 @@ service cloud.firestore {
     // serviceTypes/{serviceType}/{collectionName}/{userId}
     // ========================================
     
-    // Role profiles (teachers, students, therapists, etc.)
+    // Role profiles (teachers, parents, therapists, etc.)
     match /serviceTypes/{serviceType}/{collectionName}/{userId} {
       allow read: if isAuthenticated();
       allow create: if isOwner(userId);
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isOwner(userId) || isAdmin();
       
-      // Messages subcollection (messages stored under sender's document)
+      // Messages subcollection
       match /messages/{messageId} {
-        // Allow read if user is sender, recipient, or any participant in the conversation
-        allow read: if isAuthenticated() && (
-          request.auth.uid == resource.data.senderId ||
-          request.auth.uid == resource.data.recipientId ||
-          request.auth.uid == resource.data.teacherId ||
-          request.auth.uid == resource.data.parentId
-        );
-        // Only the sender (owner of parent document) can create messages
-        allow create: if isAuthenticated() && (
-          request.auth.uid == userId ||
-          request.auth.uid == request.resource.data.senderId
-        );
-        // Allow update for sender or recipient (e.g., marking as read)
-        allow update: if isAuthenticated() && (
-          request.auth.uid == resource.data.senderId ||
-          request.auth.uid == resource.data.recipientId ||
-          request.auth.uid == resource.data.teacherId ||
-          request.auth.uid == resource.data.parentId
-        );
-        allow delete: if isAuthenticated() && request.auth.uid == resource.data.senderId;
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated();
+        allow update: if isAuthenticated();
+        allow delete: if isAuthenticated();
       }
       
       // Availability Slots subcollection
       match /availabilitySlots/{slotId} {
         allow read: if isAuthenticated();
         allow create: if isOwner(userId);
-        // Allow update if: owner, OR anyone can book/update available slots
         allow update: if isAuthenticated();
         allow delete: if isOwner(userId);
       }
       
       // Bookings subcollection
       match /bookings/{bookingId} {
-        // Allow read if: path owner, OR booking participant
-        allow read: if isAuthenticated() && (
-          isOwner(userId) || 
-          (resource != null && (
-            request.auth.uid == resource.data.teacherId || 
-            request.auth.uid == resource.data.parentId
-          ))
-        );
-        // Allow create for any authenticated user (for booking creation)
+        allow read: if isAuthenticated();
         allow create: if isAuthenticated();
-        // Allow update for participants
-        allow update: if isAuthenticated() && (
-          isOwner(userId) || 
-          (resource != null && (
-            request.auth.uid == resource.data.teacherId || 
-            request.auth.uid == resource.data.parentId
-          ))
-        );
+        allow update: if isAuthenticated();
         allow delete: if isOwner(userId) || isAdmin();
       }
       
       // Favorites subcollection
       match /favorites/{favoriteId} {
-        // Only the owner can read their favorites
         allow read: if isOwner(userId);
-        // Only the owner can add favorites
         allow create: if isOwner(userId);
-        // Only the owner can update favorites
         allow update: if isOwner(userId);
-        // Only the owner can delete favorites
         allow delete: if isOwner(userId);
+      }
+      
+      // Recurring Bookings subcollection
+      match /recurringBookings/{recurringId} {
+        allow read: if isAuthenticated();
+        allow create: if isOwner(userId);
+        allow update: if isAuthenticated();
+        allow delete: if isAuthenticated();
       }
     }
     
@@ -126,7 +98,7 @@ service cloud.firestore {
       allow read: if isAuthenticated();
     }
     
-    match /{path=**}/students/{studentId} {
+    match /{path=**}/parents/{parentId} {
       allow read: if isAuthenticated();
     }
     
@@ -140,43 +112,24 @@ service cloud.firestore {
     
     match /{path=**}/availabilitySlots/{slotId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated(); // Allow authenticated users to book slots
-    }
-    
-    match /{path=**}/bookings/{bookingId} {
-      allow read: if isAuthenticated() && (
-        resource == null ||
-        request.auth.uid == resource.data.teacherId || 
-        request.auth.uid == resource.data.parentId
-      );
       allow write: if isAuthenticated();
     }
     
-    // Messages collection group (for conversation queries)
+    match /{path=**}/bookings/{bookingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
     match /{path=**}/messages/{messageId} {
-      // Allow read if user is involved in the conversation
-      allow read: if isAuthenticated() && (
-        resource == null ||
-        request.auth.uid == resource.data.senderId ||
-        request.auth.uid == resource.data.recipientId ||
-        request.auth.uid == resource.data.teacherId ||
-        request.auth.uid == resource.data.parentId
-      );
-      // Create allowed if authenticated (handled by parent document rules)
+      allow read: if isAuthenticated();
       allow create: if isAuthenticated();
-      // Update allowed if participant
-      allow update: if isAuthenticated() && (
-        resource == null ||
-        request.auth.uid == resource.data.senderId ||
-        request.auth.uid == resource.data.recipientId ||
-        request.auth.uid == resource.data.teacherId ||
-        request.auth.uid == resource.data.parentId
-      );
-      // Delete only by sender
-      allow delete: if isAuthenticated() && (
-        resource != null &&
-        request.auth.uid == resource.data.senderId
-      );
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+    
+    match /{path=**}/recurringBookings/{recurringId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
     
     // ========================================

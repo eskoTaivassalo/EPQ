@@ -9,7 +9,7 @@
  * 
  * Examples:
  * serviceTypes/education/teachers/123 - Teacher profile
- * serviceTypes/education/students/123 - Student profile (parent)
+ * serviceTypes/education/parents/123 - Parent profile
  * serviceTypes/therapy/therapists/456 - Therapist profile
  * serviceTypes/therapy/clients/456 - Therapy client profile
  * serviceTypes/coaching/coaches/789 - Coach profile
@@ -44,8 +44,8 @@ export const getRoleCollectionInfo = (role) => {
     // Education
     'teacher': { serviceType: 'education', collection: 'teachers', isProvider: true },
     'service_provider': { serviceType: 'education', collection: 'teachers', isProvider: true },
-    'parent': { serviceType: 'education', collection: 'students', isProvider: false },
-    'client': { serviceType: 'education', collection: 'students', isProvider: false },
+    'parent': { serviceType: 'education', collection: 'parents', isProvider: false },
+    'client': { serviceType: 'education', collection: 'parents', isProvider: false },
     
     // Therapy
     'therapist': { serviceType: 'therapy', collection: 'therapists', isProvider: true },
@@ -56,7 +56,7 @@ export const getRoleCollectionInfo = (role) => {
     'athlete': { serviceType: 'coaching', collection: 'athletes', isProvider: false },
   };
   
-  return roleMap[role] || { serviceType: 'education', collection: 'students', isProvider: false };
+  return roleMap[role] || { serviceType: 'education', collection: 'parents', isProvider: false };
 };
 
 /**

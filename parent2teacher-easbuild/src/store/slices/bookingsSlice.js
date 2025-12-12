@@ -840,21 +840,32 @@ export const createRecurringBooking = createAsyncThunk(
       const teacherRoleInfo = getRoleCollectionInfo(providerRole);
       const parentRoleInfo = getRoleCollectionInfo(userRole);
       
-      // Create master recurring booking record
-      const recurringRef = await addDoc(collection(db, 'recurringBookings'), {
-        teacherId,
-        parentId,
-        dayOfWeek, // 0-6
-        timeSlot, // "17:00"
-        frequency, // "weekly" or "biweekly"
-        startDate: startDate.toISOString(),
-        numberOfWeeks,
-        notes: notes || '',
-        status: 'pending', // pending, accepted, declined
-        priorityStudent: parentId, // This student has priority for this time slot
-        exceptions: [], // Dates when student cannot attend
-        createdAt: serverTimestamp(),
-      });
+      // Create master recurring booking record under parent's document
+      // Path: serviceTypes/{serviceType}/{collection}/{parentId}/recurringBookings/{id}
+      const recurringRef = await addDoc(
+        collection(
+          db,
+          'serviceTypes',
+          parentRoleInfo.serviceType,
+          parentRoleInfo.collection,
+          parentId,
+          'recurringBookings'
+        ),
+        {
+          teacherId,
+          parentId,
+          dayOfWeek, // 0-6
+          timeSlot, // "17:00"
+          frequency, // "weekly" or "biweekly"
+          startDate: startDate.toISOString(),
+          numberOfWeeks,
+          notes: notes || '',
+          status: 'pending', // pending, accepted, declined
+          priorityStudent: parentId, // This student has priority for this time slot
+          exceptions: [], // Dates when student cannot attend
+          createdAt: serverTimestamp(),
+        }
+      );
       
       // Generate individual bookings
       const generatedBookings = [];
@@ -869,6 +880,16 @@ export const createRecurringBooking = createAsyncThunk(
       );
       const availableSlotsSnap = await getDocs(availableSlotsQuery);
       const availableSlots = availableSlotsSnap.docs.map(d => ({ id: d.id, ref: d.ref, ...d.data() }));
+      
+      console.log('🔍 Recurring booking: Found', availableSlots.length, 'available slots for teacher', teacherId);
+      if (availableSlots.length > 0) {
+        console.log('📅 First available slot:', {
+          start: availableSlots[0].start,
+          end: availableSlots[0].end,
+          status: availableSlots[0].status
+        });
+      }
+      console.log('📆 Looking for slots starting from:', startDate.toISOString());
       
       for (let i = 0; i < numberOfWeeks; i++) {
         const bookingDate = new Date(startDate);
@@ -1020,11 +1041,22 @@ export const createRecurringBooking = createAsyncThunk(
  */
 export const addExceptionDate = createAsyncThunk(
   'bookings/addExceptionDate',
-  async ({ recurringBookingId, exceptionDate, reason }, { rejectWithValue, dispatch }) => {
+  async ({ recurringBookingId, exceptionDate, reason, parentId, parentRole = 'parent' }, { rejectWithValue, dispatch }) => {
     try {
       if (!auth?.currentUser) throw new Error('Not authenticated');
       
-      const ref = doc(db, 'recurringBookings', recurringBookingId);
+      // Get parent's role info to construct correct path
+      const parentRoleInfo = getRoleCollectionInfo(parentRole);
+      
+      const ref = doc(
+        db,
+        'serviceTypes',
+        parentRoleInfo.serviceType,
+        parentRoleInfo.collection,
+        parentId,
+        'recurringBookings',
+        recurringBookingId
+      );
       const snap = await getDoc(ref);
       
       if (!snap.exists()) throw new Error('Recurring booking not found');
@@ -1096,6 +1128,7 @@ export const approveAllRecurringBookings = createAsyncThunk(
       if (!auth?.currentUser) throw new Error('Not authenticated');
       
       // Get all pending bookings for this recurring series
+      // Query returns bookings from both teacher and parent documents
       const q = query(
         collectionGroup(db, 'bookings'),
         where('recurringBookingId', '==', recurringBookingId),
@@ -1109,51 +1142,108 @@ export const approveAllRecurringBookings = createAsyncThunk(
         throw queryErr;
       }
       
-      // Approve each booking
+      console.log('📋 Found', snap.docs.length, 'booking documents (includes teacher and parent copies)');
+      
+      // Group bookings by bookingId to avoid duplicates
+      // Each booking exists in both teacher's and parent's documents
+      const bookingsByIdMap = new Map();
+      snap.docs.forEach(doc => {
+        const data = doc.data();
+        if (!bookingsByIdMap.has(data.bookingId)) {
+          bookingsByIdMap.set(data.bookingId, []);
+        }
+        bookingsByIdMap.get(data.bookingId).push({ doc, data });
+      });
+      
+      console.log('📊 Unique bookings to approve:', bookingsByIdMap.size);
+      
+      // Approve each booking (update both teacher and parent copies)
       const approvedBookings = [];
-      for (const bookingDoc of snap.docs) {
-        const bookingId = bookingDoc.id;
-        const bookingData = bookingDoc.data();
+      const failedBookings = [];
+      const bookings = Array.from(bookingsByIdMap.values());
+      
+      for (const bookingCopies of bookings) {
+        const bookingId = bookingCopies[0].data.bookingId;
+        const bookingData = bookingCopies[0].data;
+        
+        console.log('📝 Approving booking:', bookingId, '(', bookingCopies.length, 'copies)');
         
         const meetingUrl = `https://meet.jit.si/PTA-${bookingId}`;
         
         try {
-          // Update booking status
-          await updateDoc(bookingDoc.ref, {
-            status: 'accepted',
-            meetingProvider: 'jitsi',
-            meetingUrl,
-          });
+          // Update ALL copies of this booking (teacher's and parent's)
+          for (const { doc: bookingDoc } of bookingCopies) {
+            console.log('  ↳ Updating copy at:', bookingDoc.ref.path);
+            await updateDoc(bookingDoc.ref, {
+              status: 'accepted',
+              meetingProvider: 'jitsi',
+              meetingUrl,
+            });
+          }
+          
+          console.log('✅ All copies updated for booking:', bookingId);
           
           // Update corresponding availability slot to 'booked' status
           if (bookingData.slotId) {
             await updateAvailabilitySlot(bookingData.slotId, { status: 'booked' });
           }
+          
+          // Convert Firestore Timestamps to ISO strings for Redux serialization
+          const serializedData = { ...bookingData };
+          if (serializedData.createdAt?.toDate) {
+            serializedData.createdAt = serializedData.createdAt.toDate().toISOString();
+          }
+          if (serializedData.updatedAt?.toDate) {
+            serializedData.updatedAt = serializedData.updatedAt.toDate().toISOString();
+          }
+          
+          approvedBookings.push({
+            id: bookingId,
+            ...serializedData,
+            status: 'accepted',
+            meetingUrl: `https://meet.jit.si/PTA-${bookingId}`,
+          });
         } catch (updateErr) {
-          throw updateErr;
+          console.error('❌ Failed to update booking:', bookingId, 'Error:', updateErr.message);
+          failedBookings.push({ bookingId, error: updateErr.message });
+          // Don't throw - continue with other bookings
         }
-        
-        // Convert Firestore Timestamps to ISO strings for Redux serialization
-        const serializedData = { ...bookingData };
-        if (serializedData.createdAt?.toDate) {
-          serializedData.createdAt = serializedData.createdAt.toDate().toISOString();
-        }
-        if (serializedData.updatedAt?.toDate) {
-          serializedData.updatedAt = serializedData.updatedAt.toDate().toISOString();
-        }
-        
-        approvedBookings.push({
-          id: bookingId,
-          ...serializedData,
-          status: 'accepted',
-          meetingUrl,
-        });
+      }
+      
+      console.log(`✅ Successfully approved ${approvedBookings.length} bookings`);
+      if (failedBookings.length > 0) {
+        console.warn(`⚠️ Failed to approve ${failedBookings.length} bookings:`, failedBookings);
+      }
+      
+      // Throw error if no bookings were approved
+      if (approvedBookings.length === 0) {
+        throw new Error('Failed to approve any bookings. Check console for details.');
       }
       
       // Get recurring booking details for notification
+      // First, get parent ID from first booking
+      if (bookings.length === 0) {
+        throw new Error('No bookings found');
+      }
+      
+      const firstBookingData = bookings[0][0].data; // Get data from first copy of first booking
+      
+      // Get parent role info to construct correct path
+      const parentRoleInfo = getRoleCollectionInfo(firstBookingData.clientRole || 'parent');
+      
       let recurringDoc;
       try {
-        recurringDoc = await getDoc(doc(db, 'recurringBookings', recurringBookingId));
+        recurringDoc = await getDoc(
+          doc(
+            db,
+            'serviceTypes',
+            parentRoleInfo.serviceType,
+            parentRoleInfo.collection,
+            firstBookingData.parentId,
+            'recurringBookings',
+            recurringBookingId
+          )
+        );
       } catch (recurringErr) {
         throw recurringErr;
       }
@@ -1194,8 +1284,9 @@ export const approveAllRecurringBookings = createAsyncThunk(
         })();
       }
       
-      return { recurringBookingId, approvedBookings };
+      return { recurringBookingId, approvedBookings, failedBookings };
     } catch (err) {
+      console.error('❌ approveAllRecurringBookings error:', err);
       return rejectWithValue(err.message);
     }
   }
