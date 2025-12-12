@@ -33,8 +33,9 @@ export default function ClientsScreen({ navigation }) {
       const data = await listStudentsForTeacher(user.uid);
       setStudents(data);
       
-      // Fetch teacher's subjects from Firestore
-      const teacherDoc = await getDoc(doc(db, 'teachers', user.uid));
+      // Fetch teacher's subjects from Firestore using correct path
+      const serviceType = user?.serviceType || 'education';
+      const teacherDoc = await getDoc(doc(db, 'serviceTypes', serviceType, 'teachers', user.uid));
       if (teacherDoc.exists()) {
         const teacherData = teacherDoc.data();
         setTeacherSubjects(teacherData.subjects || []);

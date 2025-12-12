@@ -404,9 +404,11 @@ export async function sendSupportMessage({ userId, senderName, senderEmail, send
 
   // Find admin user documents (need UIDs for messages)
   const adminUserIds = [];
+  const serviceType = 'education'; // Default serviceType
+  
   for (const email of adminEmails) {
-    // Check teachers collection
-    const teachersRef = fsCollection(db, 'teachers');
+    // Check teachers collection in new structure
+    const teachersRef = fsCollection(db, 'serviceTypes', serviceType, 'teachers');
     const teachersQuery = query(teachersRef, where('email', '==', email));
     const teachersSnap = await fsGetDocs(teachersQuery);
     
@@ -415,8 +417,8 @@ export async function sendSupportMessage({ userId, senderName, senderEmail, send
       continue;
     }
 
-    // Check parents collection
-    const parentsRef = fsCollection(db, 'parents');
+    // Check parents collection in new structure
+    const parentsRef = fsCollection(db, 'serviceTypes', serviceType, 'parents');
     const parentsQuery = query(parentsRef, where('email', '==', email));
     const parentsSnap = await fsGetDocs(parentsQuery);
     

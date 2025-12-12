@@ -52,7 +52,8 @@ const WelcomeScreen = ({ navigation, route }) => {
     const fetchFeaturedTeachers = async () => {
       try {
         if (!db) return;
-        const q = query(collection(db, 'teachers'), limit(6));
+        const serviceType = 'education';
+        const q = query(collection(db, 'serviceTypes', serviceType, 'teachers'), limit(6));
         const snapshot = await getDocs(q);
         const teachers = snapshot.docs.map(doc => ({
           id: doc.id,

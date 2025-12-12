@@ -104,6 +104,18 @@ service cloud.firestore {
         );
         allow delete: if isOwner(userId) || isAdmin();
       }
+      
+      // Favorites subcollection
+      match /favorites/{favoriteId} {
+        // Only the owner can read their favorites
+        allow read: if isOwner(userId);
+        // Only the owner can add favorites
+        allow create: if isOwner(userId);
+        // Only the owner can update favorites
+        allow update: if isOwner(userId);
+        // Only the owner can delete favorites
+        allow delete: if isOwner(userId);
+      }
     }
     
     // ========================================

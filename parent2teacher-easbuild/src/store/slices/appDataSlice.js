@@ -6,7 +6,9 @@ import {
   setDoc, 
   getDoc, 
   updateDoc,
-  collectionGroup
+  deleteDoc,
+  collectionGroup,
+  serverTimestamp
 } from 'firebase/firestore';
 import { arrayUnion, arrayRemove } from 'firebase/firestore';
 import { db, auth } from '../../config/firebaseConfig';
@@ -366,9 +368,17 @@ export const createTeacherProfile = createAsyncThunk(
     try {
       console.log('📝 Redux: Creating teacher profile');
       
+      // Use authenticated user's ID instead of generating a new one
+      if (!auth?.currentUser?.uid) {
+        throw new Error('User must be authenticated to create profile');
+      }
+      
+      const userId = auth.currentUser.uid;
+      const serviceType = teacherData.serviceType || 'education';
+      
       const newTeacher = {
         ...teacherData,
-        id: `teacher_${Date.now()}`,
+        id: userId,
         createdAt: new Date().toISOString(),
         verified: false,
         rating: 0,
@@ -376,8 +386,9 @@ export const createTeacherProfile = createAsyncThunk(
       };
       
       if (db) {
-        await setDoc(doc(db, 'teachers', newTeacher.id), newTeacher);
-        console.log('✅ Redux: Teacher profile saved to Firestore');
+        // Save to correct hierarchical path: serviceTypes/{serviceType}/teachers/{userId}
+        await setDoc(doc(db, 'serviceTypes', serviceType, 'teachers', userId), newTeacher);
+        console.log('✅ Redux: Teacher profile saved to Firestore at serviceTypes/', serviceType, '/teachers/', userId);
       }
       
       return newTeacher;
@@ -395,15 +406,24 @@ export const createParentProfile = createAsyncThunk(
     try {
       console.log('📝 Redux: Creating parent profile');
       
+      // Use authenticated user's ID instead of generating a new one
+      if (!auth?.currentUser?.uid) {
+        throw new Error('User must be authenticated to create profile');
+      }
+      
+      const userId = auth.currentUser.uid;
+      const serviceType = parentData.serviceType || 'education';
+      
       const newParent = {
         ...parentData,
-        id: `parent_${Date.now()}`,
+        id: userId,
         createdAt: new Date().toISOString()
       };
       
       if (db) {
-        await setDoc(doc(db, 'parents', newParent.id), newParent);
-        console.log('✅ Redux: Parent profile saved to Firestore');
+        // Save to correct hierarchical path: serviceTypes/{serviceType}/parents/{userId}
+        await setDoc(doc(db, 'serviceTypes', serviceType, 'parents', userId), newParent);
+        console.log('✅ Redux: Parent profile saved to Firestore at serviceTypes/', serviceType, '/parents/', userId);
       }
       
       return newParent;
@@ -449,16 +469,16 @@ export const loadFavoritesForCurrentUser = createAsyncThunk(
       // Default serviceType
       const serviceType = user?.serviceType || 'education';
 
-      // Use correct hierarchical structure: serviceTypes/{serviceType}/{collectionName}/{userId}
-      const userRef = doc(db, 'serviceTypes', serviceType, collectionName, auth.currentUser.uid);
-      const snapshot = await getDoc(userRef);
-      if (!snapshot.exists()) {
-        console.log('❤️ Favorites: User doc not found, returning empty');
-        return [];
-      }
-      const data = snapshot.data() || {};
-      const favorites = data.favoriteTeacherIds || [];
-      console.log('❤️ Favorites: Loaded', favorites.length, 'favorites');
+      // Read from favorites subcollection: serviceTypes/{serviceType}/{collectionName}/{userId}/favorites
+      const favoritesRef = collection(db, 'serviceTypes', serviceType, collectionName, auth.currentUser.uid, 'favorites');
+      const snapshot = await getDocs(favoritesRef);
+      
+      const favorites = [];
+      snapshot.forEach(doc => {
+        favorites.push(doc.id); // Document ID is the teacherId
+      });
+      
+      console.log('❤️ Favorites: Loaded', favorites.length, 'favorites from subcollection');
       return favorites;
     } catch (error) {
       console.error('❌ Favorites: Load error', error);
@@ -494,22 +514,15 @@ export const addFavoriteTeacher = createAsyncThunk(
       // Default serviceType
       const serviceType = user?.serviceType || 'education';
       
-      // Use correct hierarchical structure: serviceTypes/{serviceType}/{collectionName}/{userId}
-      const userRef = doc(db, 'serviceTypes', serviceType, collectionName, auth.currentUser.uid);
+      // Save to favorites subcollection: serviceTypes/{serviceType}/{collectionName}/{userId}/favorites/{teacherId}
+      const favoriteRef = doc(db, 'serviceTypes', serviceType, collectionName, auth.currentUser.uid, 'favorites', teacherId);
       
-      // Check if document exists, if not create it first
-      const docSnap = await getDoc(userRef);
-      if (!docSnap.exists()) {
-        await setDoc(userRef, {
-          favoriteTeacherIds: [teacherId]
-        }, { merge: true });
-      } else {
-        await updateDoc(userRef, {
-          favoriteTeacherIds: arrayUnion(teacherId)
-        });
-      }
+      await setDoc(favoriteRef, {
+        teacherId: teacherId,
+        addedAt: serverTimestamp()
+      });
       
-      console.log('❤️ Favorites: Added', teacherId);
+      console.log('❤️ Favorites: Added', teacherId, 'to subcollection');
       return teacherId;
     } catch (error) {
       console.error('❌ Favorites: Add error', error);
@@ -545,12 +558,11 @@ export const removeFavoriteTeacher = createAsyncThunk(
       // Default serviceType
       const serviceType = user?.serviceType || 'education';
       
-      // Use correct hierarchical structure: serviceTypes/{serviceType}/{collectionName}/{userId}
-      const userRef = doc(db, 'serviceTypes', serviceType, collectionName, auth.currentUser.uid);
-      await updateDoc(userRef, {
-        favoriteTeacherIds: arrayRemove(teacherId)
-      });
-      console.log('💔 Favorites: Removed', teacherId);
+      // Delete from favorites subcollection: serviceTypes/{serviceType}/{collectionName}/{userId}/favorites/{teacherId}
+      const favoriteRef = doc(db, 'serviceTypes', serviceType, collectionName, auth.currentUser.uid, 'favorites', teacherId);
+      await deleteDoc(favoriteRef);
+      
+      console.log('💔 Favorites: Removed', teacherId, 'from subcollection');
       return teacherId;
     } catch (error) {
       console.error('❌ Favorites: Remove error', error);

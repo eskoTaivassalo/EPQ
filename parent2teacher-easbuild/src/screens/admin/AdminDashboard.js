@@ -59,16 +59,17 @@ const AdminDashboard = ({ navigation }) => {
   const loadDashboardData = async () => {
     try {
       setLoading(true);
+      const serviceType = 'education';
       
-      // Fetch teachers
-      const teachersSnapshot = await getDocs(collection(db, 'teachers'));
+      // Fetch teachers from new structure
+      const teachersSnapshot = await getDocs(collection(db, 'serviceTypes', serviceType, 'teachers'));
       const teachers = teachersSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
       }));
 
-      // Fetch parents
-      const parentsSnapshot = await getDocs(collection(db, 'parents'));
+      // Fetch parents from new structure
+      const parentsSnapshot = await getDocs(collection(db, 'serviceTypes', serviceType, 'parents'));
       const parents = parentsSnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
