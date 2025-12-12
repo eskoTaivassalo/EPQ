@@ -294,12 +294,9 @@ const AppNavigator = () => {
   // Keep loading visible when transitioning to authenticated state
   useEffect(() => {
     if (isAuthenticated && user) {
+      // Don't flash loading screen - keep current initialization state
+      // Navigation will happen smoothly without re-showing loading
       setHasBeenAuthenticated(true);
-      setIsInitializing(true);
-      const timer = setTimeout(() => {
-        setIsInitializing(false);
-      }, 1200); // Give time for Dashboard to mount and load data
-      return () => clearTimeout(timer);
     } else if (!isAuthenticated && !user) {
       // User logged out - clear loading state immediately
       setIsInitializing(false);
