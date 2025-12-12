@@ -295,6 +295,7 @@ export const ROLE_CONFIG = {
     
     // Signup form fields
     signupFields: [
+      { key: 'name', type: 'text', label: 'Full Name', required: true },
       { key: 'phoneNumber', type: 'phone', label: 'Phone Number', required: false },
       { key: 'childrenAges', type: 'text', label: 'Children Ages', required: false, placeholder: 'e.g. 8, 10, 12' },
       { key: 'subjectsNeeded', type: 'tags', label: 'Subjects Needed', required: false },

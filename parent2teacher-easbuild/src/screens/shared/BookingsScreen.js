@@ -66,7 +66,12 @@ const BookingsScreen = ({ navigation }) => {
     if (bookings.length > 0) {
       console.log('📋 First booking sample:', JSON.stringify(bookings[0], null, 2));
     }
-  }, [bookings]);
+    console.log('📋 Teachers in appData:', teachers.length);
+    console.log('📋 Parents in appData:', parents.length);
+    if (parents.length > 0) {
+      console.log('📋 First parent:', JSON.stringify(parents[0], null, 2));
+    }
+  }, [bookings, teachers, parents]);
 
   // Reload bookings when screen comes into focus
   useFocusEffect(
@@ -99,10 +104,12 @@ const BookingsScreen = ({ navigation }) => {
       const teacher = teachers.find(t => t.id === booking.teacherId);
       return teacher?.name || teacher?.displayName || 'Teacher';
     } else {
-      // Get parent name
+      // Get parent name - try booking first, then appData parents, then users collection would be needed
       if (booking.parentName) return booking.parentName;
       const parent = parents.find(p => p.id === booking.parentId);
-      return parent?.name || parent?.displayName || 'Parent';
+      // Parents collection might not have name, would need to fetch from users collection
+      // For now, show "Student" as more appropriate fallback than "Parent"
+      return parent?.name || parent?.displayName || `Student (${booking.parentId?.substring(0, 6)}...)`;
     }
   };
 
