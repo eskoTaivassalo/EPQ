@@ -41,8 +41,10 @@ export default function SettingsScreen({ navigation }) {
       const canonicalRole = getCanonicalRole(user?.role || user?.type || user?.userType);
       const roleConfig = ROLE_CONFIG[canonicalRole];
       const collectionName = roleConfig?.collectionName || 'users';
+      const serviceType = user?.serviceType || 'education';
       
-      const userDocRef = doc(db, collectionName, user.uid);
+      // Use correct hierarchical path
+      const userDocRef = doc(db, 'serviceTypes', serviceType, collectionName, user.uid);
       const userDoc = await getDoc(userDocRef);
       
       if (userDoc.exists()) {
@@ -55,6 +57,7 @@ export default function SettingsScreen({ navigation }) {
       }
     } catch (error) {
       console.error('Error loading notification settings:', error);
+      // Don't show alert, just use defaults
     } finally {
       setLoading(false);
     }
@@ -65,8 +68,10 @@ export default function SettingsScreen({ navigation }) {
       const canonicalRole = getCanonicalRole(user?.role || user?.type || user?.userType);
       const roleConfig = ROLE_CONFIG[canonicalRole];
       const collectionName = roleConfig?.collectionName || 'users';
+      const serviceType = user?.serviceType || 'education';
       
-      const userDocRef = doc(db, collectionName, user.uid);
+      // Use correct hierarchical path
+      const userDocRef = doc(db, 'serviceTypes', serviceType, collectionName, user.uid);
       
       await setDoc(userDocRef, {
         notificationPreferences: settings,
