@@ -9,6 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { listStudentsForTeacher } from '../../services/availabilityService';
 import { db } from '../../config/firebaseConfig';
 import FeedbackModal from '../../components/FeedbackModal';
+import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 
 /**
  * ClientsScreen - Lists clients (students/parents) who have bookings with this provider.
@@ -16,6 +17,8 @@ import FeedbackModal from '../../components/FeedbackModal';
  */
 export default function ClientsScreen({ navigation }) {
   const { user } = useAuth();
+  const role = getCanonicalRole(user?.role || user?.userType);
+  const roleColors = getRoleColors(role);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]); // TODO: rename to "clients"
@@ -75,7 +78,7 @@ export default function ClientsScreen({ navigation }) {
         style={styles.cardMain}
         onPress={() => openProfileModal(item)}
       >
-        <View style={styles.avatar}> 
+        <View style={[styles.avatar, { backgroundColor: roleColors.primary }]}> 
           <Ionicons name="person" size={30} color={colors.white} />
         </View>
         <View style={styles.cardContent}>
@@ -94,8 +97,8 @@ export default function ClientsScreen({ navigation }) {
         style={styles.feedbackButton}
         onPress={() => openFeedbackModal(item)}
       >
-        <Ionicons name="chatbubble-ellipses" size={20} color={colors.primary} />
-        <Text style={styles.feedbackButtonText}>Give Feedback</Text>
+        <Ionicons name="chatbubble-ellipses" size={20} color={roleColors.primary} />
+        <Text style={[styles.feedbackButtonText, { color: roleColors.primary }]}>Give Feedback</Text>
       </TouchableOpacity>
     </View>
   );
@@ -103,7 +106,7 @@ export default function ClientsScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <WatercolorBackground />
-      <View style={styles.header}> 
+      <View style={[styles.header, { backgroundColor: roleColors.primary }]}> 
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color={colors.white} />
         </TouchableOpacity>
@@ -113,7 +116,7 @@ export default function ClientsScreen({ navigation }) {
 
       {loading && (
         <View style={styles.center}> 
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={roleColors.primary} />
           <Text style={styles.loadingText}>Loading students...</Text>
         </View>
       )}
@@ -122,7 +125,7 @@ export default function ClientsScreen({ navigation }) {
         <View style={styles.center}> 
           <Ionicons name="warning" size={50} color={colors.error} />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={load}>
+          <TouchableOpacity style={[styles.retryBtn, { backgroundColor: roleColors.primary }]} onPress={load}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -166,7 +169,7 @@ export default function ClientsScreen({ navigation }) {
                 <>
                   {/* Basic Info */}
                   <View style={styles.profileSection}>
-                    <View style={styles.profileAvatar}>
+                    <View style={[styles.profileAvatar, { backgroundColor: roleColors.primary }]}>
                       <Ionicons name="person" size={50} color={colors.white} />
                     </View>
                     <Text style={styles.profileName}>
@@ -246,7 +249,7 @@ export default function ClientsScreen({ navigation }) {
             </ScrollView>
 
             <TouchableOpacity 
-              style={styles.closeButton} 
+              style={[styles.closeButton, { backgroundColor: roleColors.primary }]} 
               onPress={closeProfileModal}
             >
               <Text style={styles.closeButtonText}>Close</Text>
@@ -275,13 +278,24 @@ export default function ClientsScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.secondary },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    paddingHorizontal: 16, 
+    paddingVertical: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   backBtn: { padding: 6 },
   headerTitle: { color: colors.white, fontSize: 18, fontWeight: '700' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30 },
   loadingText: { marginTop: 12, fontSize: 14, color: colors.textSecondary },
   errorText: { marginTop: 12, fontSize: 14, color: colors.error, textAlign: 'center' },
-  retryBtn: { marginTop: 16, backgroundColor: colors.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
   retryText: { color: colors.white, fontWeight: '600' },
   emptyTitle: { marginTop: 16, fontSize: 16, fontWeight: '600', color: colors.text },
   emptyText: { marginTop: 6, fontSize: 13, color: colors.textSecondary, textAlign: 'center' },
@@ -302,7 +316,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 14,
   },
-  avatar: { width: 50, height: 50, borderRadius: 25, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
+  avatar: { width: 50, height: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center', marginRight: 14 },
   cardContent: { flex: 1 },
   name: { fontSize: 16, fontWeight: '600', color: colors.text },
   meta: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
@@ -320,7 +334,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 14,
     fontWeight: '600',
-    color: colors.primary,
   },
   modalOverlay: {
     flex: 1,
@@ -367,7 +380,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -403,7 +415,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   closeButton: {
-    backgroundColor: colors.primary,
     padding: 16,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,

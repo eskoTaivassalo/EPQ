@@ -7,6 +7,7 @@ import { db } from '../../config/firebaseConfig';
 import { useAuth } from '../../hooks/useAuth';
 import WatercolorBackground from '../../components/WatercolorBackground';
 import { colors, commonStyles } from '../../styles/commonStyles';
+import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 
 /**
  * ManageSlotsScreen - Teacher can view and delete their availability slots
@@ -14,6 +15,8 @@ import { colors, commonStyles } from '../../styles/commonStyles';
  */
 export default function ManageSlotsScreen({ navigation }) {
   const { user } = useAuth();
+  const role = getCanonicalRole(user?.role || user?.userType);
+  const roleColors = getRoleColors(role);
   const [allSlots, setAllSlots] = useState([]);
   const [slots, setSlots] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -313,7 +316,7 @@ export default function ManageSlotsScreen({ navigation }) {
       <WatercolorBackground />
       
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color={colors.white} />
         </TouchableOpacity>
@@ -336,7 +339,7 @@ export default function ManageSlotsScreen({ navigation }) {
       {/* Filter tabs */}
       <View style={styles.filterContainer}>
         <TouchableOpacity
-          style={[styles.filterTab, filter === 'upcoming' && styles.filterTabActive]}
+          style={[styles.filterTab, filter === 'upcoming' && { ...styles.filterTabActive, backgroundColor: roleColors.primary }]}
           onPress={() => setFilter('upcoming')}
         >
           <Text style={[styles.filterText, filter === 'upcoming' && styles.filterTextActive]}>
@@ -344,7 +347,7 @@ export default function ManageSlotsScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filterTab, filter === 'booked' && styles.filterTabActive]}
+          style={[styles.filterTab, filter === 'booked' && { ...styles.filterTabActive, backgroundColor: roleColors.primary }]}
           onPress={() => setFilter('booked')}
         >
           <Text style={[styles.filterText, filter === 'booked' && styles.filterTextActive]}>
@@ -352,7 +355,7 @@ export default function ManageSlotsScreen({ navigation }) {
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.filterTab, filter === 'all' && styles.filterTabActive]}
+          style={[styles.filterTab, filter === 'all' && { ...styles.filterTabActive, backgroundColor: roleColors.primary }]}
           onPress={() => setFilter('all')}
         >
           <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
@@ -375,7 +378,7 @@ export default function ManageSlotsScreen({ navigation }) {
                filter === 'booked' ? 'No booked slots' : 'No slots found'}
             </Text>
             <TouchableOpacity
-              style={styles.createButton}
+              style={[styles.createButton, { backgroundColor: roleColors.primary }]}
               onPress={() => navigation.navigate('Availability')}
             >
               <Text style={styles.createButtonText}>Create Time Slots</Text>
@@ -401,7 +404,11 @@ const styles = StyleSheet.create({
     ...commonStyles.rowBetween,
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: colors.secondary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerTitle: {
     fontSize: 18,
@@ -424,7 +431,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   filterTabActive: {
-    backgroundColor: colors.primary,
+    // backgroundColor applied via inline style
   },
   filterText: {
     fontSize: 14,
@@ -486,6 +493,7 @@ const styles = StyleSheet.create({
     ...commonStyles.button,
     paddingHorizontal: 24,
     paddingVertical: 12,
+    // backgroundColor applied via inline style
   },
   createButtonText: {
     color: colors.white,
