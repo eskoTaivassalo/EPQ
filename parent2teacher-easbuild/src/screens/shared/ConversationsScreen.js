@@ -8,10 +8,13 @@ import { useAuth } from '../../hooks/useAuth';
 import { listConversationsForUser } from '../../services/communicationService';
 import { db } from '../../config/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
+import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
 
 export default function ConversationsScreen({ navigation, route }) {
   const { user } = useAuth();
   const role = (user?.userType || user?.type) === 'teacher' ? 'teacher' : 'parent';
+  const canonicalRole = getCanonicalRole(role);
+  const roleColors = getRoleColors(canonicalRole);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [items, setItems] = useState([]);
@@ -42,13 +45,26 @@ export default function ConversationsScreen({ navigation, route }) {
       // Load names BEFORE setting items to avoid showing IDs
       const ids = Array.from(new Set(rows.map(r => r.counterpartId).filter(Boolean)));
       const map = {};
-      const collectionName = role === 'teacher' ? 'students' : 'teachers';
+      const collectionName = role === 'teacher' ? 'parents' : 'teachers';
       
       await Promise.all(ids.map(async (id) => {
         try {
+          // Try new structure first
           const snap = await getDoc(doc(db, 'serviceTypes', 'education', collectionName, id));
           const data = snap.exists() ? snap.data() : null;
-          map[id] = data?.name || data?.fullName || data?.displayName || id;
+          
+          // If not found, try old 'users' collection as fallback
+          if (!data) {
+            const userSnap = await getDoc(doc(db, 'users', id));
+            if (userSnap.exists()) {
+              const userData = userSnap.data();
+              map[id] = userData?.name || userData?.fullName || userData?.displayName || id;
+            } else {
+              map[id] = id;
+            }
+          } else {
+            map[id] = data?.name || data?.fullName || data?.displayName || id;
+          }
         } catch (err) {
           console.warn('Failed to load name for', id, err);
           map[id] = id;
@@ -106,7 +122,7 @@ export default function ConversationsScreen({ navigation, route }) {
           }
         }}
       >
-        <View style={[styles.avatar, isSupport && styles.supportAvatar]}>
+        <View style={[styles.avatar, isSupport && styles.supportAvatar, !isSupport && { backgroundColor: roleColors.primary }]}>
           <Ionicons name={categoryIcon} size={24} color={colors.white} />
         </View>
         <View style={{ flex: 1 }}>
@@ -136,7 +152,7 @@ export default function ConversationsScreen({ navigation, route }) {
   return (
     <SafeAreaView style={commonStyles.safeArea}>
       <WatercolorBackground />
-      <View style={styles.header}>
+      <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color={colors.white} />
         </TouchableOpacity>
@@ -161,13 +177,22 @@ export default function ConversationsScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  header: { ...commonStyles.rowBetween, paddingHorizontal: 16, paddingVertical: 12, backgroundColor: colors.secondary },
+  header: { 
+    ...commonStyles.rowBetween, 
+    paddingHorizontal: 16, 
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
   backBtn: { padding: 6 },
   headerTitle: { color: colors.white, fontSize: 18, fontWeight: '700' },
   emptyText: { ...commonStyles.emptyStateText, marginTop: 8 },
   card: { ...commonStyles.card, ...commonStyles.row, marginBottom: 10 },
   unreadCard: { backgroundColor: '#FFFBEB', borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
-  avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  avatar: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   supportAvatar: { backgroundColor: '#F59E0B' },
   name: { fontSize: 15, fontWeight: '600', color: colors.text },
   subject: { fontSize: 13, fontWeight: '500', color: colors.text, marginTop: 2 },
