@@ -40,7 +40,6 @@ export async function requestNotificationPermissions() {
 
     return true;
   } catch (error) {
-    console.error('❌ Error requesting notification permissions:', error);
     return false;
   }
 }
@@ -54,10 +53,6 @@ export async function requestNotificationPermissions() {
 export async function scheduleBookingReminder(booking, userRole = 'parent') {
   try {
     // CRITICAL: Must use booking.start for accurate time
-    if (!booking.start) {
-      console.warn(`⚠️ Booking ${booking.id} missing 'start' field, using 'date' as fallback (may be inaccurate)`);
-    }
-    
     const bookingDate = new Date(booking.start || booking.date);
     const now = new Date();
     
@@ -130,7 +125,6 @@ export async function scheduleBookingReminder(booking, userRole = 'parent') {
     return scheduledIds;
 
   } catch (error) {
-    console.error('❌ Error scheduling booking reminder:', error);
     return null;
   }
 }
@@ -161,7 +155,6 @@ export async function scheduleAllUpcomingReminders(bookings, userRole) {
     
     return successCount;
   } catch (error) {
-    console.error('❌ Error scheduling all reminders:', error);
     return 0;
   }
 }
@@ -174,7 +167,7 @@ export async function cancelNotification(notificationId) {
   try {
     await Notifications.cancelScheduledNotificationAsync(notificationId);
   } catch (error) {
-    console.error('❌ Error cancelling notification:', error);
+    // Failed to cancel notification
   }
 }
 
@@ -196,7 +189,7 @@ export async function sendImmediateNotification(title, body, data = {}) {
       trigger: null, // immediate
     });
   } catch (error) {
-    console.error('❌ Error sending immediate notification:', error);
+    // Failed to send notification
   }
 }
 

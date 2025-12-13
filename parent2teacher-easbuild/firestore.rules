@@ -122,6 +122,28 @@ service cloud.firestore {
                           isAdmin());
       }
       
+      // Messages subcollection under providers (for support/teacher-parent conversations)
+      match /messages/{messageId} {
+        // Sender and recipient can read messages
+        allow read: if isAuthenticated() && 
+                       (resource.data.senderId == request.auth.uid || 
+                        resource.data.recipientId == request.auth.uid ||
+                        isAdmin());
+        
+        // Authenticated users can create messages where they are the sender
+        allow create: if isAuthenticated() && 
+                         request.resource.data.senderId == request.auth.uid;
+        
+        // Recipient can mark as read
+        allow update: if isAuthenticated() && 
+                         resource.data.recipientId == request.auth.uid &&
+                         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+        
+        // Sender can delete
+        allow delete: if isAuthenticated() && 
+                         resource.data.senderId == request.auth.uid;
+      }
+
       // Bookings subcollection under providers
       match /bookings/{bookingId} {
         allow read: if isAuthenticated() && 
@@ -175,17 +197,25 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
     
-    // Allow collectionGroup queries for messages
+    // Allow collectionGroup queries for messages from serviceTypes providers
     match /{path=**}/messages/{messageId} {
       allow read: if isAuthenticated() && 
                      (resource.data.senderId == request.auth.uid || 
-                      resource.data.recipientId == request.auth.uid);
+                      resource.data.recipientId == request.auth.uid ||
+                      resource.data.teacherId == request.auth.uid ||
+                      resource.data.parentId == request.auth.uid ||
+                      isAdmin());
       allow create: if isAuthenticated() && 
                        request.resource.data.senderId == request.auth.uid;
       allow update: if isAuthenticated() && 
-                       resource.data.recipientId == request.auth.uid;
+                       (resource.data.recipientId == request.auth.uid ||
+                        resource.data.parentId == request.auth.uid ||
+                        resource.data.teacherId == request.auth.uid) &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
       allow delete: if isAuthenticated() && 
-                       resource.data.senderId == request.auth.uid;
+                       (resource.data.senderId == request.auth.uid ||
+                        resource.data.teacherId == request.auth.uid ||
+                        resource.data.parentId == request.auth.uid);
     }
     
     // ====================================

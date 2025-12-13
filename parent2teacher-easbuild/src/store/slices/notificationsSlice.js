@@ -56,7 +56,6 @@ export const fetchNotifications = createAsyncThunk(
         // Fallback to DB query if not in Redux
         const profile = await userDatabaseService.getUserMainProfile(userId);
         if (!profile || !profile.primaryRole) {
-          console.warn(`No profile found for userId ${userId}`);
           return [];
         }
         serviceType = userDatabaseService.getRoleCollectionInfo(profile.primaryRole).serviceType;
@@ -94,12 +93,7 @@ export const createNotification = createAsyncThunk(
     try {
       
       if (!notificationData.userId) {
-        console.error('[createNotification] ❌ ERROR: No userId specified in notification data!');
         throw new Error('Notification must have a userId (recipient)');
-      }
-      
-      if (notificationData.userId === auth?.currentUser?.uid) {
-        console.warn('[createNotification] ⚠️ WARNING: Creating notification for SELF (sender = receiver). This is OK for testing but may indicate a bug.');
       }
       
       // Get user profile to determine collection
@@ -109,8 +103,6 @@ export const createNotification = createAsyncThunk(
       }
       
       const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(profile.primaryRole);
-      console.log('🔔 Creating notification at path:', `serviceTypes/${serviceType}/${collectionName}/${notificationData.userId}/notifications`);
-      console.log('🔔 Profile role:', profile.primaryRole, 'serviceType:', serviceType, 'collection:', collectionName);
       
       // Generate notification ID
       const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -141,8 +133,6 @@ export const createNotification = createAsyncThunk(
         createdAt: new Date().toISOString()
       };
     } catch (error) {
-      console.error('[createNotification] ❌ Error creating notification:', error);
-      console.error('[createNotification] Notification data was:', notificationData);
       throw error;
     }
   }
@@ -153,7 +143,6 @@ export const markAsRead = createAsyncThunk(
   'notifications/markAsRead',
   async (notificationId) => {
     try {
-      console.log('📖 markAsRead called with notificationId:', notificationId);
       
       const userId = auth?.currentUser?.uid;
       if (!userId) throw new Error('Not authenticated');
@@ -166,22 +155,15 @@ export const markAsRead = createAsyncThunk(
       
       const { serviceType, collection: collectionName } = userDatabaseService.getRoleCollectionInfo(profile.primaryRole);
       
-      console.log('👤 Current userId:', userId);
-      console.log('📍 Document path:', `serviceTypes/${serviceType}/${collectionName}/${userId}/notifications/${notificationId}`);
-      
       const ref = doc(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications', notificationId);
       const snap = await getDoc(ref);
       if (!snap.exists()) {
-        console.warn('[notifications] ⚠️ markAsRead skipped: doc does not exist', notificationId);
         return notificationId;
       }
       
-      console.log('📄 Notification found, updating read status...');
       await updateDoc(ref, { read: true });
-      console.log('✅ Notification marked as read successfully');
       return notificationId;
     } catch (error) {
-      console.error('❌ Error marking notification as read:', error);
       throw error;
     }
   }
@@ -210,7 +192,6 @@ export const markAllAsRead = createAsyncThunk(
       await Promise.all(updates);
       return snapshot.docs.map(doc => doc.id);
     } catch (error) {
-      console.error('Error marking all as read:', error);
       throw error;
     }
   }
@@ -231,7 +212,6 @@ export const deleteNotification = createAsyncThunk(
       await deleteDoc(doc(db, 'serviceTypes', serviceType, collectionName, userId, 'notifications', notificationId));
       return notificationId;
     } catch (error) {
-      console.error('Error deleting notification:', error);
       throw error;
     }
   }
@@ -260,7 +240,6 @@ export const clearReadNotifications = createAsyncThunk(
       await Promise.all(deletions);
       return snapshot.docs.map(doc => doc.id);
     } catch (error) {
-      console.error('Error clearing read notifications:', error);
       throw error;
     }
   }
@@ -296,7 +275,6 @@ export const deleteOldNotifications = createAsyncThunk(
       await Promise.all(deletions);
       return oldDocs.map(doc => doc.id);
     } catch (error) {
-      console.error('Error deleting old notifications:', error);
       throw error;
     }
   }
@@ -374,8 +352,7 @@ const notificationsSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // Fetch notifications
-      .astate.lastFetch = Date.now();
-        ddCase(fetchNotifications.pending, (state) => {
+      .addCase(fetchNotifications.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
@@ -384,6 +361,7 @@ const notificationsSlice = createSlice({
         state.notifications = action.payload;
         const unreadCount = action.payload.filter(n => !n.read).length;
         state.unreadCount = unreadCount;
+        state.lastFetch = Date.now(); // Update cache timestamp
       })
       .addCase(fetchNotifications.rejected, (state, action) => {
         state.loading = false;

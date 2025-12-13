@@ -41,7 +41,6 @@ const FeedbackScreen = ({ navigation }) => {
       const data = await listFeedbackForUser(user.uid, role);
       setFeedbacks(data);
     } catch (error) {
-      console.error('Error loading feedbacks:', error);
       Alert.alert('Error', 'Failed to load feedback');
     } finally {
       setLoading(false);
@@ -70,7 +69,6 @@ const FeedbackScreen = ({ navigation }) => {
               setFeedbacks(prev => prev.filter(f => f.id !== feedback.id));
               Alert.alert('Success', 'Feedback deleted');
             } catch (error) {
-              console.error('Error deleting feedback:', error);
               Alert.alert('Error', 'Failed to delete feedback');
             }
           },
@@ -89,7 +87,7 @@ const FeedbackScreen = ({ navigation }) => {
         prev.map(f => f.id === feedback.id ? { ...f, isRead: true } : f)
       );
     } catch (error) {
-      console.error('Error marking feedback as read:', error);
+      // Failed to mark as read
     }
   };
 

@@ -32,13 +32,12 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
       
       // 🧪 Jos forceShow = true, näytä aina (testaus)
       if (forceShow) {
-        console.log('🧪 CookieConsentBanner: forceShow enabled, showing banner');
         setShowBanner(true);
       } else {
         setShowBanner(data.showBanner);
       }
     } catch (error) {
-      console.error('Error initializing consent banner:', error);
+      // Error initializing consent banner
     } finally {
       setLoading(false);
     }
@@ -46,51 +45,39 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
 
   const handleAcceptAll = async () => {
     try {
-      console.log('🟢 handleAcceptAll called');
       const allConsents = {};
       bannerData?.consentTypes.forEach(type => {
         allConsents[type.type] = true;
       });
 
       await GDPRService.saveConsentSettings(allConsents);
-      console.log('✅ Consents saved:', allConsents);
       
       setShowBanner(false);
-      console.log('🔴 setShowBanner(false) called');
       
       if (onConsentGiven) {
-        console.log('📞 Calling onConsentGiven callback');
         onConsentGiven(allConsents);
-      } else {
-        console.warn('⚠️ onConsentGiven callback is undefined!');
       }
     } catch (error) {
-      console.error('Error accepting all consents:', error);
+      // Error accepting all consents
     }
   };
 
   const handleRejectOptional = async () => {
     try {
-      console.log('🟡 handleRejectOptional called');
       const minimalConsents = {};
       bannerData?.consentTypes.forEach(type => {
         minimalConsents[type.type] = type.required;
       });
 
       await GDPRService.saveConsentSettings(minimalConsents);
-      console.log('✅ Minimal consents saved:', minimalConsents);
       
       setShowBanner(false);
-      console.log('🔴 setShowBanner(false) called');
       
       if (onConsentGiven) {
-        console.log('📞 Calling onConsentGiven callback');
         onConsentGiven(minimalConsents);
-      } else {
-        console.warn('⚠️ onConsentGiven callback is undefined!');
       }
     } catch (error) {
-      console.error('Error rejecting optional consents:', error);
+      // Error rejecting optional consents
     }
   };
 
@@ -101,7 +88,7 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
       setShowDetails(false);
       onConsentGiven?.(consents);
     } catch (error) {
-      console.error('Error saving custom consents:', error);
+      // Error saving custom consents
     }
   };
 

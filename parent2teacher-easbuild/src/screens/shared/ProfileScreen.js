@@ -153,7 +153,6 @@ const ProfileScreen = ({ navigation }) => {
       }
       hasLoadedRef.current = true;
     } catch (error) {
-      console.error('Error loading profile:', error);
       Alert.alert('Error', 'Failed to load profile');
     } finally {
       setLoading(false);
@@ -243,7 +242,6 @@ const ProfileScreen = ({ navigation }) => {
       setIsEditing(false);
       await loadProfile(); // Lataa uudelleen
     } catch (error) {
-      console.error('Error saving profile:', error);
       Alert.alert('Error', 'Failed to save profile');
     } finally {
       setSaving(false);
@@ -265,7 +263,6 @@ const ProfileScreen = ({ navigation }) => {
 
     // Muuten lataa paikallinen kuva Firebase Storageen
     try {
-      console.log('📤 Uploading image to Firebase Storage...');
       setSaving(true);
       
       const downloadURL = await imagePickerService.uploadImage(
@@ -274,12 +271,10 @@ const ProfileScreen = ({ navigation }) => {
         `profile_${Date.now()}.jpg`
       );
       
-      console.log('✅ Image uploaded successfully:', downloadURL);
       setProfileData(prev => ({ ...prev, photoURL: downloadURL }));
       
       Alert.alert('Success', 'Profile image uploaded');
     } catch (error) {
-      console.error('❌ Error uploading image:', error);
       Alert.alert('Error', 'Image upload failed: ' + error.message);
     } finally {
       setSaving(false);

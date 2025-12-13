@@ -125,7 +125,6 @@ export const fetchTeachers = createAsyncThunk(
       if (state.teachersLastFetch && 
           Date.now() - state.teachersLastFetch < cacheTimeout &&
           state.teachers.length > 0) {
-        console.log('📊 Redux: Using cached teachers data');
         return state.teachers;
       }
       
@@ -135,17 +134,13 @@ export const fetchTeachers = createAsyncThunk(
       
       // Tarkista autentikointi
       if (!auth.currentUser) {
-        console.log('⚠️ Redux: User not authenticated, returning empty array');
         return [];
       }
       
       // Use collectionGroup to query all teachers from hierarchical structure
       // This finds all users/{userId}/teachers/{userId} documents
-      console.log('🔍 Redux: Fetching teachers using collectionGroup query...');
       const teachersQuery = collectionGroup(db, 'teachers');
       const teachersSnapshot = await getDocs(teachersQuery);
-      
-      console.log(`📄 Redux: Found ${teachersSnapshot.docs.length} teacher profiles`);
       
       let rawTeachers = teachersSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -174,7 +169,6 @@ export const fetchTeachers = createAsyncThunk(
         const isSameId = currentUserId && teacherId && teacherId === currentUserId;
         
         if (isSameEmail || isSameId) {
-          console.log(`🚫 Redux: Filtered out current user's teacher profile: ${teacherId}`);
           return false;
         }
         
@@ -207,17 +201,13 @@ export const fetchTeachers = createAsyncThunk(
         const exists = acc.find(item => item.id === current.id);
         if (!exists) {
           acc.push(current);
-        } else {
-          console.log(`🔄 Redux: Removed duplicate teacher: ${current.id}`);
         }
         return acc;
       }, []);
 
-      console.log(`✅ Redux: Returning ${uniqueTeachers.length} unique teachers (from ${teachersData.length} total)`);
       return uniqueTeachers;
       
     } catch (error) {
-      console.error('❌ Redux: Error fetching teachers:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -246,15 +236,10 @@ export const fetchParents = createAsyncThunk(
         return [];
       }
       
-      console.log('📊 Redux: User authenticated, fetching parents...');
-      
       // Use collectionGroup to query all parents from hierarchical structure
       // This finds all serviceTypes/education/parents/{userId} documents
-      console.log('🔍 Redux: Fetching parents using collectionGroup query...');
       const parentsQuery = collectionGroup(db, 'parents');
       const parentsSnapshot = await getDocs(parentsQuery);
-      
-      console.log(`📄 Redux: Found ${parentsSnapshot.docs.length} parent/student profiles`);
       
       const parentsData = parentsSnapshot.docs.map(doc => {
         const data = doc.data();
@@ -273,7 +258,6 @@ export const fetchParents = createAsyncThunk(
       return parentsData;
       
     } catch (error) {
-      console.error('❌ Redux: Error fetching parents:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -283,14 +267,12 @@ export const searchTeachers = createAsyncThunk(
   'appData/searchTeachers',
   async ({ query, filters }, { getState, dispatch, rejectWithValue }) => {
     try {
-      console.log('🔍 Redux: Searching teachers with query:', query);
       
       const state = getState().appData;
       let teachersToSearch = state.teachers;
       
       // If no teachers loaded, fetch them first from Firebase
       if (teachersToSearch.length === 0) {
-        console.log('🔍 Redux: No teachers loaded, fetching from Firebase first...');
         const fetchResult = await dispatch(fetchTeachers()).unwrap();
         teachersToSearch = fetchResult;
       }
@@ -347,11 +329,9 @@ export const searchTeachers = createAsyncThunk(
         results = results.slice(0, state.settings.maxSearchResults);
       }
       
-      console.log(`🔍 Redux: Found ${results.length} matching teachers`);
       return results;
       
     } catch (error) {
-      console.error('❌ Redux: Search error:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -361,7 +341,6 @@ export const createTeacherProfile = createAsyncThunk(
   'appData/createTeacherProfile',
   async (teacherData, { rejectWithValue }) => {
     try {
-      console.log('📝 Redux: Creating teacher profile');
       
       // Use authenticated user's ID instead of generating a new one
       if (!auth?.currentUser?.uid) {
@@ -383,13 +362,11 @@ export const createTeacherProfile = createAsyncThunk(
       if (db) {
         // Save to correct hierarchical path: serviceTypes/{serviceType}/teachers/{userId}
         await setDoc(doc(db, 'serviceTypes', serviceType, 'teachers', userId), newTeacher);
-        console.log('✅ Redux: Teacher profile saved to Firestore at serviceTypes/', serviceType, '/teachers/', userId);
       }
       
       return newTeacher;
       
     } catch (error) {
-      console.error('❌ Redux: Error creating teacher profile:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -399,7 +376,6 @@ export const createParentProfile = createAsyncThunk(
   'appData/createParentProfile',
   async (parentData, { rejectWithValue }) => {
     try {
-      console.log('📝 Redux: Creating parent profile');
       
       // Use authenticated user's ID instead of generating a new one
       if (!auth?.currentUser?.uid) {
@@ -418,13 +394,11 @@ export const createParentProfile = createAsyncThunk(
       if (db) {
         // Save to correct hierarchical path: serviceTypes/{serviceType}/parents/{userId}
         await setDoc(doc(db, 'serviceTypes', serviceType, 'parents', userId), newParent);
-        console.log('✅ Redux: Parent profile saved to Firestore at serviceTypes/', serviceType, '/parents/', userId);
       }
       
       return newParent;
       
     } catch (error) {
-      console.error('❌ Redux: Error creating parent profile:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -439,7 +413,6 @@ export const loadFavoritesForCurrentUser = createAsyncThunk(
   async (_, { rejectWithValue, getState }) => {
     try {
       if (!auth?.currentUser) {
-        console.log('❤️ Favorites: No authenticated user, returning empty');
         return [];
       }
       if (!db) throw new Error('Firebase database not initialized');
@@ -473,10 +446,8 @@ export const loadFavoritesForCurrentUser = createAsyncThunk(
         favorites.push(doc.id); // Document ID is the teacherId
       });
       
-      console.log('❤️ Favorites: Loaded', favorites.length, 'favorites from subcollection');
       return favorites;
     } catch (error) {
-      console.error('❌ Favorites: Load error', error);
       return rejectWithValue(error.message);
     }
   }
@@ -517,10 +488,8 @@ export const addFavoriteTeacher = createAsyncThunk(
         addedAt: serverTimestamp()
       });
       
-      console.log('❤️ Favorites: Added', teacherId, 'to subcollection');
       return teacherId;
     } catch (error) {
-      console.error('❌ Favorites: Add error', error);
       return rejectWithValue(error.message);
     }
   }
@@ -557,10 +526,8 @@ export const removeFavoriteTeacher = createAsyncThunk(
       const favoriteRef = doc(db, 'serviceTypes', serviceType, collectionName, auth.currentUser.uid, 'favorites', teacherId);
       await deleteDoc(favoriteRef);
       
-      console.log('💔 Favorites: Removed', teacherId, 'from subcollection');
       return teacherId;
     } catch (error) {
-      console.error('❌ Favorites: Remove error', error);
       return rejectWithValue(error.message);
     }
   }

@@ -87,13 +87,6 @@ export const createOrUpdateUserProfile = async (userId, userData) => {
  */
 export const createOrUpdateRoleProfile = async (userId, role, profileData) => {
   try {
-    console.log('🔧 createOrUpdateRoleProfile called with:', {
-      userId,
-      role,
-      subjects: profileData.subjects,
-      allKeys: Object.keys(profileData)
-    });
-    
     const { serviceType, collection: collectionName } = getRoleCollectionInfo(role);
     
     // Path: serviceTypes/{serviceType}/{collectionName}/{userId}
@@ -116,35 +109,17 @@ export const createOrUpdateRoleProfile = async (userId, role, profileData) => {
       updatedAt: new Date().toISOString(),
     };
     
-    console.log('💾 Saving role profile with subjects:', roleProfile.subjects);
-    console.log('💾 Full roleProfile keys:', Object.keys(roleProfile));
-    
     const roleSnap = await getDoc(roleProfileRef);
     
     if (roleSnap.exists()) {
-      console.log('📝 Updating existing profile with subjects:', roleProfile.subjects);
       await updateDoc(roleProfileRef, roleProfile);
     } else {
       roleProfile.createdAt = new Date().toISOString();
-      console.log('📝 Creating NEW profile with subjects:', roleProfile.subjects);
-      console.log('📝 Document path:', `serviceTypes/${serviceType}/${collectionName}/${userId}`);
-      console.log('📝 FULL data being saved:', JSON.stringify(roleProfile, null, 2));
       await setDoc(roleProfileRef, roleProfile);
-    }
-    
-    console.log('✅ Profile saved! Verifying...');
-    const verifySnap = await getDoc(roleProfileRef);
-    if (verifySnap.exists()) {
-      const savedData = verifySnap.data();
-      console.log('✅ Verified - subjects in Firestore:', savedData.subjects);
-      console.log('✅ Verified - all fields:', Object.keys(savedData));
-    } else {
-      console.error('❌ Document was not saved!');
     }
     
     return roleProfile;
   } catch (error) {
-    console.error('Error creating/updating role profile:', error);
     throw error;
   }
 };
@@ -173,7 +148,6 @@ export const getUserMainProfile = async (userId) => {
     
     return null;
   } catch (error) {
-    console.error('Error getting user main profile:', error);
     throw error;
   }
 };
@@ -194,7 +168,6 @@ export const getUserRoleProfile = async (userId, role) => {
     
     return { id: roleSnap.id, ...roleSnap.data() };
   } catch (error) {
-    console.error('Error getting user role profile:', error);
     throw error;
   }
 };
@@ -226,7 +199,6 @@ export const getCompleteUserProfile = async (userId) => {
       roleProfiles
     };
   } catch (error) {
-    console.error('Error getting complete user profile:', error);
     throw error;
   }
 };
@@ -247,7 +219,6 @@ export const registerUserWithRole = async (userId, userData) => {
       userType: role,
     };
   } catch (error) {
-    console.error('Error registering user with role:', error);
     throw error;
   }
 };
@@ -262,7 +233,6 @@ export const getAllProviders = async (role) => {
     const { serviceType, collection: collectionName, isProvider } = getRoleCollectionInfo(role);
     
     if (!isProvider) {
-      console.warn(`Role ${role} is not a provider role`);
       return [];
     }
     
@@ -278,7 +248,6 @@ export const getAllProviders = async (role) => {
     
     return providers;
   } catch (error) {
-    console.error('Error getting all providers:', error);
     throw error;
   }
 };
@@ -311,7 +280,6 @@ export const getUserByEmailLegacy = async (email, role) => {
     
     return null;
   } catch (error) {
-    console.error('Error getting user by email (legacy):', error);
     throw error;
   }
 };
@@ -322,8 +290,6 @@ export const getUserByEmailLegacy = async (email, role) => {
  */
 export const addRoleToUser = async (userId, role, roleProfileData) => {
   try {
-    console.log('🔧 addRoleToUser called with:', { userId, role });
-    
     // 1. Update main user profile to include the new role
     await createOrUpdateUserProfile(userId, {
       ...roleProfileData,
@@ -335,11 +301,8 @@ export const addRoleToUser = async (userId, role, roleProfileData) => {
     // 2. Create the role-specific profile
     await createOrUpdateRoleProfile(userId, role, roleProfileData);
     
-    console.log('✅ Role added successfully to user:', userId);
-    
     return { success: true };
   } catch (error) {
-    console.error('Error adding role to user:', error);
     throw error;
   }
 };

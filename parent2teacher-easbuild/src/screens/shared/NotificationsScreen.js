@@ -32,7 +32,7 @@ import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
  */
 const NotificationsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
-  const { notifications, loading } = useSelector(state => state.notifications);
+  const { notifications, loading, lastFetch, cacheTimeout } = useSelector(state => state.notifications);
   const currentUser = useSelector(state => state.auth.user);
   const [showMenu, setShowMenu] = useState(false);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
@@ -43,13 +43,26 @@ const NotificationsScreen = ({ navigation }) => {
   const canonicalRole = getCanonicalRole(role);
   const roleColors = getRoleColors(canonicalRole);
 
+  // Prevent redundant fetches when cache is fresh; defer cleanup to background
+  const lastCleanupRef = React.useRef(0);
   useEffect(() => {
-    if (currentUser?.uid) {
+    if (!currentUser?.uid) return;
+
+    const cacheFresh = lastFetch && Date.now() - lastFetch < cacheTimeout;
+    if (!cacheFresh) {
       dispatch(fetchNotifications(currentUser.uid));
-      // Auto-cleanup old notifications on screen mount
-      dispatch(deleteOldNotifications(currentUser.uid));
     }
-  }, [currentUser?.uid, dispatch]);
+
+    // Run cleanup at most once per 10 minutes to avoid frequent deletions
+    const now = Date.now();
+    if (now - lastCleanupRef.current > 10 * 60 * 1000) {
+      lastCleanupRef.current = now;
+      // Defer cleanup slightly to avoid competing with fetch
+      setTimeout(() => {
+        dispatch(deleteOldNotifications(currentUser.uid));
+      }, 500);
+    }
+  }, [currentUser?.uid, dispatch, lastFetch, cacheTimeout]);
 
   const handleMarkAsRead = (notificationId) => {
     // Optimistic update - don't wait for Firestore
@@ -70,12 +83,12 @@ const NotificationsScreen = ({ navigation }) => {
   const handleClearRead = () => {
     if (currentUser?.uid) {
       Alert.alert(
-        'Poista luetut ilmoitukset',
-        'Haluatko varmasti poistaa kaikki luetut ilmoitukset?',
+        'Clear Read Notifications',
+        'Do you want to delete all read notifications?',
         [
-          { text: 'Peruuta', style: 'cancel' },
+          { text: 'Cancel', style: 'cancel' },
           { 
-            text: 'Poista', 
+            text: 'Delete', 
             style: 'destructive',
             onPress: () => {
               dispatch(clearReadNotifications(currentUser.uid));
@@ -90,12 +103,12 @@ const NotificationsScreen = ({ navigation }) => {
   const handleClearOld = () => {
     if (currentUser?.uid) {
       Alert.alert(
-        'Poista vanhat ilmoitukset',
-        'Poistetaan ilmoitukset jotka ovat yli 30 päivää vanhoja.',
+        'Clear Old Notifications',
+        'Delete notifications older than 30 days.',
         [
-          { text: 'Peruuta', style: 'cancel' },
+          { text: 'Cancel', style: 'cancel' },
           { 
-            text: 'Poista', 
+            text: 'Delete', 
             style: 'destructive',
             onPress: () => {
               dispatch(deleteOldNotifications(currentUser.uid));
@@ -110,12 +123,12 @@ const NotificationsScreen = ({ navigation }) => {
   const handleClearAll = () => {
     if (currentUser?.uid) {
       Alert.alert(
-        'Poista kaikki ilmoitukset',
-        `Haluatko varmasti poistaa kaikki ${notifications.length} ilmoitusta?`,
+        'Clear All Notifications',
+        `Do you want to delete all ${notifications.length} notifications?`,
         [
-          { text: 'Peruuta', style: 'cancel' },
+          { text: 'Cancel', style: 'cancel' },
           { 
-            text: 'Poista kaikki', 
+            text: 'Delete All', 
             style: 'destructive',
             onPress: async () => {
               try {
@@ -125,7 +138,7 @@ const NotificationsScreen = ({ navigation }) => {
                 );
                 setShowMenu(false);
               } catch (err) {
-                Alert.alert('Virhe', 'Ilmoitusten poistaminen epäonnistui');
+                Alert.alert('Error', 'Failed to delete notifications');
               }
             }
           }
@@ -172,12 +185,12 @@ const NotificationsScreen = ({ navigation }) => {
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Juuri nyt';
-    if (diffMins < 60) return `${diffMins} min sitten`;
-    if (diffHours < 24) return `${diffHours} h sitten`;
-    if (diffDays < 7) return `${diffDays} pv sitten`;
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
     
-    return date.toLocaleDateString('fi-FI', { 
+    return date.toLocaleDateString('en-US', { 
       day: 'numeric', 
       month: 'short',
       year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined
@@ -224,7 +237,7 @@ const NotificationsScreen = ({ navigation }) => {
         onPress={() => handleDelete(item.id)}
       >
         <Ionicons name="trash-outline" size={24} color="#FFF" />
-        <Text style={styles.deleteText}>Poista</Text>
+        <Text style={styles.deleteText}>Delete</Text>
       </TouchableOpacity>
     );
   };
@@ -286,10 +299,10 @@ const NotificationsScreen = ({ navigation }) => {
 
   const groups = useMemo(() => groupNotificationsByDate(), [notifications]);
   const flatData = useMemo(() => [
-    ...(groups.today.length > 0 ? [{ type: 'header', title: 'Tänään' }, ...groups.today] : []),
-    ...(groups.yesterday.length > 0 ? [{ type: 'header', title: 'Eilen' }, ...groups.yesterday] : []),
-    ...(groups.thisWeek.length > 0 ? [{ type: 'header', title: 'Tällä viikolla' }, ...groups.thisWeek] : []),
-    ...(groups.older.length > 0 ? [{ type: 'header', title: 'Vanhemmat' }, ...groups.older] : []),
+    ...(groups.today.length > 0 ? [{ type: 'header', title: 'Today' }, ...groups.today] : []),
+    ...(groups.yesterday.length > 0 ? [{ type: 'header', title: 'Yesterday' }, ...groups.yesterday] : []),
+    ...(groups.thisWeek.length > 0 ? [{ type: 'header', title: 'This Week' }, ...groups.thisWeek] : []),
+    ...(groups.older.length > 0 ? [{ type: 'header', title: 'Older' }, ...groups.older] : []),
   ], [groups]);
 
   const unreadCount = useMemo(() => notifications.filter(n => !n.read).length, [notifications]);
@@ -322,21 +335,21 @@ const NotificationsScreen = ({ navigation }) => {
         <View style={styles.menu}>
           <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.menuItem}>
             <Ionicons name="checkmark-done-outline" size={20} color={colors.text} />
-            <Text style={styles.menuText}>Merkitse kaikki luetuiksi</Text>
+            <Text style={styles.menuText}>Mark all as read</Text>
           </TouchableOpacity>
           
           {readCount > 0 && (
             <TouchableOpacity onPress={handleClearRead} style={styles.menuItem}>
               <Ionicons name="trash-outline" size={20} color="#FF3B30" />
               <Text style={[styles.menuText, { color: '#FF3B30' }]}>
-                Poista luetut ({readCount})
+                Clear read ({readCount})
               </Text>
             </TouchableOpacity>
           )}
           
           <TouchableOpacity onPress={handleClearOld} style={styles.menuItem}>
             <Ionicons name="time-outline" size={20} color={colors.textSecondary} />
-            <Text style={styles.menuText}>Poista yli 30 pv vanhat</Text>
+            <Text style={styles.menuText}>Clear older than 30 days</Text>
           </TouchableOpacity>
 
           {notifications.length > 0 && (
@@ -345,7 +358,7 @@ const NotificationsScreen = ({ navigation }) => {
               <TouchableOpacity onPress={handleClearAll} style={styles.menuItem}>
                 <Ionicons name="trash-bin" size={20} color="#FF3B30" />
                 <Text style={[styles.menuText, { color: '#FF3B30', fontWeight: '700' }]}>
-                  Poista kaikki ({notifications.length})
+                  Clear all ({notifications.length})
                 </Text>
               </TouchableOpacity>
             </>

@@ -120,7 +120,6 @@ const LoginScreen = ({ route, navigation }) => {
                 [{ text: 'OK' }]
               );
             } catch (error) {
-              console.error('Password reset error:', error);
               Alert.alert(
                 'Error',
                 error.message || 'Failed to send password reset email. Please try again.'
@@ -257,11 +256,6 @@ const LoginScreen = ({ route, navigation }) => {
 
       const finalizeRoleLogin = async (normalizedUser) => {
         try {
-          console.log('🔐 Finalizing Google login with user:', {
-            uid: normalizedUser.uid,
-            role: normalizedUser.role,
-            email: normalizedUser.email
-          });
           
           dispatch(setUser(normalizedUser));
           await AsyncStorage.setItem('user', JSON.stringify(normalizedUser));
@@ -271,9 +265,7 @@ const LoginScreen = ({ route, navigation }) => {
           const roles = mainData.roles || [mainData.primaryRole];
           await AsyncStorage.setItem('availableRoles', JSON.stringify(roles));
           
-          console.log('✅ Google login finalized successfully');
         } catch (e) {
-          console.error('❌ finalizeRoleLogin error:', e);
           Alert.alert('Login Error', 'Failed to finalize login');
         }
       };

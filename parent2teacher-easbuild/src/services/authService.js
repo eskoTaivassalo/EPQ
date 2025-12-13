@@ -52,12 +52,8 @@ export class AuthService {
         localStorage.setItem('unverifiedAccounts', JSON.stringify(existingAccounts));
       }
       
-      console.log('⏰ Account creation time marked for user:', userId);
-      console.log('📅 Account expires at:', creationData.expiresAt);
-      
       return creationData;
     } catch (error) {
-      console.error('Error marking account creation time:', error);
     }
   }
   
@@ -71,7 +67,6 @@ export class AuthService {
       const stored = localStorage.getItem('unverifiedAccounts');
       return stored ? JSON.parse(stored) : {};
     } catch (error) {
-      console.error('Error getting unverified accounts:', error);
       return {};
     }
   }
@@ -88,11 +83,8 @@ export class AuthService {
         if (typeof localStorage !== 'undefined') {
           localStorage.setItem('unverifiedAccounts', JSON.stringify(accounts));
         }
-        
-        console.log('✅ Account marked as verified:', userId);
       }
     } catch (error) {
-      console.error('Error marking account verified:', error);
     }
   }
   
@@ -114,8 +106,6 @@ export class AuthService {
         }
       }
       
-      console.log(`🗑️ Found ${expiredAccounts.length} expired accounts`);
-      
       // Poista vanhentuneet tilit
       for (const { userId, accountData } of expiredAccounts) {
         await this.deleteExpiredAccount(userId, accountData);
@@ -128,7 +118,6 @@ export class AuthService {
       };
       
     } catch (error) {
-      console.error('Error during cleanup:', error);
       return { error: error.message };
     }
   }
@@ -138,8 +127,6 @@ export class AuthService {
    */
   static async deleteExpiredAccount(userId, accountData) {
     try {
-      console.log(`🗑️ Deleting expired account: ${userId} (created: ${accountData.createdAt})`);
-      
       // Poista local storagesta
       const accounts = this.getUnverifiedAccounts();
       delete accounts[userId];
@@ -151,12 +138,9 @@ export class AuthService {
       // HUOM: Firebase user deletion vaatisi admin SDK:ta tai Cloud Functions
       // Tässä vaiheessa vain poistetaan local tracking
       
-      console.log('✅ Expired account tracking removed:', userId);
-      
       return { success: true, userId };
       
     } catch (error) {
-      console.error('Error deleting expired account:', error);
       throw error;
     }
   }
@@ -167,15 +151,8 @@ export class AuthService {
   static startCleanupTimer() {
     if (typeof setInterval === 'undefined') return null;
     
-    console.log('⏰ Starting account cleanup timer...');
-    
-    return setInterval(async () => {
-      console.log('🔍 Running scheduled account cleanup...');
+    return setInterval(async () {
       const result = await this.cleanupExpiredAccounts();
-      
-      if (result.expired > 0) {
-        console.log(`🗑️ Cleanup completed: ${result.cleaned} accounts removed`);
-      }
     }, this.CLEANUP_CHECK_INTERVAL);
   }
   
@@ -230,13 +207,11 @@ export class AuthService {
       // 🔧 KORJAUS: Käytä Firebase:n default URL:ia ilman custom redirectiä
       await sendEmailVerification(currentUser);
       
-      console.log('Email verification sent successfully');
       return {
         success: true,
         message: 'Vahvistussähköposti lähetetty osoitteeseen: ' + currentUser.email
       };
     } catch (error) {
-      console.error('Email verification error:', error);
       throw new Error(this.getErrorMessage(error.code));
     }
   }
@@ -254,13 +229,11 @@ export class AuthService {
       // 🔧 KORJAUS: Käytä Firebase:n default URL:ia
       await sendPasswordResetEmail(auth, email);
       
-      console.log('Password reset email sent to:', email);
       return {
         success: true,
         message: 'Salasanan nollausviesti lähetetty osoitteeseen: ' + email
       };
     } catch (error) {
-      console.error('Password reset error:', error);
       throw new Error(this.getErrorMessage(error.code));
     }
   }
@@ -289,13 +262,11 @@ export class AuthService {
       // Päivitä salasana
       await updatePassword(user, newPassword);
       
-      console.log('Password updated successfully');
       return {
         success: true,
         message: 'Salasana vaihdettu onnistuneesti'
       };
     } catch (error) {
-      console.error('Password change error:', error);
       throw new Error(this.getErrorMessage(error.code));
     }
   }
@@ -318,7 +289,6 @@ export class AuthService {
       // Poista käyttäjä
       await deleteUser(user);
       
-      console.log('User account deleted successfully');
       return {
         success: true,
         message: 'Käyttäjätili poistettu onnistuneesti'
@@ -498,7 +468,6 @@ export class AuthService {
         await GoogleSignin.signOut();
       } catch (cleanupError) {
         // Ignore cleanup errors (user might not be signed in)
-        console.log('Google session cleanup skipped:', cleanupError.message);
       }
       
       // Tarkista onko Google Play Services saatavilla
@@ -583,7 +552,7 @@ export class AuthService {
         await GoogleSignin.signOut();
       } catch (cleanupError) {
         // Ignore cleanup errors (user might not be signed in)
-        console.log('Google session cleanup skipped:', cleanupError.message);
+
       }
       
       // Tarkista onko Google Play Services saatavilla
@@ -679,11 +648,6 @@ export class AuthService {
         throw new Error('No user logged in');
       }
 
-      console.log('📸 Updating profile image...');
-      console.log('  User ID:', userId);
-      console.log('  User type:', userType);
-      console.log('  Image URI:', imageUri);
-
       // Lataa kuva Firebase Storageen
       const downloadURL = await imagePickerService.uploadImage(imageUri, userId, 'profile.jpg');
 
@@ -691,14 +655,10 @@ export class AuthService {
         throw new Error('Failed to upload image');
       }
 
-      console.log('✅ Image uploaded, updating profile...');
-
       // Päivitä Firebase Auth profiilikuva
       await updateProfile(currentUser, {
         photoURL: downloadURL
       });
-
-      console.log('✅ Firebase Auth profile updated');
 
       // Päivitä Firestore profiilikuva - ONLY in serviceTypes (no users collection)
       // Path: serviceTypes/{serviceType}/{collectionName}/{userId}
@@ -713,11 +673,8 @@ export class AuthService {
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
-      console.log('✅ Firestore role profile updated');
-
       return downloadURL;
     } catch (error) {
-      console.error('❌ Error updating profile image:', error);
       throw error;
     }
   }
@@ -754,8 +711,6 @@ export class AuthService {
         photoURL: null
       });
 
-      console.log('✅ Firebase Auth profile updated');
-
       // Päivitä Firestore profiilikuva
       const collectionName = userType === 'teacher' ? 'teachers' : 'parents';
       const userDocRef = doc(db, collectionName, userId);
@@ -765,11 +720,8 @@ export class AuthService {
         updatedAt: new Date().toISOString()
       });
 
-      console.log('✅ Firestore profile updated');
-
       return true;
     } catch (error) {
-      console.error('❌ Error deleting profile image:', error);
       throw error;
     }
   }

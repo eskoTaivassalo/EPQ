@@ -55,27 +55,12 @@ export default function CalendarScreen({ navigation }) {
         const dayOfWeek = date.getDay(); // 0 = Sunday
         const key = `${year}-${month}-${day}`;
         
-        if (__DEV__ && dayOfWeek === 0) {
-          console.log('📅 Sunday booking:', {
-            id: booking.id,
-            originalDate: booking.date,
-            parsedDate: date.toISOString(),
-            localDate: date.toLocaleDateString(),
-            key,
-            dayOfWeek
-          });
-        }
-        
         if (!grouped[key]) grouped[key] = [];
         grouped[key].push(booking);
       } catch (e) {
-        console.warn('Error grouping booking:', booking.id, e);
+        // Failed to group booking
       }
     });
-    
-    if (__DEV__) {
-      console.log('📅 BookingsByDate keys:', Object.keys(grouped));
-    }
     
     return grouped;
   }, [bookings]);
@@ -107,15 +92,6 @@ export default function CalendarScreen({ navigation }) {
       // Use local date format to match bookingsByDate
       const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       const dayBookings = bookingsByDate[dateKey] || [];
-      
-      if (__DEV__ && date.getDay() === 0 && dayBookings.length > 0) {
-        console.log('📅 Sunday in calendar with bookings:', {
-          dateKey,
-          dayOfWeek: date.getDay(),
-          bookingsCount: dayBookings.length,
-          bookings: dayBookings.map(b => ({ id: b.id, date: b.date }))
-        });
-      }
       
       days.push({
         day,

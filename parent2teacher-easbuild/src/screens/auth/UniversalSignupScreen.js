@@ -152,7 +152,7 @@ const UniversalSignupScreen = ({ navigation, route }) => {
         setAutoLocationFetched(true);
       }
     } catch (error) {
-      console.error('Location fetch error:', error);
+      // Location fetch failed
     } finally {
       setLocationLoading(false);
     }
@@ -160,11 +160,6 @@ const UniversalSignupScreen = ({ navigation, route }) => {
 
   const handleInputChange = (key, value) => {
     setFormData(prev => ({ ...prev, [key]: value }));
-    
-    // Debug subjects changes
-    if (key === 'subjects') {
-      console.log('🏷️ Subjects updated:', value);
-    }
 
     // Password validation
     if (key === 'password' && !googleUser) {
@@ -176,12 +171,6 @@ const UniversalSignupScreen = ({ navigation, route }) => {
   };
 
   const validateForm = () => {
-    console.log('🔍 Validating form, current formData:', {
-      subjects: formData.subjects,
-      hourlyRate: formData.hourlyRate,
-      description: formData.description,
-      allKeys: Object.keys(formData)
-    });
     
     // Profile image check
     if (!profileImageUri) {
@@ -263,9 +252,6 @@ const UniversalSignupScreen = ({ navigation, route }) => {
           }
         });
 
-        console.log('📝 Adding new role to existing user:', currentUser.uid);
-        console.log('📝 Role data:', JSON.stringify(roleProfileData, null, 2));
-
         // Add the role to the user
         await addRoleToUser(currentUser.uid, roleConfig.legacyName || role, roleProfileData);
 
@@ -274,7 +260,6 @@ const UniversalSignupScreen = ({ navigation, route }) => {
           try {
             await AuthService.updateProfileImage(profileImageUri, currentUser.uid, roleConfig.legacyName || role);
           } catch (imageError) {
-            console.error('Profile image upload error:', imageError);
             Alert.alert(
               'Notice',
               'Profile image upload failed, but your role was added successfully. You can add it later.'
@@ -319,9 +304,6 @@ const UniversalSignupScreen = ({ navigation, route }) => {
         }
       });
 
-      console.log('📝 User data to register:', JSON.stringify(userData, null, 2));
-      console.log('🏷️ Subjects in userData:', userData.subjects);
-
       const result = await register(userData);
       
       if (result.success) {
@@ -330,7 +312,6 @@ const UniversalSignupScreen = ({ navigation, route }) => {
           try {
             await AuthService.updateProfileImage(profileImageUri, result.user.uid, roleConfig.legacyName || role);
           } catch (imageError) {
-            console.error('Profile image upload error:', imageError);
             Alert.alert(
               'Notice',
               'Profile image upload failed, but your account was created successfully. You can add it later.'
@@ -354,7 +335,7 @@ const UniversalSignupScreen = ({ navigation, route }) => {
         throw new Error(result.error);
       }
     } catch (error) {
-      console.error('Signup error:', error);
+
       Alert.alert('Error', error.message || 'Failed to create account');
     } finally {
       setLoading(false);

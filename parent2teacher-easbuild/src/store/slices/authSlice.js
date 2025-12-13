@@ -191,7 +191,6 @@ export const registerUser = createAsyncThunk(
         // 📧 EMAIL/PASSWORD REGISTRATION
         // Check if user already logged in with same email
         if (auth.currentUser && auth.currentUser.email.toLowerCase() === userData.email.toLowerCase()) {
-          console.log('✅ User already logged in with same email - adding new role');
           firebaseUser = auth.currentUser;
         } else {
           // Create new Firebase Auth user
@@ -229,7 +228,6 @@ export const registerUser = createAsyncThunk(
         try {
           await sendEmailVerification(firebaseUser);
         } catch (emailError) {
-          console.warn('Failed to send verification email:', emailError);
           // Continue registration even if email fails
         }
       }
@@ -255,7 +253,6 @@ export const registerUser = createAsyncThunk(
       return finalUserData;
       
     } catch (error) {
-      console.error('Registration error:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -269,7 +266,7 @@ export const logoutUser = createAsyncThunk(
       try {
         await AuthService.signOutFromGoogle();
       } catch (googleError) {
-        console.log('Google sign out skipped:', googleError.message);
+        // Google sign out not needed or failed
       }
       
       // 2. Sign out from Firebase

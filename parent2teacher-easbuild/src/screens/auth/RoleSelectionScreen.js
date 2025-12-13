@@ -23,19 +23,15 @@ const RoleSelectionScreen = ({ navigation, route }) => {
 
   const handleRoleSelect = async (selectedRole) => {
     try {
-      console.log('Selecting role:', selectedRole);
       
       // Get role config using getRoleConfig which handles legacy roles
       const roleConfig = getRoleConfig(selectedRole);
       if (!roleConfig) {
-        console.error('Invalid role selected:', selectedRole);
-        console.log('Available roles:', Object.keys(ROLE_CONFIG));
         return;
       }
 
       // Fetch role-specific data
       const roleInfo = getRoleCollectionInfo(selectedRole);
-      console.log('Role info:', roleInfo);
       
       const { serviceType, collection: collectionName } = roleInfo;
       const roleProfileRef = doc(db, 'serviceTypes', serviceType, collectionName, userId);
@@ -65,7 +61,7 @@ const RoleSelectionScreen = ({ navigation, route }) => {
       // Navigation is handled by App.js based on Redux state
       // The app will automatically navigate to the appropriate screen
     } catch (error) {
-      console.error('Error selecting role:', error);
+      // Error selecting role
     }
   };
 

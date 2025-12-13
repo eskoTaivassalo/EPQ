@@ -5,7 +5,7 @@
  * Client view: Shows their own bookings with providers
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -35,8 +35,12 @@ import {
   updateBookingStatus,
   cancelBooking
 } from '../../store/slices/bookingsSlice';
+import { fetchParents } from '../../store/slices/appDataSlice';
+import { deferAction } from '../../utils/deferredDispatcher';
 import WatercolorBackground from '../../components/WatercolorBackground';
+import AppLogo from '../../components/AppLogo';
 import { colors, commonStyles } from '../../styles/commonStyles';
+import performanceTracker from '../../utils/performanceTracker';
 
 const BookingsScreen = ({ navigation }) => {
   const dispatch = useDispatch();
@@ -58,35 +62,89 @@ const BookingsScreen = ({ navigation }) => {
   // Use myBookings as the source
   const bookings = myBookings;
 
-  useEffect(() => {
-    loadBookings();
-  }, []);
+  // Ref to track if data is already being loaded (prevent infinite loops)
+  const isLoadingRef = useRef(false);
+  const loadBookingsRef = useRef(null);
+  const parentsCountRef = useRef(parents.length);
 
+  // Keep refs in sync with latest values without retriggering effects
   useEffect(() => {
-    // Data loaded, ready to render
-  }, [bookings, teachers, parents]);
+    parentsCountRef.current = parents.length;
+  }, [parents.length]);
 
-  // Reload bookings when screen comes into focus
+  const loadBookings = useCallback(() => {
+    performanceTracker.mark('load_bookings_start');
+    performanceTracker.logFetch('fetchParentBookings', 'start');
+    
+    setRefreshing(true);
+    const fetchPromise = isProvider 
+      ? dispatch(fetchTeacherBookings(user.uid))
+      : dispatch(fetchParentBookings(user.uid));
+    
+    // Promise automatically sets loading state in Redux
+    fetchPromise
+      .then(() => {
+        performanceTracker.mark('load_bookings_end');
+        performanceTracker.measure('load_bookings_duration', 'load_bookings_start', 'load_bookings_end');
+        performanceTracker.logFetch('fetchParentBookings', 'success');
+        setRefreshing(false);
+        
+        // Defer parent/teacher data loading to background (non-blocking)
+        // This allows screen to render immediately without waiting for appData
+        if (isProvider && parentsCountRef.current === 0) {
+          // Only fetch if not already loaded
+          deferAction(dispatch, () => dispatch(fetchParents()), 800).catch(() => {});
+        }
+      })
+      .catch((error) => {
+        performanceTracker.mark('load_bookings_error');
+        performanceTracker.logFetch('fetchParentBookings', 'error');
+        setRefreshing(false);
+      })
+      .finally(() => {
+        // Reset loading flag after fetch completes (success or error)
+        isLoadingRef.current = false;
+      });
+  }, [isProvider, user.uid, dispatch]);
+
+  // Track data load completion
+  useEffect(() => {
+    if (!loading && bookings.length > 0) {
+      performanceTracker.mark('data_load_complete');
+      performanceTracker.measure('data_load_complete', 'component_mount', 'data_load_complete');
+    }
+  }, [bookings, loading]);
+
+  // Store the latest loadBookings in a ref so focus effect can call it without causing re-renders
+  useEffect(() => {
+    loadBookingsRef.current = loadBookings;
+  }, [loadBookings]);
+
+  // Mount: Load bookings immediately without relying on ref timing
+  useEffect(() => {
+    performanceTracker.mark('component_mount');
+    performanceTracker.logRender('BookingsScreen', { isProvider });
+    isLoadingRef.current = true;
+    loadBookings();  // Call directly to ensure it runs synchronously on mount
+  }, [loadBookings]);
+
+  // Focus: Reload only if not already loading
   useFocusEffect(
     React.useCallback(() => {
-      loadBookings();
+      performanceTracker.mark('bookings_focus');
+      performanceTracker.logNavigation('unknown', 'Bookings');
+      
+      if (!isLoadingRef.current) {
+        isLoadingRef.current = true;
+        // Use ref to call the latest loadBookings without dependency on it
+        loadBookingsRef.current?.();
+      }
+      
+      return () => {
+        isLoadingRef.current = false;
+      };
     }, [])
   );
-
-  const loadBookings = async () => {
-    setRefreshing(true);
-    try {
-      if (isProvider) {
-        await dispatch(fetchTeacherBookings(user.uid)).unwrap();
-      } else {
-        await dispatch(fetchParentBookings(user.uid)).unwrap();
-      }
-    } catch (error) {
-      console.error('Error loading bookings:', error);
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   // Helper function to get teacher/parent name with fallback
   const getPersonName = (booking, isTeacher) => {
@@ -185,7 +243,6 @@ const BookingsScreen = ({ navigation }) => {
         );
       }
     } catch (error) {
-      console.error('Cancel booking error:', error);
       Alert.alert('Error', error?.message || 'Failed to cancel booking');
     }
   };
@@ -223,7 +280,7 @@ const BookingsScreen = ({ navigation }) => {
         loadBookings();
       })
       .catch((error) => {
-        console.error('Error updating booking:', error);
+        // Failed to update booking
       });
   };
 
@@ -398,29 +455,25 @@ const BookingsScreen = ({ navigation }) => {
     );
   };
 
-  const filteredBookings = filterBookings(bookings);
+  const filteredBookings = useMemo(() => filterBookings(bookings), [bookings, selectedFilter]);
 
-  const getFilterCounts = () => {
-    return {
-      all: bookings.length,
-      pending: bookings.filter(b => b.status === 'pending' || b.status === 'booked').length,
-    };
-  };
-
-  const counts = getFilterCounts();
-
-  if (loading && bookings.length === 0) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <WatercolorBackground />
-        <ActivityIndicator size="large" color={roleColors.primary} style={styles.loader} />
-      </SafeAreaView>
-    );
-  }
+  const counts = useMemo(() => ({
+    all: bookings.length,
+    pending: bookings.filter(b => b.status === 'pending' || b.status === 'booked').length,
+  }), [bookings]);
 
   return (
-    <SafeAreaView style={commonStyles.safeArea}>
+    <SafeAreaView style={[commonStyles.safeArea, { backgroundColor: '#F5F5F5' }]}>
       <WatercolorBackground />
+      
+      {/* Show loading overlay if data is still loading */}
+      {loading && bookings.length === 0 && (
+        <View style={styles.loadingOverlay}>
+          <AppLogo size={160} />
+          <ActivityIndicator size="large" color={roleColors.primary} style={styles.loadingSpinner} />
+          <Text style={styles.loadingText}>Loading bookings...</Text>
+        </View>
+      )}
       
       {/* Header */}
       <View style={[styles.header, { backgroundColor: roleColors.primary }]}>
@@ -543,6 +596,27 @@ const BookingsScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+  },
+  loadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: colors.background,
+    zIndex: 9999,
+  },
+  loadingSpinner: {
+    marginTop: 30,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: colors.textSecondary,
+  },
   loader: {
     marginTop: 100,
   },

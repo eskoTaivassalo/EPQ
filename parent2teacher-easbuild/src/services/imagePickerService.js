@@ -27,7 +27,6 @@ class ImagePickerService {
       
       return true;
     } catch (error) {
-      console.error('❌ Error requesting camera permissions:', error);
       return false;
     }
   }
@@ -49,7 +48,6 @@ class ImagePickerService {
       
       return true;
     } catch (error) {
-      console.error('❌ Error requesting media library permissions:', error);
       return false;
     }
   }
@@ -76,14 +74,11 @@ class ImagePickerService {
       });
 
       if (result.canceled) {
-        console.log('📷 User canceled taking photo');
         return null;
       }
 
-      console.log('✅ Photo taken:', result.assets[0]);
       return result.assets[0];
     } catch (error) {
-      console.error('❌ Error taking photo:', error);
       Alert.alert('Virhe', 'Kuvan ottaminen epäonnistui');
       return null;
     }
@@ -111,14 +106,11 @@ class ImagePickerService {
       });
 
       if (result.canceled) {
-        console.log('🖼️ User canceled picking image');
         return null;
       }
 
-      console.log('✅ Image picked:', result.assets[0]);
       return result.assets[0];
     } catch (error) {
-      console.error('❌ Error picking image:', error);
       Alert.alert('Virhe', 'Kuvan valitseminen epäonnistui');
       return null;
     }
@@ -134,11 +126,6 @@ class ImagePickerService {
    */
   async uploadImage(imageUri, userId, fileName = 'profile.jpg') {
     try {
-      console.log('☁️ Uploading image to Firebase Storage...');
-      console.log('  URI:', imageUri);
-      console.log('  User ID:', userId);
-      console.log('  File name:', fileName);
-
       // Tarkista että storage on alustettu
       if (!storage) {
         throw new Error('Firebase Storage ei ole alustettu');
@@ -148,24 +135,17 @@ class ImagePickerService {
       const response = await fetch(imageUri);
       const blob = await response.blob();
 
-      console.log('  Blob size:', blob.size, 'bytes');
-      console.log('  Blob type:', blob.type);
-
       // Luo viittaus Firebase Storageen
       const storageRef = ref(storage, `profiles/${userId}/${fileName}`);
 
       // Lataa kuva
-      console.log('  Uploading to path:', `profiles/${userId}/${fileName}`);
       const snapshot = await uploadBytes(storageRef, blob);
-      console.log('✅ Image uploaded successfully');
 
       // Hae julkinen URL
       const downloadURL = await getDownloadURL(snapshot.ref);
-      console.log('✅ Download URL:', downloadURL);
 
       return downloadURL;
     } catch (error) {
-      console.error('❌ Error uploading image:', error);
       Alert.alert('Virhe', 'Kuvan lataaminen epäonnistui');
       return null;
     }
@@ -180,10 +160,6 @@ class ImagePickerService {
    */
   async deleteImage(userId, fileName = 'profile.jpg') {
     try {
-      console.log('🗑️ Deleting image from Firebase Storage...');
-      console.log('  User ID:', userId);
-      console.log('  File name:', fileName);
-
       // Tarkista että storage on alustettu
       if (!storage) {
         throw new Error('Firebase Storage ei ole alustettu');
@@ -192,17 +168,14 @@ class ImagePickerService {
       const storageRef = ref(storage, `profiles/${userId}/${fileName}`);
 
       await deleteObject(storageRef);
-      console.log('✅ Image deleted successfully');
 
       return true;
     } catch (error) {
       // Jos tiedostoa ei löydy, palautetaan true (ei ongelmaa)
       if (error.code === 'storage/object-not-found') {
-        console.log('ℹ️ Image not found, nothing to delete');
         return true;
       }
 
-      console.error('❌ Error deleting image:', error);
       return false;
     }
   }

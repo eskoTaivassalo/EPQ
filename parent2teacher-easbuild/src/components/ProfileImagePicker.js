@@ -39,11 +39,9 @@ const ProfileImagePicker = ({
       const result = await imagePickerService.showImagePickerOptions();
       
       if (result && result.uri) {
-        console.log('✅ Image selected:', result.uri);
         onImageSelected(result.uri);
       }
     } catch (error) {
-      console.error('❌ Error selecting image:', error);
       Alert.alert('Virhe', 'Kuvan valitseminen epäonnistui');
     } finally {
       setLoading(false);

@@ -1,7 +1,7 @@
 import React, { useEffect, lazy, Suspense } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
 import { View, ActivityIndicator, AppState, Alert, Animated, Text } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
@@ -62,6 +62,7 @@ const AdminReports = lazy(() => import('./src/screens/admin/AdminReports'));
 
 // Dev screens (lazy - vain kehitys)
 const SecurityTestScreen = lazy(() => import('./src/screens/dev/SecurityTestScreen'));
+const DevOpsPerformanceDashboard = lazy(() => import('./src/screens/debug/DevOpsPerformanceDashboard'));
 
 // Components (eager - kriittiset)
 import FullScreenSplash from './src/components/FullScreenSplash';
@@ -162,8 +163,8 @@ const NavigationWrapper = ({ children }) => {
     dark: false,
     colors: {
       primary: '#2196F3',
-      background: '#FFFFFF',
-      card: '#FFFFFF',
+      background: colors.background,
+      card: colors.background,
       text: '#000000',
       border: '#E0E0E0',
       notification: '#FF5252',
@@ -201,17 +202,6 @@ const AppNavigator = () => {
   const [cachedEmailVerified, setCachedEmailVerified] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [hasBeenAuthenticated, setHasBeenAuthenticated] = useState(false);
-
-  // Debug logging for auth state changes
-  useEffect(() => {
-    console.log('🔍 Auth state changed:', {
-      isAuthenticated,
-      hasUser: !!user,
-      userRole: user?.role,
-      loading,
-      isInitializing
-    });
-  }, [isAuthenticated, user, loading, isInitializing]);
 
   // Initialize global error logger once
   useEffect(() => {
@@ -285,12 +275,20 @@ const AppNavigator = () => {
     return () => unsubscribe();
   }, []);
 
-  // Load notifications when user is authenticated
+  // Load notifications when user first authenticates (not on every navigation)
   useEffect(() => {
-    if (isAuthenticated && user?.uid) {
-      dispatch(fetchNotifications(user.uid));
+    if (isAuthenticated && user?.uid && hasBeenAuthenticated) {
+      // Check cache first - only fetch if cache is stale
+      const state = store?.getState?.();
+      const notifyState = state?.notifications;
+      const now = Date.now();
+      const cacheStale = !notifyState?.lastFetch || (now - notifyState.lastFetch) > 30000;
+      
+      if (cacheStale) {
+        dispatch(fetchNotifications(user.uid));
+      }
     }
-  }, [isAuthenticated, user?.uid, dispatch]);
+  }, [hasBeenAuthenticated]);
   
   // Keep loading visible when transitioning to authenticated state
   useEffect(() => {
@@ -419,44 +417,13 @@ const AppNavigator = () => {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          cardStyle: { backgroundColor: '#FFFFFF' },
+          // Important: force a non-black background during transitions (prevents Android flash)
+          cardStyle: { backgroundColor: colors.background },
           presentation: 'card',
           animationEnabled: true,
           gestureEnabled: true,
-          // Smooth fade transition ilman flashausta
-          transitionSpec: {
-            open: {
-              animation: 'timing',
-              config: {
-                duration: 250,
-                useNativeDriver: true,
-              },
-            },
-            close: {
-              animation: 'timing',
-              config: {
-                duration: 200,
-                useNativeDriver: true,
-              },
-            },
-          },
-          cardStyleInterpolator: ({ current, next }) => {
-            return {
-              cardStyle: {
-                opacity: current.progress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 1],
-                }),
-              },
-              overlayStyle: {
-                opacity: current.progress.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0, 0.5],
-                  extrapolate: 'clamp',
-                }),
-              },
-            };
-          },
+          // Avoid opacity-based transitions that can briefly reveal a black/transparent frame on Android
+          cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
         }}
       >
         {!isAuthenticated ? (
@@ -507,7 +474,9 @@ const AppNavigator = () => {
               options={{
                 headerShown: false,
                 animationEnabled: false,
-                cardStyle: { backgroundColor: '#F5F5F5' }
+                cardStyle: { backgroundColor: colors.background },
+                // Prevent any transition animation when navigating FROM this screen
+                presentation: 'transparentModal',
               }}
             />
             <Stack.Screen 
@@ -558,6 +527,15 @@ const AppNavigator = () => {
             />
             
             <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
+            
+            {/* DevOps Performance Dashboard - vain kehityksessä */}
+            {__DEV__ && (
+              <Stack.Screen 
+                name="DevOpsPerformance" 
+                component={DevOpsPerformanceDashboard}
+                options={{ title: 'DevOps Performance' }}
+              />
+            )}
           </>
         )}
       </Stack.Navigator>

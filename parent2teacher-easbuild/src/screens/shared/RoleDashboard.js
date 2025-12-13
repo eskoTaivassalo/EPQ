@@ -340,7 +340,14 @@ const RoleDashboard = ({ navigation }) => {
       <TouchableOpacity
         key={screen}
         style={[styles.quickAction, { borderColor: roleColors.primary + '30' }]}
-        onPress={() => navigation.navigate(screen)}
+        onPress={() => {
+          // Navigate through FullScreenSplash for Bookings to show loading animation
+          if (screen === 'Bookings') {
+            navigation.navigate('FullScreenSplash', { targetScreen: screen });
+          } else {
+            navigation.navigate(screen);
+          }
+        }}
       >
         <Ionicons name={icon} size={24} color={roleColors.primary} />
         <Text style={[styles.quickActionText, { color: roleColors.text }]}>
@@ -378,16 +385,24 @@ const RoleDashboard = ({ navigation }) => {
           <Ionicons name={roleConfig.icon} size={24} color="#FFFFFF" />
           <Text style={styles.headerTitle}>{roleConfig.nameLocalized}</Text>
         </View>
-        <TouchableOpacity onPress={() => navigation.navigate('Notifications')}>
-          <Ionicons name="notifications-outline" size={28} color="#FFFFFF" />
-          {unreadNotifications > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {unreadNotifications > 99 ? '99+' : unreadNotifications}
-              </Text>
-            </View>
+        <View style={styles.headerRightContainer}>
+          {/* Debug button - vain kehityksessä */}
+          {__DEV__ && (
+            <TouchableOpacity onPress={() => navigation.navigate('DevOpsPerformance')} style={styles.debugButton}>
+              <Ionicons name="construct-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
           )}
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Notifications')}>
+            <Ionicons name="notifications-outline" size={28} color="#FFFFFF" />
+            {unreadNotifications > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {unreadNotifications > 99 ? '99+' : unreadNotifications}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
       </View>
       
       {/* SimpleDrawer */}
@@ -434,7 +449,7 @@ const RoleDashboard = ({ navigation }) => {
               <Text style={[styles.sectionTitle, { color: roleColors.text }]}>
                 Pending Requests
               </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Bookings')}>
+              <TouchableOpacity onPress={() => navigation.navigate('FullScreenSplash', { targetScreen: 'Bookings' })}>
                 <Text style={[styles.seeAll, { color: roleColors.primary }]}>
                   View All
                 </Text>
@@ -488,7 +503,7 @@ const RoleDashboard = ({ navigation }) => {
                         </TouchableOpacity>
                         <TouchableOpacity 
                           style={[styles.declineButton, { borderColor: roleColors.primary }]}
-                          onPress={() => navigation.navigate('Bookings', { filterRecurring: request.recurringBookingId })}
+                          onPress={() => navigation.navigate('FullScreenSplash', { targetScreen: 'Bookings', targetParams: { filterRecurring: request.recurringBookingId } })}
                         >
                           <Ionicons name="list" size={18} color={roleColors.primary} />
                           <Text style={[styles.declineButtonText, { color: roleColors.primary }]}>View Details</Text>
@@ -804,6 +819,13 @@ const styles = StyleSheet.create({
   headerTitleContainer: {
     ...commonStyles.row,
     gap: 8,
+  },
+  headerRightContainer: {
+    ...commonStyles.row,
+    gap: 12,
+  },
+  debugButton: {
+    padding: 4,
   },
   headerTitle: {
     fontSize: 18,

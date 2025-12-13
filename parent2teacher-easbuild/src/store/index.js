@@ -26,6 +26,7 @@ import availabilitySlice from './slices/availabilitySlice';
 // Middleware
 import authMiddleware from './middleware/authMiddleware';
 import errorLoggingMiddleware from './middleware/errorLoggingMiddleware';
+import performanceLoggingMiddleware from './middleware/performanceLoggingMiddleware';
 
 /**
  * 🏪 Redux Store Configuration
@@ -71,6 +72,7 @@ export const store = configureStore({
     }).concat([
       authMiddleware,
       errorLoggingMiddleware,
+      performanceLoggingMiddleware,
       // Lisätään logger vain kehitystilassa
       process.env.NODE_ENV === 'development' && require('redux-logger').createLogger({
         collapsed: true,

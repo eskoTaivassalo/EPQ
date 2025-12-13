@@ -94,11 +94,9 @@ export default function ChangePasswordScreen({ navigation }) {
       );
       
       await reauthenticateWithCredential(auth.currentUser, credential);
-      console.log('✅ Re-authentication successful');
 
       // Step 2: Update password
       await updatePassword(auth.currentUser, newPassword);
-      console.log('✅ Password updated successfully');
 
       // Clear fields
       setCurrentPassword('');
@@ -116,8 +114,6 @@ export default function ChangePasswordScreen({ navigation }) {
         ]
       );
     } catch (error) {
-      console.error('❌ Change password error:', error);
-      
       let errorMessage = 'Failed to change password. Please try again.';
       
       if (error.code === 'auth/wrong-password') {

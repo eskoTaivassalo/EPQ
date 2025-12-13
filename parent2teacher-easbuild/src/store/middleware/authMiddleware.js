@@ -53,7 +53,6 @@ const authMiddleware = (store) => {
       const timeSinceLogin = Date.now() - updatedState.auth.lastLogin;
 
       if (timeSinceLogin > sessionTimeout) {
-        if (__DEV__) console.log('⏰ Session expired');
         isLoggingOut = true;
         // Dispatch the actual thunk to update state properly
         store.dispatch(logoutUser());

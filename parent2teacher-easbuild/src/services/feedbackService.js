@@ -33,8 +33,6 @@ export async function addFeedback({
   if (!db) throw new Error('Firestore not initialized');
   if (!fromUserId || !toUserId || !roleFrom || !roleTo) throw new Error('Missing required fields');
   
-  console.log('💬 Adding feedback:', { fromUserId, toUserId, roleFrom, roleTo, subject });
-  
   // Get receiver's collection info to save feedback to their profile
   const receiverInfo = getRoleCollectionInfo(roleTo);
   if (!receiverInfo) {
@@ -61,16 +59,10 @@ export async function addFeedback({
     createdAt: serverTimestamp()
   };
   
-  console.log('💬 Saving feedback to path:', `serviceTypes/${serviceType}/${collectionName}/${toUserId}/feedback`);
-  console.log('💬 Feedback payload:', payload);
-  
   const res = await addDoc(feedbackCollectionRef, payload);
-  console.log('💬 Feedback saved with ID:', res.id);
   
   // Create notification for receiver
   try {
-    console.log('🔔 Creating notification for feedback recipient:', toUserId);
-    
     // Get receiver's profile to determine their name
     const receiverProfile = await getUserMainProfile(toUserId);
     const receiverName = receiverProfile?.displayName || receiverProfile?.name || 'User';
@@ -105,7 +97,6 @@ export async function addFeedback({
     };
     
     await addDoc(collection(userDocRef, 'notifications'), notificationData);
-    console.log('✅ Feedback notification created');
     
     // Send push notification if available
     if (auth.currentUser?.uid !== toUserId) {
@@ -121,14 +112,12 @@ export async function addFeedback({
             `${senderName}: ${feedbackText.substring(0, 100)}${feedbackText.length > 100 ? '...' : ''}`,
             { type: 'feedback_received', feedbackId: res.id }
           );
-          console.log('📲 Push notification sent');
         }
       } catch (pushErr) {
-        console.warn('Failed to send push notification:', pushErr);
+        // Push notification failed, continue
       }
     }
   } catch (notifErr) {
-    console.error('Failed to create feedback notification:', notifErr);
     // Don't fail the whole operation if notification fails
   }
   
@@ -159,8 +148,6 @@ export async function listFeedbackForUser(userId, userRole) {
   const userDocRef = doc(db, 'serviceTypes', serviceType, collectionName, userId);
   const feedbackCollectionRef = collection(userDocRef, 'feedback');
   
-  console.log('💬 Fetching feedback from:', `serviceTypes/${serviceType}/${collectionName}/${userId}/feedback`);
-  
   const q = query(feedbackCollectionRef, orderBy('createdAt', 'desc'));
   const snap = await getDocs(q);
   const feedbacks = [];
@@ -168,7 +155,6 @@ export async function listFeedbackForUser(userId, userRole) {
     feedbacks.push({ id: docSnap.id, ...docSnap.data() });
   });
   
-  console.log('💬 Found', feedbacks.length, 'feedback items');
   return feedbacks;
 }
 
@@ -192,15 +178,12 @@ export async function listFeedbackGivenByUser(userId) {
     orderBy('createdAt', 'desc')
   );
   
-  console.log('💬 Fetching feedback given by user:', userId);
-  
   const snap = await getDocs(q);
   const feedbacks = [];
   snap.forEach(docSnap => {
     feedbacks.push({ id: docSnap.id, ...docSnap.data() });
   });
   
-  console.log('💬 Found', feedbacks.length, 'feedback items given by user');
   return feedbacks;
 }
 
@@ -236,10 +219,7 @@ export async function deleteFeedback(userId, userRole, feedbackId) {
     feedbackId
   );
   
-  console.log('🗑️ Deleting feedback:', feedbackId, 'from user:', userId);
-  
   await deleteDoc(feedbackDocRef);
-  console.log('✅ Feedback deleted successfully');
 }
 
 /**
@@ -274,12 +254,8 @@ export async function markFeedbackAsRead(userId, userRole, feedbackId) {
     feedbackId
   );
   
-  console.log('👁️ Marking feedback as read:', feedbackId);
-  
   await updateDoc(feedbackDocRef, {
     isRead: true,
     readAt: serverTimestamp()
   });
-  
-  console.log('✅ Feedback marked as read');
 }

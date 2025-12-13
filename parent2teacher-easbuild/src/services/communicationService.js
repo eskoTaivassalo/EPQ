@@ -14,7 +14,14 @@ export async function sendMessage({ teacherId, parentId, senderType, text, servi
   if (!db) throw new Error('Firestore not initialized');
   if (!teacherId || !parentId) throw new Error('teacherId and parentId required');
   if (!text || !text.trim()) throw new Error('Message text required');
+  
+  // Determine sender/recipient based on senderType
+  const senderId = senderType === 'teacher' ? teacherId : parentId;
+  const recipientId = senderType === 'teacher' ? parentId : teacherId;
+  
   const payload = {
+    senderId,
+    recipientId,
     teacherId,
     parentId,
     senderType,
@@ -24,14 +31,12 @@ export async function sendMessage({ teacherId, parentId, senderType, text, servi
   };
   
   // Save message under sender's document: serviceTypes/{serviceType}/{teachers|parents}/{senderId}/messages
-  const senderId = senderType === 'teacher' ? teacherId : parentId;
   const senderCollection = senderType === 'teacher' ? 'teachers' : 'parents';
   const ref = collection(db, 'serviceTypes', serviceType, senderCollection, senderId, 'messages');
   const res = await addDoc(ref, payload);
 
-  // Determine recipient
+  // Determine recipient for notifications
   const recipientType = senderType === 'teacher' ? 'parent' : 'teacher';
-  const recipientId = recipientType === 'teacher' ? teacherId : parentId;
 
   // In-app notification (always)
   try {
@@ -73,7 +78,7 @@ export async function sendMessage({ teacherId, parentId, senderType, text, servi
       }
     }
   } catch (err) {
-    console.warn('[message] Failed to create in-app notification:', err);
+    // Silent
   }
 
   // Push notification (only if recipient not active)
@@ -93,7 +98,7 @@ export async function sendMessage({ teacherId, parentId, senderType, text, servi
       );
     }
   } catch (err) {
-    console.warn('[message] Failed to send push notification:', err);
+    // Silent
   }
 
   return { id: res.id, ...payload };
@@ -189,10 +194,16 @@ export function subscribeToConversation(teacherId, parentId, onChange, serviceTy
     where('teacherId', '==', teacherId),
     orderBy('createdAt', 'asc')
   );
+  
   return onSnapshot(q, (snap) => {
     const arr = [];
-    snap.forEach(d => arr.push({ id: d.id, ...d.data() }));
+    snap.forEach(d => {
+      const doc = { id: d.id, ...d.data() };
+      arr.push(doc);
+    });
     onChange(arr);
+  }, (error) => {
+    // Error listening to conversation
   });
 }
 
@@ -508,13 +519,10 @@ export async function sendSupportMessage({ userId, senderName, senderEmail, send
               category
             }
           );
-          console.log(`✅ Push notification sent to admin: ${admin.email}`);
         }
       } catch (pushError) {
-        console.warn(`⚠️ Failed to send push to admin ${admin.email}:`, pushError);
+        // Failed to send push notification
       }
-    } else {
-      console.log(`ℹ️ Admin ${admin.email} is active, skipping push notification`);
     }
   }
 
@@ -549,6 +557,5 @@ export async function submitUserReport({ reporterId, reportedUserId, reason, ser
   const reportsRef = collection(db, 'reports');
   const reportDoc = await addDoc(reportsRef, reportData);
 
-  console.log('✅ User report submitted:', reportDoc.id);
   return { id: reportDoc.id, ...reportData };
 }

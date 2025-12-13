@@ -11,12 +11,13 @@ const FullScreenSplash = ({ navigation, route }) => {
   const { targetScreen, targetParams } = route.params || {};
 
   useEffect(() => {
-    // Näytä splash 1.2 sekuntia, sitten siirry varsinaiseen näkymään
+    // Näytä splash lyhyesti, sitten siirry varsinaiseen näkymään
     const timer = setTimeout(() => {
       if (targetScreen) {
+        // Käytä replace:a jotta ei tule slide-animaatiota
         navigation.replace(targetScreen, targetParams);
       }
-    }, 1200);
+    }, 600);
 
     return () => clearTimeout(timer);
   }, [navigation, targetScreen, targetParams]);

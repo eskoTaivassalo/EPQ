@@ -60,54 +60,33 @@ export default function ChangeEmailScreen({ navigation }) {
       }
       
       // Reload Firebase Auth user to get latest email
-      console.log('🔄 Reloading Firebase Auth user...');
       await auth.currentUser.reload();
       const currentAuthEmail = auth.currentUser.email;
       
-      console.log('🔍 Checking email verification:');
-      console.log('   Current Auth email:', currentAuthEmail);
-      console.log('   Current Redux email:', user?.email);
-      console.log('   User UID:', user?.uid);
-      console.log('   User role:', user?.role);
-      console.log('   User type:', user?.type);
-      console.log('   User userType:', user?.userType);
-      
       // Check if email has changed in Firebase Auth
       if (currentAuthEmail !== user?.email) {
-        console.log('✅ Email has been updated in Firebase Auth, updating Firestore...');
-        
         // Determine user collection - try multiple possible field names
         let userCollection = 'parents'; // default to parents
         if (user.role === 'teacher' || user.type === 'teacher' || user.userType === 'teacher') {
           userCollection = 'teachers';
         }
         
-        console.log(`📝 Updating ${userCollection} collection for user ${user.uid}`);
-        
         const userDocRef = doc(db, userCollection, user.uid);
         
         // Check if document exists first
-        console.log('📝 Checking if document exists...');
         const docSnap = await getDoc(userDocRef);
         
         if (!docSnap.exists()) {
           throw new Error(`User document not found in ${userCollection} collection. Please contact support.`);
         }
         
-        console.log('📝 Document exists, updating...');
-        console.log('📝 Current document data:', docSnap.data());
-        console.log('📝 Current document email:', docSnap.data().email);
-        
         await updateDoc(userDocRef, {
           email: currentAuthEmail,
           updatedAt: new Date().toISOString()
         });
         
-        console.log(`✅ Updated email in ${userCollection} collection`);
-        
         // IMPORTANT: After email change, Firebase invalidates the auth token
         // We need to log out and have user log in again with new email
-        console.log('🔄 Email changed - logging out for security...');
         
         Alert.alert(
           'Email Updated Successfully!',
@@ -117,11 +96,9 @@ export default function ChangeEmailScreen({ navigation }) {
               text: 'OK, Log In Again',
               onPress: async () => {
                 try {
-                  console.log('Logging out after email change...');
                   await logout();
-                  console.log('✅ Logged out successfully');
                 } catch (e) {
-                  console.error('Logout error:', e);
+                  // Logout failed
                 }
                 // Navigation will automatically go to login screen
               }
@@ -137,11 +114,6 @@ export default function ChangeEmailScreen({ navigation }) {
         );
       }
     } catch (error) {
-      console.error('❌ Check verification error:', error);
-      console.error('Error code:', error.code);
-      console.error('Error message:', error.message);
-      console.error('Full error:', JSON.stringify(error, null, 2));
-      
       let errorMessage = 'Failed to check verification status. Please try again or contact support.';
       
       // Provide more specific error messages
@@ -155,7 +127,6 @@ export default function ChangeEmailScreen({ navigation }) {
         'Error',
         errorMessage,
         [
-          { text: 'Show Details', onPress: () => console.log('Full error object:', error) },
           { text: 'OK' }
         ]
       );
@@ -204,19 +175,14 @@ export default function ChangeEmailScreen({ navigation }) {
           );
           
           await reauthenticateWithCredential(auth.currentUser, credential);
-          console.log('✅ Re-authentication successful');
         } catch (reAuthError) {
-          console.error('❌ Re-authentication error:', reAuthError);
           throw reAuthError; // Re-throw to be caught by outer catch
         }
-      } else {
-        console.log('✅ Google user - skipping password re-authentication');
       }
 
       // Step 2: Send verification email to new address BEFORE updating
       // User must verify the new email first, then Firebase will update it automatically
       await verifyBeforeUpdateEmail(auth.currentUser, newEmail);
-      console.log('✅ Verification email sent to new address');
 
       setVerificationSent(true);
       setCurrentPassword('');
@@ -229,8 +195,6 @@ export default function ChangeEmailScreen({ navigation }) {
         [{ text: 'OK' }]
       );
     } catch (error) {
-      console.error('❌ Change email error:', error);
-      
       let errorMessage = 'Failed to send verification email. Please try again.';
       let isRecentLoginError = false;
       
@@ -262,7 +226,7 @@ export default function ChangeEmailScreen({ navigation }) {
                 try {
                   await logout();
                 } catch (logoutError) {
-                  console.error('Logout error:', logoutError);
+                  // Logout failed
                 }
               },
               style: 'destructive'
@@ -452,7 +416,7 @@ export default function ChangeEmailScreen({ navigation }) {
                         try {
                           await logout();
                         } catch (e) {
-                          console.error('Logout error:', e);
+                          // Logout failed
                         }
                       }
                     }

@@ -10,6 +10,7 @@ import { listStudentsForTeacher } from '../../services/availabilityService';
 import { db } from '../../config/firebaseConfig';
 import FeedbackModal from '../../components/FeedbackModal';
 import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
+import performanceTracker from '../../utils/performanceTracker';
 
 /**
  * ClientsScreen - Lists clients (students/parents) who have bookings with this provider.
@@ -27,28 +28,49 @@ export default function ClientsScreen({ navigation }) {
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [teacherSubjects, setTeacherSubjects] = useState([]);
 
+  useEffect(() => {
+    performanceTracker.mark('clients_mount');
+    performanceTracker.logRender('ClientsScreen', { role });
+  }, []);
+
   const load = useCallback(async () => {
     if (!user?.uid) return;
+    performanceTracker.mark('load_clients_start');
+    performanceTracker.logFetch('listStudentsForTeacher', 'start');
+    
     setLoading(true);
     setError(null);
     try {
       // Fetch students
       const data = await listStudentsForTeacher(user.uid);
+      performanceTracker.mark('students_fetched');
+      performanceTracker.measure('fetch_students_duration', 'load_clients_start', 'students_fetched');
+      
       setStudents(data);
       
       // Fetch teacher's subjects from Firestore using correct path
       const serviceType = user?.serviceType || 'education';
+      performanceTracker.mark('teacher_doc_start');
       const teacherDoc = await getDoc(doc(db, 'serviceTypes', serviceType, 'teachers', user.uid));
+      performanceTracker.mark('teacher_doc_end');
+      performanceTracker.measure('fetch_teacher_doc_duration', 'teacher_doc_start', 'teacher_doc_end');
+      
       if (teacherDoc.exists()) {
         const teacherData = teacherDoc.data();
         setTeacherSubjects(teacherData.subjects || []);
       }
+      
+      performanceTracker.mark('load_clients_end');
+      performanceTracker.measure('load_clients_total', 'load_clients_start', 'load_clients_end');
+      performanceTracker.logFetch('listStudentsForTeacher', 'success');
+      
     } catch (e) {
+      performanceTracker.logFetch('listStudentsForTeacher', 'error');
       setError(e.message || 'Failed to load students');
     } finally {
       setLoading(false);
     }
-  }, [user?.uid]);
+  }, [user?.uid, user?.serviceType, role]);
 
   useEffect(() => { load(); }, [load]);
 

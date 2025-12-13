@@ -87,8 +87,6 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
     };
   });
 
-  console.log(`📋 Found ${existingSlots.length} existing slots in date range`);
-
   // Iterate days
   await runTransaction(db, async (tx) => {
     eachDay(fromDate, toDate, (day) => {
@@ -117,7 +115,6 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
         );
 
         if (exactMatch) {
-          console.warn(`⚠️ Skipping duplicate slot: ${slotStart.toISOString()} (status: ${exactMatch.status})`);
           skipped.push(slotStart.toISOString());
           cursor = slotEnd;
           continue;
@@ -126,11 +123,7 @@ export async function generateAvailabilitySlots(teacherId, template, fromDate, t
         // Check for ANY overlap with existing slots (including partial overlaps)
         const hasOverlap = existingSlots.some(existing => {
           // Overlap occurs if: new slot starts before existing ends AND new slot ends after existing starts
-          const overlaps = slotStart < existing.end && slotEnd > existing.start;
-          if (overlaps) {
-            console.warn(`⚠️ Overlap: new ${slotStart.toISOString()}-${slotEnd.toISOString()} vs existing ${existing.start.toISOString()}-${existing.end.toISOString()} (${existing.status})`);
-          }
-          return overlaps;
+          return slotStart < existing.end && slotEnd > existing.start;
         });
 
         if (hasOverlap) {
@@ -304,14 +297,10 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
     
     // Teacher's bookings: serviceTypes/{serviceType}/{collection}/{teacherId}/bookings/{bookingId}
     const teacherBookingRef = getBookingDoc(slot.teacherId, teacherRole, bookingId);
-    console.log('📝 Saving teacher booking to:', teacherBookingRef.path);
-    console.log('📝 Teacher role:', teacherRole, 'Teacher ID:', slot.teacherId);
     tx.set(teacherBookingRef, { ...bookingData, role: 'provider' });
     
     // Parent's bookings: serviceTypes/{serviceType}/{collection}/{parentId}/bookings/{bookingId}
     const parentBookingRef = getBookingDoc(parentId, clientRole, bookingId);
-    console.log('📝 Saving parent booking to:', parentBookingRef.path);
-    console.log('📝 Client role:', clientRole, 'Parent ID:', parentId);
     tx.set(parentBookingRef, { ...bookingData, role: 'client' });
   });
   
@@ -372,7 +361,6 @@ export async function bookSlot(slotId, parentId, metadata = {}) {
     }
   } catch (notifyErr) {
     // Non-fatal: booking succeeded even if notification write fails
-    console.warn('Notification creation failed', notifyErr);
   }
 
   return { success: true, bookingId: bookingId };
@@ -435,40 +423,63 @@ export default {
 export async function listStudentsForTeacher(teacherId) {
   if (!db) throw new Error('Firestore not initialized');
   if (!teacherId) throw new Error('teacherId required');
+  
   // Query bookings for this teacher using collectionGroup to search across serviceTypes structure
   const q = query(collectionGroup(db, 'bookings'), where('teacherId', '==', teacherId));
   const snap = await getDocs(q);
+  
   const parentIds = new Set();
   snap.docs.forEach(d => {
     const data = d.data();
     if (data.parentId) parentIds.add(data.parentId);
   });
-  const results = [];
-  for (const pid of parentIds) {
-    try {
-      // Fetch parent profile from serviceTypes structure
-      // Try education/parents first (most common)
-      let ref = doc(db, 'serviceTypes', 'education', 'parents', pid);
-      let psnap = await getDoc(ref);
-      
-      // If not found in education, try other service types
-      if (!psnap.exists()) {
-        ref = doc(db, 'serviceTypes', 'therapy', 'clients', pid);
-        psnap = await getDoc(ref);
-      }
-      
-      if (!psnap.exists()) {
-        ref = doc(db, 'serviceTypes', 'coaching', 'athletes', pid);
-        psnap = await getDoc(ref);
-      }
-      
-      if (psnap.exists()) {
-        results.push({ id: pid, ...psnap.data() });
-      }
-    } catch (e) {
-      console.warn('listStudentsForTeacher: parent fetch failed', pid, e.message || e);
-    }
+  
+  if (parentIds.size === 0) {
+    return [];
   }
+  
+  // Optimized: Fetch all parent profiles in parallel instead of sequentially
+  const fetchPromises = [];
+  const parentIdsArray = Array.from(parentIds);
+  
+  // For each parent ID, try all three possible collection paths in parallel
+  parentIdsArray.forEach(pid => {
+    // Education/parents
+    fetchPromises.push(
+      getDoc(doc(db, 'serviceTypes', 'education', 'parents', pid))
+        .then(snap => ({ id: pid, snap, collection: 'parents' }))
+        .catch(() => null)
+    );
+    // Therapy/clients
+    fetchPromises.push(
+      getDoc(doc(db, 'serviceTypes', 'therapy', 'clients', pid))
+        .then(snap => ({ id: pid, snap, collection: 'clients' }))
+        .catch(() => null)
+    );
+    // Coaching/athletes
+    fetchPromises.push(
+      getDoc(doc(db, 'serviceTypes', 'coaching', 'athletes', pid))
+        .then(snap => ({ id: pid, snap, collection: 'athletes' }))
+        .catch(() => null)
+    );
+  });
+  
+  // Wait for all fetches to complete
+  const fetchResults = await Promise.all(fetchPromises);
+  
+  // Process results and deduplicate (one profile per parent ID)
+  const profilesMap = new Map();
+  fetchResults.forEach(result => {
+    if (result && result.snap && result.snap.exists()) {
+      // Only add if we haven't found this parent yet (first match wins)
+      if (!profilesMap.has(result.id)) {
+        profilesMap.set(result.id, { id: result.id, ...result.snap.data() });
+      }
+    }
+  });
+  
+  const results = Array.from(profilesMap.values());
+  
   // Sort by name if available
   results.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   return results;

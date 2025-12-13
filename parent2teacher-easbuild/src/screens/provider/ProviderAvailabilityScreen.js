@@ -57,18 +57,14 @@ export default function TeacherAvailabilityScreen({ navigation }) {
           const subjects = data.subjects || [];
           
           if (Array.isArray(subjects) && subjects.length > 0) {
-            console.log('✅ Loaded subjects from profile:', subjects);
             setProfileSubjects(subjects);
           } else {
-            console.log('⚠️ No subjects found in profile');
             setProfileSubjects([]);
           }
         } else {
-          console.log(`⚠️ Profile not found at serviceTypes/${serviceType}/${collectionName}/${user.uid}`);
           setProfileSubjects([]);
         }
       } catch (e) {
-        console.error('❌ Error fetching subjects:', e);
         setProfileSubjects([]);
       }
     }

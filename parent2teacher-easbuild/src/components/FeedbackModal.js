@@ -82,7 +82,6 @@ export default function FeedbackModal({
       alert('Feedback submitted successfully!');
       onClose();
     } catch (error) {
-      console.error('Error submitting feedback:', error);
       alert('Failed to submit feedback: ' + error.message);
     } finally {
       setSubmitting(false);

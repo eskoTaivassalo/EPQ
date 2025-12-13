@@ -98,7 +98,6 @@ export default function ManageSlotsScreen({ navigation }) {
       
       setSlots(filtered);
     } catch (error) {
-      console.error('Error loading slots:', error);
       Alert.alert('Error', 'Failed to load time slots');
     } finally {
       setLoading(false);
@@ -130,7 +129,6 @@ export default function ManageSlotsScreen({ navigation }) {
               setAllSlots(prev => prev.filter(s => s.id !== slot.id));
               Alert.alert('Deleted', 'Time slot removed');
             } catch (error) {
-              console.error('Error deleting slot:', error);
               Alert.alert('Error', 'Failed to delete slot');
             }
           }
@@ -165,7 +163,6 @@ export default function ManageSlotsScreen({ navigation }) {
               setAllSlots(prev => prev.filter(s => s.status !== 'available'));
               Alert.alert('Success', `${availableSlots.length} slots deleted`);
             } catch (error) {
-              console.error('Error bulk deleting:', error);
               Alert.alert('Error', 'Failed to delete slots');
             }
           }
@@ -224,7 +221,6 @@ export default function ManageSlotsScreen({ navigation }) {
                       setAllSlots(prev => prev.filter(s => !slotsToDelete.find(ds => ds.id === s.id)));
                       Alert.alert('Success', `${slotsToDelete.length} slots deleted`);
                     } catch (error) {
-                      console.error('Error deleting range:', error);
                       Alert.alert('Error', 'Failed to delete slots');
                     }
                   }

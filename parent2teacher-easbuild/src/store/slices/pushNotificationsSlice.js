@@ -14,13 +14,10 @@ export const scheduleBookingNotifications = createAsyncThunk(
     try {
       // Check permissions first
       const { status } = await Notifications.getPermissionsAsync();
-      console.log(`🔐 Notification permission status: ${status}`);
       
       if (status !== 'granted') {
-        console.error('❌ Notifications not permitted! Status:', status);
         const { status: newStatus } = await Notifications.requestPermissionsAsync();
         if (newStatus !== 'granted') {
-          console.error('❌ User denied notification permissions');
           return [];
         }
       }
@@ -36,11 +33,9 @@ export const scheduleBookingNotifications = createAsyncThunk(
           enableVibrate: true,
           showBadge: true,
         });
-        console.log('📱 Android notification channel created/updated');
       }
 
       if (!booking.start) {
-        console.warn(`⚠️ Booking ${booking.id} missing 'start' field`);
         return [];
       }
 
@@ -50,7 +45,6 @@ export const scheduleBookingNotifications = createAsyncThunk(
       // Don't schedule if booking is less than 30 minutes away
       const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
       if (bookingDate < thirtyMinutesFromNow) {
-        console.log(`⏰ Booking ${booking.id} less than 30 min away, skipping`);
         return [];
       }
 
@@ -89,10 +83,6 @@ export const scheduleBookingNotifications = createAsyncThunk(
         const reminderTime = new Date(bookingDate.getTime() - schedule.minutesBefore * 60 * 1000);
         
         if (reminderTime > now) {
-          console.log(`   🔄 Attempting to schedule ${schedule.minutesBefore}min reminder...`);
-          console.log(`   📅 Trigger time: ${reminderTime.toISOString()}`);
-          console.log(`   ⏱️ Seconds from now: ${Math.floor((reminderTime - now) / 1000)}`);
-          
           // Use seconds from now instead of date object (more reliable on Android)
           const secondsFromNow = Math.floor((reminderTime - now) / 1000);
           
@@ -115,13 +105,6 @@ export const scheduleBookingNotifications = createAsyncThunk(
             },
           });
 
-          console.log(`   📝 Notification ID returned: ${notificationId}`);
-          
-          // IMMEDIATELY verify it was actually scheduled
-          const immediateCheck = await Notifications.getAllScheduledNotificationsAsync();
-          const foundInSystem = immediateCheck.find(n => n.identifier === notificationId);
-          console.log(`   🔍 Immediate check: ${foundInSystem ? 'FOUND' : 'NOT FOUND'} in system (total: ${immediateCheck.length})`);
-
           scheduledNotifications.push({
             notificationId,
             bookingId: booking.id,
@@ -129,16 +112,11 @@ export const scheduleBookingNotifications = createAsyncThunk(
             minutesBefore: schedule.minutesBefore,
             title: schedule.title,
           });
-
-          console.log(`   ✅ Scheduled ${schedule.minutesBefore}min reminder for ${reminderTime.toLocaleString()}`);
-        } else {
-          console.log(`   ⏭️ Skipped ${schedule.minutesBefore}min reminder (already passed)`);
         }
       }
 
       return scheduledNotifications;
     } catch (error) {
-      console.error('❌ Error scheduling notifications:', error);
       return rejectWithValue(error.message);
     }
   }
@@ -152,11 +130,8 @@ export const scheduleAllBookingNotifications = createAsyncThunk(
   'pushNotifications/scheduleAll',
   async ({ bookings, userRole }, { dispatch }) => {
     try {
-      console.log(`📅 Scheduling push notifications for ${bookings.length} bookings`);
-
       // Cancel all existing notifications first
       await Notifications.cancelAllScheduledNotificationsAsync();
-      console.log('🗑️ Cleared all existing push notifications');
 
       // Filter to only confirmed bookings with meeting URLs
       const now = new Date();
@@ -165,8 +140,6 @@ export const scheduleAllBookingNotifications = createAsyncThunk(
         const bookingDate = new Date(b.start || b.date);
         return isConfirmed && bookingDate > now && b.meetingUrl;
       });
-
-      console.log(`📋 Found ${upcomingBookings.length} upcoming confirmed bookings`);
 
       // Schedule notifications for each booking
       const results = await Promise.all(
@@ -178,24 +151,8 @@ export const scheduleAllBookingNotifications = createAsyncThunk(
       // Flatten results (each booking returns array of notifications)
       const allScheduled = results.flat();
       
-      console.log(`✅ Scheduled ${allScheduled.length} push notifications total`);
-      
-      // Wait a moment to ensure notifications are persisted
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Verify what's actually scheduled in the system
-      const verify = await Notifications.getAllScheduledNotificationsAsync();
-      console.log(`✅ VERIFICATION: ${verify.length} notifications in system`);
-      
-      if (verify.length === 0 && allScheduled.length > 0) {
-        console.error(`❌ CRITICAL: Scheduled ${allScheduled.length} but 0 in system! Notifications disappeared!`);
-      } else if (verify.length !== allScheduled.length) {
-        console.warn(`⚠️ WARNING: Scheduled ${allScheduled.length} but found ${verify.length} in system`);
-      }
-      
       return allScheduled;
     } catch (error) {
-      console.error('❌ Error scheduling all notifications:', error);
       throw error;
     }
   }
@@ -209,11 +166,9 @@ export const clearAllNotifications = createAsyncThunk(
   async () => {
     try {
       const scheduled = await Notifications.getAllScheduledNotificationsAsync();
-      console.log(`🗑️ Clearing ${scheduled.length} scheduled notifications`);
       await Notifications.cancelAllScheduledNotificationsAsync();
       return scheduled.length;
     } catch (error) {
-      console.error('❌ Error clearing notifications:', error);
       throw error;
     }
   }
@@ -236,7 +191,6 @@ export const loadScheduledNotifications = createAsyncThunk(
         data: notif.content?.data,
       }));
     } catch (error) {
-      console.error('❌ Error loading scheduled notifications:', error);
       throw error;
     }
   }
@@ -316,12 +270,11 @@ const pushNotificationsSlice = createSlice({
       .addCase(clearAllNotifications.fulfilled, (state, action) => {
         state.scheduledByBooking = {};
         state.totalScheduled = 0;
-        console.log(`✅ Cleared ${action.payload} notifications from state`);
       })
 
       // Load scheduled (for debugging)
       .addCase(loadScheduledNotifications.fulfilled, (state, action) => {
-        console.log('📋 Currently scheduled notifications:', action.payload);
+        // Notification data loaded
       });
   },
 });
