@@ -89,7 +89,7 @@ const FindProvidersScreen = ({ navigation }) => {
     try {
       await getTeachers(); // Redux hoitaa loading staten ja datan
     } catch (error) {
-
+      console.error('Error loading teachers:', error);
     }
   };
 
@@ -195,7 +195,7 @@ const FindProvidersScreen = ({ navigation }) => {
       
       Alert.alert('Report Submitted', 'Thank you for helping keep our community safe.');
     } catch (error) {
-
+      console.error('Error submitting report:', error);
       Alert.alert('Error', 'Failed to submit report. Please try again.');
     }
   };
@@ -299,7 +299,7 @@ const FindProvidersScreen = ({ navigation }) => {
   const applyFilters = () => {
     // Varmistetaan että teachers on array
     if (!Array.isArray(teachers)) {
-
+      console.log('Teachers is not an array:', teachers);
       setFilteredTeachers([]);
       return;
     }

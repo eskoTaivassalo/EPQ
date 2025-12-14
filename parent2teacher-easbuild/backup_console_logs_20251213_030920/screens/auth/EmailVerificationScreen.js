@@ -72,7 +72,7 @@ const EmailVerificationScreen = ({ navigation }) => {
         );
       }
     } catch (error) {
-
+      console.error('Error checking email verification:', error);
     } finally {
       setIsChecking(false);
     }

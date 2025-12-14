@@ -334,7 +334,7 @@ const ProfileScreen = ({ navigation }) => {
           <Ionicons name={isEditing ? 'close' : 'arrow-back'} size={24} color={colors.white} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          {isEditing ? 'Muokkaa profiilia' : 'Oma profiili'}
+          {isEditing ? 'Edit Profile' : 'My Profile'}
         </Text>
         <TouchableOpacity
           style={styles.editButton}

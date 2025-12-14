@@ -68,7 +68,7 @@ export const useAppData = () => {
       const result = await dispatch(fetchTeachers()).unwrap();
       return { success: true, data: result };
     } catch (error) {
-
+      console.error('AppData Hook: Error fetching teachers:', error);
       return { success: false, error };
     }
   };
@@ -87,14 +87,14 @@ export const useAppData = () => {
       const result = await dispatch(createTeacherProfile(teacherData)).unwrap();
       return { success: true, data: result };
     } catch (error) {
-
+      console.error('AppData Hook: Error creating teacher:', error);
       return { success: false, error };
     }
   };
 
   const updateTeacherProfile = async (teacherId, updateData) => {
     // This would need to be implemented as a separate action
-
+    console.log('AppData Hook: updateTeacherProfile not yet implemented in Redux');
     return { success: false, error: 'Not implemented' };
   };
 
@@ -107,7 +107,7 @@ export const useAppData = () => {
       const result = await dispatch(fetchParents()).unwrap();
       return { success: true, data: result };
     } catch (error) {
-
+      console.error('AppData Hook: Error fetching parents:', error);
       return { success: false, error };
     }
   };
@@ -117,7 +117,7 @@ export const useAppData = () => {
       const result = await dispatch(createParentProfile(parentData)).unwrap();
       return { success: true, data: result };
     } catch (error) {
-
+      console.error('AppData Hook: Error creating parent:', error);
       return { success: false, error };
     }
   };
@@ -131,7 +131,7 @@ export const useAppData = () => {
       })).unwrap();
       return { success: true, data: result };
     } catch (error) {
-
+      console.error('AppData Hook: Error searching teachers:', error);
       return { success: false, error };
     }
   };
@@ -153,7 +153,7 @@ export const useAppData = () => {
     try {
       await dispatch(addFavoriteTeacher(teacherId)).unwrap();
     } catch (e) {
-
+      console.error('Favorites add failed, falling back to local state:', e);
       dispatch(addToFavorites(teacherId));
     }
   };
@@ -162,7 +162,7 @@ export const useAppData = () => {
     try {
       await dispatch(removeFavoriteTeacher(teacherId)).unwrap();
     } catch (e) {
-
+      console.error('Favorites remove failed, falling back to local state:', e);
       dispatch(removeFromFavorites(teacherId));
     }
   };

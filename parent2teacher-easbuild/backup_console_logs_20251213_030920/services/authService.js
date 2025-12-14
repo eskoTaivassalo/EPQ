@@ -151,11 +151,9 @@ export class AuthService {
   static startCleanupTimer() {
     if (typeof setInterval === 'undefined') return null;
     
-    const cleanupFunction = async () => {
+    return setInterval(async () {
       const result = await this.cleanupExpiredAccounts();
-    };
-    
-    return setInterval(cleanupFunction, this.CLEANUP_CHECK_INTERVAL);
+    }, this.CLEANUP_CHECK_INTERVAL);
   }
   
   /**
@@ -296,7 +294,7 @@ export class AuthService {
         message: 'Käyttäjätili poistettu onnistuneesti'
       };
     } catch (error) {
-
+      console.error('Account deletion error:', error);
       throw new Error(this.getErrorMessage(error.code));
     }
   }
@@ -699,10 +697,14 @@ export class AuthService {
         throw new Error('No user logged in');
       }
 
-
+      console.log('🗑️ Deleting profile image...');
+      console.log('  User ID:', userId);
+      console.log('  User type:', userType);
 
       // Poista kuva Firebase Storagesta
       await imagePickerService.deleteImage(userId, 'profile.jpg');
+
+      console.log('✅ Image deleted from storage');
 
       // Päivitä Firebase Auth profiilikuva
       await updateProfile(currentUser, {

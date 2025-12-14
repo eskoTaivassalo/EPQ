@@ -81,6 +81,8 @@ const ContactUsScreen = ({ navigation }) => {
         text: formData.message.trim(),
       });
 
+      console.log(`✅ Support message sent to ${messages.length} admin(s)`);
+
       Alert.alert(
         '✅ Message Sent!',
         'Your message has been sent to our support team.\n\nAn admin will respond to you via the app messaging system soon.',
@@ -101,7 +103,7 @@ const ContactUsScreen = ({ navigation }) => {
       });
       setSelectedCategory('general');
     } catch (error) {
-
+      console.error('❌ Error sending support message:', error);
       Alert.alert(
         'Error', 
         `Failed to send message: ${error.message}\n\nPlease try again or contact us at esko@edproquo.com`

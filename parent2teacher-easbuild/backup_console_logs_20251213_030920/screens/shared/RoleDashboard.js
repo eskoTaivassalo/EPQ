@@ -72,10 +72,17 @@ const RoleDashboard = ({ navigation }) => {
   useEffect(() => {
     if (!user?.uid) return;
     
+    console.log('🎯 RoleDashboard: Setting up bookings listener', { 
+      userId: user.uid, 
+      isProvider, 
+      role: user?.role || user?.userType,
+      userName: user?.displayName || user?.name 
+    });
+    
     const unsubscribe = startBookingsListener(user.uid, isProvider, dispatch);
     
     return () => {
-
+      console.log('🛑 RoleDashboard: Cleaning up bookings listener');
       stopBookingsListener();
     };
   }, [dispatch, user?.uid, isProvider]);
@@ -105,7 +112,7 @@ const RoleDashboard = ({ navigation }) => {
         try {
           await getParents();
         } catch (error) {
-
+          console.warn('Failed to load parents data:', error);
         }
       }
       
@@ -178,7 +185,7 @@ const RoleDashboard = ({ navigation }) => {
           const students = await listStudentsForTeacher(user.uid);
           actualStudentsCount = students.length;
         } catch (error) {
-
+          console.warn('Failed to fetch students count:', error);
           // Fallback to unique parentIds from bookings
           actualStudentsCount = new Set(bookings.map(b => b.parentId)).size;
         }
@@ -211,22 +218,23 @@ const RoleDashboard = ({ navigation }) => {
         try {
           const feedbacks = await listFeedbackForUser(user.uid, role);
           setRecentFeedback(feedbacks.slice(0, 5)); // Show only 5 most recent
-
+          console.log('📬 Loaded', feedbacks.length, 'feedbacks for parent');
         } catch (error) {
-
+          console.warn('Failed to load feedback:', error);
         }
       }
     } catch (error) {
-
+      console.error('Error loading dashboard data:', error);
     } finally {
       setRefreshing(false);
     }
   };
 
   const handleAcceptBooking = async (booking) => {
-
-
-
+    console.log('📋 RoleDashboard: Accepting booking:', booking.id);
+    console.log('👤 RoleDashboard: Parent ID:', booking.parentId);
+    console.log('👨‍🏫 RoleDashboard: Teacher name:', user?.displayName || user?.name || roleConfig.name);
+    
     await dispatch(updateBookingStatus({ 
       bookingId: booking.id, 
       status: 'accepted',
@@ -234,7 +242,9 @@ const RoleDashboard = ({ navigation }) => {
       teacherName: user?.displayName || user?.name || roleConfig.name,
       date: booking.date
     }));
-
+    
+    console.log('✅ RoleDashboard: updateBookingStatus dispatched');
+    
     // Refresh bookings to update UI
     if (isProvider) {
       await dispatch(fetchTeacherBookings());
@@ -246,16 +256,16 @@ const RoleDashboard = ({ navigation }) => {
 
   const handleAcceptAll = async (recurringBookingId) => {
     try {
-
+      console.log('🔄 Starting Accept All for recurring booking:', recurringBookingId);
       const result = await dispatch(approveAllRecurringBookings({ recurringBookingId })).unwrap();
-
+      console.log('✅ Accept All succeeded:', result);
       alert('✅ All recurring bookings accepted!');
       // Refresh bookings
       if (isProvider) {
         await dispatch(fetchTeacherBookings());
       }
     } catch (error) {
-
+      console.error('❌ Accept All failed:', error);
       alert('❌ Failed to accept recurring bookings: ' + error);
     }
   };
@@ -272,8 +282,9 @@ const RoleDashboard = ({ navigation }) => {
     }
 
     try {
-
-
+      console.log('❌ RoleDashboard: Declining booking:', bookingToDecline.id);
+      console.log('👤 RoleDashboard: Parent ID:', bookingToDecline.parentId);
+      
       await dispatch(updateBookingStatus({ 
         bookingId: bookingToDecline.id, 
         status: 'declined',
@@ -282,7 +293,9 @@ const RoleDashboard = ({ navigation }) => {
         date: bookingToDecline.date,
         declineReason: declineReason.trim()
       })).unwrap();
-
+      
+      console.log('✅ RoleDashboard: Decline dispatched');
+      
       setDeclineModalVisible(false);
       setBookingToDecline(null);
       setDeclineReason('');

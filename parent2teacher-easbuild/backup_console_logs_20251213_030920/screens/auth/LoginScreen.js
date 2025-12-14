@@ -279,7 +279,7 @@ const LoginScreen = ({ route, navigation }) => {
       // Navigation happens automatically via App.js when Redux state updates
 
     } catch (error) {
-
+      console.error('❌ Existing Google sign-in error:', error);
       if (error.message?.toLowerCase().includes('peruutettiin') || error.message?.toLowerCase().includes('cancel')) {
         return; // silent cancel
       }

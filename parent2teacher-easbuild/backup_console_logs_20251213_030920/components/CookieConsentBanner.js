@@ -104,9 +104,11 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
   };
 
   if (loading || !showBanner || !bannerData) {
-
+    console.log('🚫 Banner hidden - loading:', loading, 'showBanner:', showBanner, 'bannerData:', !!bannerData);
     return null;
   }
+
+  console.log('✅ Banner rendering - showBanner:', showBanner);
 
   return (
     <>
@@ -128,7 +130,7 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
               style={styles.acceptAllButton}
               activeOpacity={0.7}
               onPress={() => {
-
+                console.log('👆 ACCEPT ALL BUTTON PRESSED!');
                 handleAcceptAll();
               }}
             >
@@ -139,7 +141,7 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
               style={styles.rejectButton}
               activeOpacity={0.7}
               onPress={() => {
-
+                console.log('👆 REJECT BUTTON PRESSED!');
                 handleRejectOptional();
               }}
             >
@@ -150,7 +152,7 @@ const CookieConsentBanner = ({ onConsentGiven, forceShow = false }) => {
               style={styles.settingsButton}
               activeOpacity={0.7}
               onPress={() => {
-
+                console.log('👆 SETTINGS BUTTON PRESSED!');
                 setShowDetails(true);
               }}
             >

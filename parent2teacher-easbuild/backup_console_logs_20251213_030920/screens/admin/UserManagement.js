@@ -81,7 +81,7 @@ const UserManagement = ({ navigation }) => {
       setUsers(allUsers);
       setFilteredUsers(allUsers);
     } catch (error) {
-
+      console.error('Error loading users:', error);
       Alert.alert('Error', 'Failed to load users');
     } finally {
       setLoading(false);
@@ -134,7 +134,7 @@ const UserManagement = ({ navigation }) => {
         u.id === user.id ? { ...u, isActive: newStatus } : u
       ));
     } catch (error) {
-
+      console.error('Error toggling user status:', error);
       Alert.alert('Error', 'Failed to update user status');
     }
   };
@@ -156,17 +156,27 @@ const UserManagement = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-
+              console.log('🗑️ Deleting user:', user.id, 'from collection:', user.collection);
+              
               // 🗑️ PERMANENT DELETE: Remove user document from Firestore
               const userRef = doc(db, user.collection, user.id);
               await deleteDoc(userRef);
+              
+              console.log('✅ User deleted successfully from Firestore');
 
               // Remove from local state
               setUsers(users.filter(u => u.id !== user.id));
               
               Alert.alert('Success', 'User permanently deleted from database');
             } catch (error) {
-              Alert.alert('Error', `Failed to delete user: ${error.message}`);
+              console.error('❌ Error deleting user:', error);
+              console.error('Error details:', {
+                code: error.code,
+                message: error.message,
+                userId: user.id,
+                collection: user.collection
+              });
+              Alert.alert('Error', `Failed to delete user: ${error.message}\n\nCheck console for details.`);
             }
           }
         }

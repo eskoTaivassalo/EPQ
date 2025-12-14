@@ -42,7 +42,7 @@ export default function BookingCalendar({ bookings = [], onSelectDate, onClose }
     try {
       const cellDate = new Date(year, month, day);
       if (isNaN(cellDate.getTime())) {
-
+        console.warn('Invalid cell date:', year, month, day);
         continue;
       }
       const keyISO = cellDate.toISOString().substring(0,10);
@@ -54,7 +54,7 @@ export default function BookingCalendar({ bookings = [], onSelectDate, onClose }
         bookings: dayBookings
       });
     } catch (e) {
-
+      console.warn('Error creating cell date:', year, month, day, e);
     }
   }
 

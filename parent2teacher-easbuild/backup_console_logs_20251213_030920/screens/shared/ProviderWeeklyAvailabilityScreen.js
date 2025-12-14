@@ -79,7 +79,7 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
           setProviderProfile(profileSnap.data());
         }
       } catch (error) {
-
+        console.error('Error loading provider profile:', error);
       }
     };
     loadProfile();
@@ -100,7 +100,7 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       
       setSlots(validSlots);
     } catch (e) {
-
+      console.error('Load slots error', e);
       Alert.alert('Error', e.message || 'Failed to load availability');
     } finally {
       setLoading(false);
@@ -193,7 +193,7 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       // Navigate immediately
       navigation.navigate('Dashboard');
     } catch (e) {
-
+      console.error('❌ Create recurring booking error:', e);
       Alert.alert('Error', e.message || 'Failed to create recurring booking');
     }
   };
@@ -226,10 +226,10 @@ export default function ProviderWeeklyAvailabilityScreen({ route, navigation }) 
       subject: bookedSlotData.subject || bookedSlotData.notes || '', 
       clientRole 
     }).then(() => {
-
+      console.log('✅ Booking confirmed');
       setBookingInProgress(false);
     }).catch((e) => {
-
+      console.error('❌ Book slot error:', e);
       Alert.alert('Error', e.message || 'Failed to create booking');
       setBookingInProgress(false);
     });

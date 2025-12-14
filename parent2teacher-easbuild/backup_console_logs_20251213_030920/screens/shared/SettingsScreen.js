@@ -56,7 +56,7 @@ export default function SettingsScreen({ navigation }) {
         setPushNotifications(prefs.push ?? true);
       }
     } catch (error) {
-
+      console.error('Error loading notification settings:', error);
       // Don't show alert, just use defaults
     } finally {
       setLoading(false);
@@ -77,9 +77,10 @@ export default function SettingsScreen({ navigation }) {
         notificationPreferences: settings,
         updatedAt: serverTimestamp()
       }, { merge: true });
-
+      
+      console.log('✅ Notification settings saved:', settings);
     } catch (error) {
-
+      console.error('Error saving notification settings:', error);
       Alert.alert('Error', 'Failed to save notification settings. Please try again.');
     }
   };
@@ -172,20 +173,20 @@ export default function SettingsScreen({ navigation }) {
       try {
         const userDocRef = doc(db, 'serviceTypes', 'education', collectionName, user.uid);
         await deleteDoc(userDocRef);
-
+        console.log('✅ User document deleted from Firestore');
       } catch (firestoreError) {
-
+        console.error('Firestore deletion error:', firestoreError);
         // Continue anyway - try to delete auth account
       }
 
       // 2. Try to delete user from Firebase Authentication
       try {
         await deleteUser(currentUser);
-
+        console.log('✅ User deleted from Firebase Authentication');
       } catch (authError) {
-
+        console.error('Auth deletion error:', authError);
         // If auth deletion fails, still log out the user
-
+        console.log('⚠️ Auth deletion failed, logging out anyway');
       }
       
       // 3. Clear Redux state and log out
@@ -193,7 +194,7 @@ export default function SettingsScreen({ navigation }) {
       
       // Success - user is logged out
     } catch (error) {
-
+      console.error('Error deleting account:', error);
       Alert.alert(
         'Error',
         `Failed to delete account: ${error.message}`,
@@ -210,7 +211,7 @@ export default function SettingsScreen({ navigation }) {
       await refreshUser();
       // Ei näytetä alertia pull-to-refresh:ssä, vain kun painetaan nappia
     } catch (error) {
-
+      console.error('Refresh error:', error);
       Alert.alert('Error', 'Failed to refresh profile. Please try again.');
     } finally {
       setRefreshing(false);
@@ -236,6 +237,7 @@ EmailVerified: ${user?.emailVerified ? 'Yes' : 'No'}
     `.trim();
     
     Alert.alert('User Debug Info', userInfo, [
+      { text: 'Copy to Console', onPress: () => console.log('User Object:', user) },
       { text: 'OK' }
     ]);
   };

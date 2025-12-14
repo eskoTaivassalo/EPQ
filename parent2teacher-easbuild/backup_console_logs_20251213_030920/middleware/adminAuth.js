@@ -34,13 +34,13 @@ export const isAdmin = async (email) => {
     
     // Verify the document has valid admin data
     if (adminData.role === 'admin' && adminData.isActive !== false) {
-
+      console.log('✅ Admin verified:', email);
       return true;
     }
     
     return false;
   } catch (error) {
-
+    console.error('❌ Error checking admin status:', error);
     return false;
   }
 };
@@ -63,7 +63,7 @@ export const getAdminDetails = async (email) => {
     
     return adminDoc.data();
   } catch (error) {
-
+    console.error('❌ Error fetching admin details:', error);
     return null;
   }
 };

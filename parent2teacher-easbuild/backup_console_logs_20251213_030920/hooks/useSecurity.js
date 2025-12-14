@@ -39,7 +39,7 @@ export const useSecurity = () => {
     try {
       return AuthService.validatePassword(password);
     } catch (error) {
-
+      console.error('Security Hook: Password validation error:', error);
       return { isValid: false, message: 'Salasanan validointi epäonnistui' };
     }
   };
@@ -51,7 +51,7 @@ export const useSecurity = () => {
       const result = await dispatch(validatePasswordAsync({ password, cacheKey })).unwrap();
       return result.result;
     } catch (error) {
-
+      console.error('Security Hook: Async password validation error:', error);
       return { isValid: false, message: 'Salasanan validointi epäonnistui' };
     }
   };
@@ -62,7 +62,7 @@ export const useSecurity = () => {
     try {
       return AuthService.validateEmail(email);
     } catch (error) {
-
+      console.error('Security Hook: Email validation error:', error);
       return { isValid: false, message: 'Sähköpostin validointi epäonnistui' };
     }
   };
@@ -72,7 +72,7 @@ export const useSecurity = () => {
     try {
       return AuthService.getPasswordStrength(password);
     } catch (error) {
-
+      console.error('Security Hook: Password strength error:', error);
       return { score: 0, feedback: ['Salasanan vahvuuden tarkistus epäonnistui'] };
     }
   };
@@ -82,7 +82,7 @@ export const useSecurity = () => {
     try {
       return SecurityService.sanitizeInput(input);
     } catch (error) {
-
+      console.error('Security Hook: Input sanitization error:', error);
       return input; // Return original if sanitization fails
     }
   };
@@ -92,7 +92,7 @@ export const useSecurity = () => {
     try {
       return SecurityService.isSafeFromInjection(input);
     } catch (error) {
-
+      console.error('Security Hook: Injection check error:', error);
       return false; // Assume unsafe if check fails
     }
   };
@@ -102,7 +102,7 @@ export const useSecurity = () => {
     try {
       return SecurityService.checkRateLimit(identifier, maxAttempts, timeWindow);
     } catch (error) {
-
+      console.error('Security Hook: Rate limit check error:', error);
       return { allowed: false, remaining: 0, resetTime: Date.now() };
     }
   };
@@ -138,7 +138,7 @@ export const useSecurity = () => {
 
       return results;
     } catch (error) {
-
+      console.error('Security Hook: User input validation error:', error);
       return {
         isValid: false,
         errors: ['Validointi epäonnistui'],
@@ -153,7 +153,7 @@ export const useSecurity = () => {
     try {
       return SecurityService.validateUsername(username);
     } catch (error) {
-
+      console.error('Security Hook: Username validation error:', error);
       return { isValid: false, message: 'Käyttäjänimen validointi epäonnistui' };
     }
   };
@@ -163,7 +163,7 @@ export const useSecurity = () => {
     try {
       return SecurityService.validatePhoneNumber(phone);
     } catch (error) {
-
+      console.error('Security Hook: Phone validation error:', error);
       return { isValid: false, message: 'Puhelinnumeron validointi epäonnistui' };
     }
   };
@@ -173,7 +173,7 @@ export const useSecurity = () => {
     try {
       return SecurityService.validateDescription(description);
     } catch (error) {
-
+      console.error('Security Hook: Description validation error:', error);
       return { isValid: false, message: 'Kuvauksen validointi epäonnistui' };
     }
   };
@@ -184,7 +184,7 @@ export const useSecurity = () => {
       const result = await dispatch(calculateSecurityScore({ userId, userData })).unwrap();
       return result.score;
     } catch (error) {
-
+      console.error('Security Hook: Security score calculation error:', error);
       return 0;
     }
   };
@@ -194,7 +194,7 @@ export const useSecurity = () => {
     try {
       return AuthService.markAccountCreationTime(userId);
     } catch (error) {
-
+      console.error('Security Hook: Account creation tracking error:', error);
     }
   };
 
@@ -202,7 +202,7 @@ export const useSecurity = () => {
     try {
       return AuthService.markAccountVerified(userId);
     } catch (error) {
-
+      console.error('Security Hook: Account verification marking error:', error);
     }
   };
 
@@ -210,7 +210,7 @@ export const useSecurity = () => {
     try {
       return AuthService.getAccountStatus(userId);
     } catch (error) {
-
+      console.error('Security Hook: Account status check error:', error);
       return { status: 'error', verified: false };
     }
   };
@@ -219,7 +219,7 @@ export const useSecurity = () => {
     try {
       return AuthService.getUnverifiedAccounts();
     } catch (error) {
-
+      console.error('Security Hook: Unverified accounts fetch error:', error);
       return {};
     }
   };
@@ -229,7 +229,7 @@ export const useSecurity = () => {
       const result = await dispatch(cleanupExpiredAccounts()).unwrap();
       return result;
     } catch (error) {
-
+      console.error('Security Hook: Account cleanup error:', error);
       return { error: error.message };
     }
   };
@@ -238,7 +238,7 @@ export const useSecurity = () => {
     try {
       return AuthService.startCleanupTimer();
     } catch (error) {
-
+      console.error('Security Hook: Cleanup timer error:', error);
       return null;
     }
   };

@@ -67,7 +67,7 @@ export default function ConversationsScreen({ navigation, route }) {
             map[id] = data?.name || data?.fullName || data?.displayName || id;
           }
         } catch (err) {
-
+          console.warn('Failed to load name for', id, err);
           map[id] = id;
         }
       }));

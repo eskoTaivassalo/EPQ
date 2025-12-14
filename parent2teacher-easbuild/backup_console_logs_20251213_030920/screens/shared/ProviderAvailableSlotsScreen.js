@@ -23,7 +23,8 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
       try {
         // Load provider profile to get subjects/specializations
         const role = teacherRole || 'teacher';
-
+        console.log('📥 Loading provider profile for:', { teacherId, role });
+        
         const { serviceType, collection: collectionName } = getRoleCollectionInfo(role);
         const profileRef = doc(db, 'serviceTypes', serviceType, collectionName, teacherId);
         const profileSnap = await getDoc(profileRef);
@@ -31,8 +32,15 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
         if (profileSnap.exists()) {
           const profileData = profileSnap.data();
           setProviderProfile(profileData);
+          console.log('✅ Loaded provider profile:', {
+            subjects: profileData.subjects,
+            specializations: profileData.specializations,
+            role,
+            hasSubjects: Array.isArray(profileData.subjects) && profileData.subjects.length > 0,
+            hasSpecializations: Array.isArray(profileData.specializations) && profileData.specializations.length > 0
+          });
         } else {
-
+          console.log('⚠️ Provider profile not found at:', `serviceTypes/${serviceType}/${collectionName}/${teacherId}`);
         }
         
         const from = new Date();
@@ -51,16 +59,18 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
           // Slot must be in the future AND at least 2 hours from now
           return slotStart > twoHoursFromNow;
         });
-
+        
+        console.log(`📅 Filtered ${allData.length} slots to ${validSlots.length} valid slots (>2h from now)`);
+        
         // Find the furthest date available
         if (validSlots.length > 0) {
           const furthestDate = new Date(Math.max(...validSlots.map(s => new Date(s.start))));
-
+          console.log(`📅 Teacher's availability extends to: ${furthestDate.toLocaleDateString()}`);
         }
         
         setSlots(validSlots);
       } catch (e) {
-
+        console.error('Load slots error', e);
         Alert.alert('Error', e.message || 'Failed to load slots');
       } finally {
         setLoading(false);
@@ -89,14 +99,17 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
     
     // Get available services from provider profile
     const availableServices = providerProfile?.subjects || providerProfile?.specializations || [];
-
-
+    console.log('📋 Available services for booking:', availableServices);
+    console.log('👨‍🏫 Provider profile:', providerProfile);
+    
     let selectedService = null;
     if (Array.isArray(availableServices) && availableServices.length > 0) {
       // Determine service type label based on role
       const serviceLabel = teacherRole === 'therapist' ? 'therapy type' : 
                           teacherRole === 'coach' ? 'coaching service' : 'subject';
-
+      
+      console.log(`🔔 Showing ${serviceLabel} selection dialog with ${availableServices.length} options`);
+      
       selectedService = await new Promise(resolve => {
         Alert.alert(
           `Select ${serviceLabel}`,
@@ -105,7 +118,7 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
             ...availableServices.map(service => ({ 
               text: service, 
               onPress: () => {
-
+                console.log(`✅ User selected: ${service}`);
                 resolve(service);
               }
             })),
@@ -113,7 +126,7 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
               text: 'Cancel', 
               style: 'cancel', 
               onPress: () => {
-
+                console.log('❌ User cancelled service selection');
                 resolve(null);
               }
             }
@@ -123,12 +136,13 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
       });
       
       if (!selectedService) {
-
+        console.log('⚠️ No service selected, cancelling booking');
         return;
       }
-
+      
+      console.log('✅ Selected service:', selectedService);
     } else {
-
+      console.log('ℹ️ No services available in profile, booking without service selection');
     }
     
     try {
@@ -153,7 +167,7 @@ export default function ProviderAvailableSlotsScreen({ route, navigation }) {
       ]);
       setSlots(prev => prev.filter(s => s.id !== slot.id));
     } catch (e) {
-
+      console.error('Book slot error', e);
       Alert.alert('Error', e.message || 'Failed to book');
     } finally {
       setBookingInProgress(false);

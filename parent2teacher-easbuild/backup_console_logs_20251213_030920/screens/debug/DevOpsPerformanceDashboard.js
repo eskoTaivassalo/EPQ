@@ -67,7 +67,7 @@ const DevOpsPerformanceDashboard = ({ navigation }) => {
 
   const exportMetrics = () => {
     const summary = performanceTracker.summary?.();
-
+    console.log('📤 DEVOPS EXPORT:\n', summary);
     alert('📤 Check console for full metrics export');
   };
 

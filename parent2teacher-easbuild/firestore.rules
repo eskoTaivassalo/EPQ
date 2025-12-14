@@ -15,55 +15,17 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    // Admin-rooli tarkistetaan adminUsers-kokoelmasta
     function isAdmin() {
       return isAuthenticated() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+             exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
     }
     
-    function isTeacher() {
-      return isAuthenticated() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
-    }
-    
-    function isParent() {
-      return isAuthenticated() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'parent';
-    }
-    
-    function hasRole(role) {
-      return isAuthenticated() && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
-    }
-    
-    // ====================================
-    // USERS COLLECTION
-    // ====================================
-    match /users/{userId} {
-      // Any authenticated user can read user profiles
-      // (needed for bookings, messaging, finding providers)
-      allow read: if isAuthenticated();
-      
-      // Users can create their own profile during signup
-      allow create: if isOwner(userId) && 
-                       request.resource.data.keys().hasAll(['email', 'role', 'createdAt']);
-      
-      // Users can update their own profile (but not role or critical fields)
-      allow update: if isOwner(userId) && 
-                       !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'email', 'uid']);
-      
-      // Only admins can delete users
-      allow delete: if isAdmin();
-    }
-    
-    // Allow collectionGroup queries for users
-    match /{path=**}/users/{userId} {
-      allow read: if isAuthenticated();
-    }
     
     // ====================================
     // ADMINS COLLECTION
     // ====================================
-    match /admins/{email} {
+    match /adminUsers/{userId} {
       // Any authenticated user can read admin list (for admin checks)
       allow read: if isAuthenticated();
       
@@ -75,12 +37,14 @@ service cloud.firestore {
     // SERVICE TYPES (teachers, therapists, coaches, parents)
     // ====================================
     match /serviceTypes/{serviceType}/{collection}/{providerId} {
-      // Anyone can read provider profiles (for finding providers)
+      // Anyone authenticated can read provider profiles (for finding providers)
       allow read: if isAuthenticated();
       
-      // Providers can create/update their own profile
-      allow create, update: if isOwner(providerId) && 
-                               hasRole(serviceType.split('_')[0]); // Extract role from serviceType
+      // Users can create their own profile during signup
+      allow create: if isOwner(providerId) && isAuthenticated();
+      
+      // Users can update their own profile
+      allow update: if isOwner(providerId) && isAuthenticated();
       
       // Only admins can delete provider profiles
       allow delete: if isAdmin();

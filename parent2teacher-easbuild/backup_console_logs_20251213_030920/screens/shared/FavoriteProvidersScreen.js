@@ -74,7 +74,7 @@ const FavoriteProvidersScreen = ({ navigation }) => {
       
       Alert.alert('Report Submitted', 'Thank you for helping keep our community safe.');
     } catch (error) {
-
+      console.error('Error submitting report:', error);
       Alert.alert('Error', 'Failed to submit report. Please try again.');
     }
   };

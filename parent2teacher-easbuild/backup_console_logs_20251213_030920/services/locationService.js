@@ -5,7 +5,7 @@ export async function requestForegroundPermissions() {
     const { status, canAskAgain } = await Location.requestForegroundPermissionsAsync();
     return { granted: status === 'granted', status, canAskAgain };
   } catch (e) {
-
+    console.warn('Location permission request failed:', e);
     return { granted: false, status: 'error', canAskAgain: false };
     }
 }
@@ -22,7 +22,7 @@ export async function getCurrentCoords(options = {}) {
       timestamp: loc.timestamp,
     };
   } catch (e) {
-
+    console.warn('Failed to get current position:', e);
     return null;
   }
 }
@@ -59,7 +59,7 @@ export async function reverseGeocode(latitude, longitude) {
     }
     return { success: false, city: null };
   } catch (e) {
-
+    console.warn('Reverse geocoding failed:', e);
     return { success: false, city: null };
   }
 }

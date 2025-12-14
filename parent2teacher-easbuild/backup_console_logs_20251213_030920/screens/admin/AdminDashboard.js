@@ -132,7 +132,7 @@ const AdminDashboard = ({ navigation }) => {
         // Get recent support messages (last 5)
         recentSupportMessages = supportMessages.slice(0, 5);
       } catch (msgError) {
-
+        console.warn('⚠️ Could not fetch support messages (missing index?):', msgError.message);
         // Continue without support messages
       }
 
@@ -160,8 +160,15 @@ const AdminDashboard = ({ navigation }) => {
         recentSupportMessages: recentSupportMessages,
       });
 
-    } catch (error) {
+      console.log('📊 Admin Dashboard Stats:', {
+        users: teachers.length + parents.length,
+        admins: admins.length,
+        reports: pendingReports.length,
+        supportMsgs: supportMessages.length,
+      });
 
+    } catch (error) {
+      console.error('Error loading admin dashboard:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
