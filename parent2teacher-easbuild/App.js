@@ -1,4 +1,4 @@
-import React, { useEffect, lazy, Suspense } from 'react';
+import React, { useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, CardStyleInterpolators } from '@react-navigation/stack';
@@ -17,52 +17,45 @@ import { ThemeProvider } from './src/contexts/ThemeContext';
 // Hooks (Redux-based)
 import { useAuth } from './src/hooks/useAuth';
 
-// Screens - Auth (Eager - tarvitaan heti)
+// Screens - Auth
 import WelcomeScreen from './src/screens/auth/WelcomeScreen';
 import LoginScreen from './src/screens/auth/LoginScreen';
 import EmailVerificationScreen from './src/screens/auth/EmailVerificationScreen';
+import UniversalSignupScreen from './src/screens/auth/UniversalSignupScreen';
+import RoleSelectionScreen from './src/screens/auth/RoleSelectionScreen';
 
-// Screens - Shared (Eager - kriittiset näkymät)
+// Screens - Shared
 import RoleDashboard from './src/screens/shared/RoleDashboard';
 import BookingsScreen from './src/screens/shared/BookingsScreen';
 import ProfileScreen from './src/screens/shared/ProfileScreen';
-import ProviderAvailabilityScreen from './src/screens/provider/ProviderAvailabilityScreen';
-import ManageSlotsScreen from './src/screens/provider/ManageSlotsScreen';
 import Toast from './src/components/Toast';
-import ClientsScreen from './src/screens/shared/ClientsScreen';
-import UniversalSignupScreen from './src/screens/auth/UniversalSignupScreen';
-import RoleSelectionScreen from './src/screens/auth/RoleSelectionScreen';
+import ClientsScreen from './src/screens/provider/ClientsScreen';
 import FavoriteProvidersScreen from './src/screens/shared/FavoriteProvidersScreen';
 import ProviderAvailableSlotsScreen from './src/screens/shared/ProviderAvailableSlotsScreen';
-import ProviderWeeklyAvailabilityScreen from './src/screens/shared/ProviderWeeklyAvailabilityScreen';
+import ProviderWeeklyAvailabilityScreen from './src/screens/provider/ProviderWeeklyAvailabilityScreen';
 import FeedbackScreen from './src/screens/shared/FeedbackScreen';
+import FindProvidersScreen from './src/screens/shared/FindProvidersScreen';
+import NotificationsScreen from './src/screens/shared/NotificationsScreen';
+import CalendarScreen from './src/screens/shared/CalendarScreen';
+import ConversationsScreen from './src/screens/shared/ConversationsScreen';
+import ConversationThreadScreen from './src/screens/shared/ConversationThreadScreen';
+import SettingsScreen from './src/screens/shared/SettingsScreen';
+import LegalDocumentScreen from './src/screens/shared/LegalDocumentScreen';
+import ChangeEmailScreen from './src/screens/shared/ChangeEmailScreen';
+import ChangePasswordScreen from './src/screens/shared/ChangePasswordScreen';
+import HelpCenterScreen from './src/screens/shared/HelpCenterScreen';
+import ContactUsScreen from './src/screens/shared/ContactUsScreen';
 
-// LAZY LOADED SCREENS - Ladataan vain tarvittaessa
-// Shared screens (lazy - ei tarvita heti)
-const FindProvidersScreen = lazy(() => import('./src/screens/shared/FindProvidersScreen'));
-const NotificationsScreen = lazy(() => import('./src/screens/shared/NotificationsScreen'));
-const CalendarScreen = lazy(() => import('./src/screens/shared/CalendarScreen'));
-const ConversationsScreen = lazy(() => import('./src/screens/shared/ConversationsScreen'));
-const ConversationThreadScreen = lazy(() => import('./src/screens/shared/ConversationThreadScreen'));
+// Screens - Provider
+import ProviderAvailabilityScreen from './src/screens/provider/ProviderAvailabilityScreen';
+import ManageSlotsScreen from './src/screens/provider/ManageSlotsScreen';
 
-// Settings screens (lazy - harvoin käytetty)
-const SettingsScreen = lazy(() => import('./src/screens/shared/SettingsScreen'));
-const LegalDocumentScreen = lazy(() => import('./src/screens/shared/LegalDocumentScreen'));
-const ChangeEmailScreen = lazy(() => import('./src/screens/shared/ChangeEmailScreen'));
-const ChangePasswordScreen = lazy(() => import('./src/screens/shared/ChangePasswordScreen'));
-const HelpCenterScreen = lazy(() => import('./src/screens/shared/HelpCenterScreen'));
-const ContactUsScreen = lazy(() => import('./src/screens/shared/ContactUsScreen'));
-
-// Admin screens (lazy - vain adminit)
-const AdminDashboard = lazy(() => import('./src/screens/admin/AdminDashboard'));
-const UserManagement = lazy(() => import('./src/screens/admin/UserManagement'));
-const AdminStatistics = lazy(() => import('./src/screens/admin/AdminStatistics'));
-const AdminBookings = lazy(() => import('./src/screens/admin/AdminBookings'));
-const AdminReports = lazy(() => import('./src/screens/admin/AdminReports'));
-
-// Dev screens (lazy - vain kehitys)
-const SecurityTestScreen = lazy(() => import('./src/screens/dev/SecurityTestScreen'));
-const DevOpsPerformanceDashboard = lazy(() => import('./src/screens/debug/DevOpsPerformanceDashboard'));
+// Screens - Admin
+import AdminDashboard from './src/screens/admin/AdminDashboard';
+import UserManagement from './src/screens/admin/UserManagement';
+import AdminStatistics from './src/screens/admin/AdminStatistics';
+import AdminBookings from './src/screens/admin/AdminBookings';
+import AdminReports from './src/screens/admin/AdminReports';
 
 // Components (eager - kriittiset)
 import FullScreenSplash from './src/components/FullScreenSplash';
@@ -525,17 +518,6 @@ const AppNavigator = () => {
               component={AdminReports}
               options={{ headerShown: false }}
             />
-            
-            <Stack.Screen name="SecurityTest" component={SecurityTestScreen} />
-            
-            {/* DevOps Performance Dashboard - vain kehityksessä */}
-            {__DEV__ && (
-              <Stack.Screen 
-                name="DevOpsPerformance" 
-                component={DevOpsPerformanceDashboard}
-                options={{ title: 'DevOps Performance' }}
-              />
-            )}
           </>
         )}
       </Stack.Navigator>

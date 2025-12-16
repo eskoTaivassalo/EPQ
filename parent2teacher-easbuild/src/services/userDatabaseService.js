@@ -93,8 +93,12 @@ export const createOrUpdateRoleProfile = async (userId, role, profileData) => {
     // Example: serviceTypes/therapy/therapists/abc123
     const roleProfileRef = doc(db, 'serviceTypes', serviceType, collectionName, userId);
     
+    // 🔒 SECURITY: Remove password and confirmPassword from profile data
+    // Firebase Auth handles passwords - they should NEVER be in Firestore
+    const { password, confirmPassword, ...safeProfileData } = profileData;
+    
     const roleProfile = {
-      ...profileData,
+      ...safeProfileData,
       userId,
       uid: userId,
       role,

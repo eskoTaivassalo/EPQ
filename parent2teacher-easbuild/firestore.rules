@@ -21,6 +21,13 @@ service cloud.firestore {
              exists(/databases/$(database)/documents/adminUsers/$(request.auth.uid));
     }
     
+    // 🔒 SECURITY: Reject any document that contains password fields
+    // Firebase Auth handles passwords - they should NEVER be in Firestore
+    function hasNoPasswordFields() {
+      return !('password' in request.resource.data) && 
+             !('confirmPassword' in request.resource.data);
+    }
+    
     
     // ====================================
     // ADMINS COLLECTION
@@ -40,11 +47,11 @@ service cloud.firestore {
       // Anyone authenticated can read provider profiles (for finding providers)
       allow read: if isAuthenticated();
       
-      // Users can create their own profile during signup
-      allow create: if isOwner(providerId) && isAuthenticated();
+      // Users can create their own profile during signup (without password fields)
+      allow create: if isOwner(providerId) && isAuthenticated() && hasNoPasswordFields();
       
-      // Users can update their own profile
-      allow update: if isOwner(providerId) && isAuthenticated();
+      // Users can update their own profile (without password fields)
+      allow update: if isOwner(providerId) && isAuthenticated() && hasNoPasswordFields();
       
       // Only admins can delete provider profiles
       allow delete: if isAdmin();

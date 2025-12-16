@@ -91,7 +91,7 @@
       "!src/**/__mocks__/**"
     ],
     "setupFilesAfterEnv": [
-      "<rootDir>/jest.setup.js"
+      "<rootDir>/scripts/tests/jest.setup.js"
     ],
     "testMatch": [
       "**/__tests__/**/*.[jt]s?(x)",

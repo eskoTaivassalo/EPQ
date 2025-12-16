@@ -9,7 +9,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { listStudentsForTeacher } from '../../services/availabilityService';
 import { db } from '../../config/firebaseConfig';
 import FeedbackModal from '../../components/FeedbackModal';
-import { getRoleColors, getCanonicalRole } from '../../config/roleConfig';
+import { getRoleColors, getCanonicalRole, getServiceCategory } from '../../config/roleConfig';
 import performanceTracker from '../../utils/performanceTracker';
 
 /**
@@ -20,6 +20,9 @@ export default function ClientsScreen({ navigation }) {
   const { user } = useAuth();
   const role = getCanonicalRole(user?.role || user?.userType);
   const roleColors = getRoleColors(role);
+  const serviceCategory = getServiceCategory(user?.serviceCategory || 'education');
+  const clientLabel = serviceCategory.clientLabel; // "Students", "Clients", or "Athletes"
+  const clientLabelSingular = serviceCategory.clientLabelSingular;
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [students, setStudents] = useState([]); // TODO: rename to "clients"
@@ -132,14 +135,14 @@ export default function ClientsScreen({ navigation }) {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color={colors.white} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Students</Text>
+        <Text style={styles.headerTitle}>{clientLabel}</Text>
         <View style={{ width: 28 }} />
       </View>
 
       {loading && (
-        <View style={styles.center}> 
+        <View style={styles.center}>
           <ActivityIndicator size="large" color={roleColors.primary} />
-          <Text style={styles.loadingText}>Loading students...</Text>
+          <Text style={styles.loadingText}>Loading {clientLabel.toLowerCase()}...</Text>
         </View>
       )}
 
@@ -156,8 +159,8 @@ export default function ClientsScreen({ navigation }) {
       {!loading && !error && students.length === 0 && (
         <View style={styles.center}> 
           <Ionicons name="people-outline" size={56} color={colors.textSecondary} />
-          <Text style={styles.emptyTitle}>No students yet</Text>
-          <Text style={styles.emptyText}>Students appear here automatically after their first booking with you.</Text>
+          <Text style={styles.emptyTitle}>No {clientLabel.toLowerCase()} yet</Text>
+          <Text style={styles.emptyText}>{clientLabel} appear here automatically after their first booking with you.</Text>
         </View>
       )}
 
@@ -170,7 +173,7 @@ export default function ClientsScreen({ navigation }) {
         />
       )}
 
-      {/* Student Profile Modal */}
+      {/* Client Profile Modal */}
       <Modal
         visible={profileModalVisible}
         animationType="slide"
@@ -180,7 +183,7 @@ export default function ClientsScreen({ navigation }) {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Student Profile</Text>
+              <Text style={styles.modalTitle}>{clientLabelSingular} Profile</Text>
               <TouchableOpacity onPress={closeProfileModal}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>

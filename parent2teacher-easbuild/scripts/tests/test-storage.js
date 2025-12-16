@@ -4,7 +4,7 @@
  * Tämä scripti testaa Firebase Storage -yhteyttä
  */
 
-import { storage } from './src/config/firebaseConfig.js';
+import { storage } from '../../src/config/firebaseConfig.js';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 async function testFirebaseStorage() {

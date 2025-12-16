@@ -232,6 +232,9 @@ export const registerUser = createAsyncThunk(
         }
       }
 
+      // 🔒 SECURITY: Remove password from user data before saving to Redux/AsyncStorage
+      const { password, confirmPassword, ...safeUserData } = userData;
+      
       const finalUserData = {
         uid: firebaseUser.uid,
         email: firebaseUser.email,
@@ -239,7 +242,7 @@ export const registerUser = createAsyncThunk(
         displayName: userData.name || userData.fullName,
         userType: userData.role || 'parent',
         role: userData.role || 'parent',
-        profile: userData,
+        profile: safeUserData,
         timestamp: Date.now(),
         // Flag for new registrations - only for email/password (not Google)
         justRegistered: !userData.isGoogleAuth && !firebaseUser.emailVerified,

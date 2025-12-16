@@ -3,12 +3,12 @@ console.log('=== TESTING NEW SERVICES ===');
 
 try {
   // Test AuthService
-  const AuthService = require('./src/services/authService.js').default;
+  const AuthService = require('../../src/services/authService.js').default;
   console.log('✅ AuthService imported successfully');
   console.log('AuthService methods:', Object.getOwnPropertyNames(AuthService));
   
   // Test SecurityService  
-  const SecurityService = require('./src/services/securityService.js').default;
+  const SecurityService = require('../../src/services/securityService.js').default;
   console.log('✅ SecurityService imported successfully');
   console.log('SecurityService methods:', Object.getOwnPropertyNames(SecurityService));
   

@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 18,
   },
-  
+    
   generateButton: { 
     paddingVertical: 16,
     paddingHorizontal: 24,
